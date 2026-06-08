@@ -3,9 +3,73 @@
 // same array — required for a stable useSyncExternalStore server snapshot.
 // Each item carries its real colour, so thumbnails are colour-accurate swatches
 // (rendered by SmartImage) instead of reusing a handful of photos.
+import { IMG } from "./data";
 import type { Item, Category, Season } from "./types";
 
 const BRANDS = ["UNIQLO", "NET", "GU"];
+
+// Real product photos: the original 17 studio shots + verified Unsplash photos.
+const C = (f: string) => `/images/catalog/${f}`;
+const PHOTOS = {
+  tshirtLight: [IMG.white_tshirt, C("tshirt_white.jpg")],
+  tshirtDark: [IMG.black_tshirt],
+  shirt: [IMG.flannel_shirt, IMG.linen_blouse, C("shirt_white.jpg"), C("shirt_blue.jpg")],
+  sweater: [IMG.pink_sweater, C("sweater_beige.jpg"), C("sweater_grey.jpg")],
+  hoodie: [IMG.blue_hoodie, C("hoodie_grey.jpg")],
+  pantsDark: [IMG.black_trousers],
+  pantsLight: [IMG.blue_jeans, C("jeans_blue.jpg")],
+  widepants: [IMG.wide_pants],
+  shorts: [IMG.khaki_shorts, C("shorts_khaki.jpg")],
+  skirt: [IMG.pleated_skirt, C("skirt_black.jpg")],
+  jacket: [IMG.denim_jacket, IMG.leather_jacket, C("jacket_leather.jpg")],
+  coat: [IMG.trench_coat, IMG.white_puffer, C("coat_camel.jpg")],
+  cardigan: [IMG.pink_sweater, C("sweater_beige.jpg")],
+  backpack: [IMG.black_backpack, C("backpack_black.jpg")],
+  handbag: [IMG.leather_handbag, C("handbag_brown.jpg")],
+  crossbag: [IMG.leather_handbag, IMG.black_backpack],
+};
+
+const DARK_COLOR = /黑|藏青|靛|墨綠|咖啡|酒紅/;
+const pick = (arr: string[], idx: number) => arr[idx % arr.length];
+
+/** Map a silhouette + colour to a real product photo (deterministic spread). */
+function catalogPhoto(silhouette: string, colorName: string, idx: number): string {
+  const dark = DARK_COLOR.test(colorName);
+  switch (silhouette) {
+    case "tshirt":
+    case "polo":
+    case "vest":
+      return dark ? PHOTOS.tshirtDark[0] : pick(PHOTOS.tshirtLight, idx);
+    case "shirt":
+      return pick(PHOTOS.shirt, idx);
+    case "sweater":
+      return pick(PHOTOS.sweater, idx);
+    case "hoodie":
+      return pick(PHOTOS.hoodie, idx);
+    case "pants":
+      return dark ? PHOTOS.pantsDark[0] : pick(PHOTOS.pantsLight, idx);
+    case "widepants":
+      return PHOTOS.widepants[0];
+    case "shorts":
+      return pick(PHOTOS.shorts, idx);
+    case "skirt":
+      return pick(PHOTOS.skirt, idx);
+    case "jacket":
+      return pick(PHOTOS.jacket, idx);
+    case "coat":
+      return pick(PHOTOS.coat, idx);
+    case "cardigan":
+      return pick(PHOTOS.cardigan, idx);
+    case "backpack":
+      return pick(PHOTOS.backpack, idx);
+    case "handbag":
+      return pick(PHOTOS.handbag, idx);
+    case "crossbag":
+      return pick(PHOTOS.crossbag, idx);
+    default:
+      return IMG.white_tshirt;
+  }
+}
 
 // 16 colours with display name + hex (drives the swatch thumbnail).
 // Names equal to a sidebar filter swatch (白色/奶油色/焦糖色/鼠尾草綠/靛藍) stay filterable.
@@ -97,6 +161,32 @@ function resolveSeasons(t: TypeDef, material: string): Season[] {
   return materialSeasons(material);
 }
 
+/** Map a garment type to one of the drawable SVG silhouettes (see SmartImage). */
+function silhouetteFor(category: Category, typeName: string): string {
+  if (category === "tops") {
+    if (/連帽/.test(typeName)) return "hoodie";
+    if (/襯衫|罩衫/.test(typeName)) return "shirt";
+    if (/Polo/.test(typeName)) return "polo";
+    if (/毛衣|針織|高領/.test(typeName)) return "sweater";
+    if (/背心/.test(typeName)) return "vest";
+    return "tshirt";
+  }
+  if (category === "bottoms") {
+    if (/裙/.test(typeName)) return "skirt";
+    if (/短褲/.test(typeName)) return "shorts";
+    if (/寬褲|闊腿/.test(typeName)) return "widepants";
+    return "pants";
+  }
+  if (category === "outerwear") {
+    if (/風衣|大衣/.test(typeName)) return "coat";
+    if (/開衫/.test(typeName)) return "cardigan";
+    return "jacket";
+  }
+  if (/後背/.test(typeName)) return "backpack";
+  if (/斜背|腰/.test(typeName)) return "crossbag";
+  return "handbag";
+}
+
 // Five naming templates, chosen by index, to avoid rows of near-identical names.
 function composeName(
   idx: number,
@@ -154,7 +244,7 @@ function buildCategory(
               seasons: resolveSeasons(t, material),
               colors: [color.name],
               tags: t.tags,
-              imageUrl: `swatch:${color.hex}:${category}`,
+              imageUrl: catalogPhoto(silhouetteFor(category, t.name), color.name, idx),
             });
             idx++;
           }
@@ -181,7 +271,7 @@ function buildAccessories(startIdx: number): Item[] {
             seasons: ["spring", "summer", "autumn", "winter"],
             colors: [color.name],
             tags: t.tags,
-            imageUrl: `swatch:${color.hex}:accessories`,
+            imageUrl: catalogPhoto(silhouetteFor("accessories", t.name), color.name, idx),
           });
           idx++;
         }

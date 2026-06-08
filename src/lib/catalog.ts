@@ -1,24 +1,37 @@
 // Procedurally generated catalog (>10,000 styles).
 // Deterministic (no Math.random / Date) so server and client build the exact
 // same array — required for a stable useSyncExternalStore server snapshot.
-// Images reuse the existing photo pool via getAutoImage (keyword-based mapping).
-import { getAutoImage } from "./recommend";
+// Each item carries its real colour, so thumbnails are colour-accurate swatches
+// (rendered by SmartImage) instead of reusing a handful of photos.
 import type { Item, Category, Season } from "./types";
 
 const BRANDS = ["UNIQLO", "NET", "GU"];
 
-// 16 colors — names that equal a closet filter swatch (白色/奶油色/焦糖色/鼠尾草綠/靛藍)
-// will be matched by the sidebar colour filter.
-const COLORS = [
-  "白色", "奶油色", "米白色", "卡其色", "焦糖色", "咖啡色", "黑色", "靛藍",
-  "藏青", "鼠尾草綠", "墨綠", "灰色", "粉色", "酒紅", "天藍", "杏色",
+// 16 colours with display name + hex (drives the swatch thumbnail).
+// Names equal to a sidebar filter swatch (白色/奶油色/焦糖色/鼠尾草綠/靛藍) stay filterable.
+const COLORS: { name: string; hex: string }[] = [
+  { name: "白色", hex: "#f4f3ee" },
+  { name: "奶油色", hex: "#efe7d3" },
+  { name: "米白色", hex: "#e7ddc9" },
+  { name: "卡其色", hex: "#b39a72" },
+  { name: "焦糖色", hex: "#a4682f" },
+  { name: "咖啡色", hex: "#6b4a33" },
+  { name: "黑色", hex: "#22231f" },
+  { name: "靛藍", hex: "#2c3a5c" },
+  { name: "藏青", hex: "#1f2a44" },
+  { name: "鼠尾草綠", hex: "#54643b" },
+  { name: "墨綠", hex: "#2f4030" },
+  { name: "灰色", hex: "#8c8c84" },
+  { name: "粉色", hex: "#e3a4b4" },
+  { name: "酒紅", hex: "#6f2434" },
+  { name: "天藍", hex: "#7da6cd" },
+  { name: "杏色", hex: "#dfb597" },
 ];
 
-const STYLES = ["經典", "時尚", "復古"];
+const SERIES = ["都會", "假日", "極簡"];
 
 interface TypeDef {
   name: string;
-  /** Coarse season bias; merged with material rules. */
   seasonBias?: Season[];
   tags: string[];
 }
@@ -84,6 +97,40 @@ function resolveSeasons(t: TypeDef, material: string): Season[] {
   return materialSeasons(material);
 }
 
+// Five naming templates, chosen by index, to avoid rows of near-identical names.
+function composeName(
+  idx: number,
+  color: string,
+  material: string,
+  fit: string,
+  type: string,
+  series: string,
+): string {
+  switch (idx % 5) {
+    case 0:
+      return `${color}${material}${type}`;
+    case 1:
+      return `${series}系列 ${color}${type}`;
+    case 2:
+      return `${color}${fit}版${type}`;
+    case 3:
+      return `${material}質感${color}${type}`;
+    default:
+      return `${color}${material}${type}（${series}）`;
+  }
+}
+
+// FNV-1a hash → used to scramble catalog order so neighbouring cards differ
+// across colour / type / category instead of only by the innermost attribute.
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 function buildCategory(
   category: Category,
   types: TypeDef[],
@@ -94,21 +141,20 @@ function buildCategory(
   const items: Item[] = [];
   let idx = startIdx;
   for (const color of COLORS) {
-    for (const style of STYLES) {
+    for (const series of SERIES) {
       for (const t of types) {
         for (const material of materials) {
           for (const fit of fits) {
-            const name = `${style}${color}${material}${fit}${t.name}`;
-            const colors = [color];
+            const name = composeName(idx, color.name, material, fit, t.name, series);
             items.push({
               id: `cat_${idx}`,
               brand: BRANDS[idx % BRANDS.length],
               name,
               category,
               seasons: resolveSeasons(t, material),
-              colors,
+              colors: [color.name],
               tags: t.tags,
-              imageUrl: getAutoImage(name, category, colors),
+              imageUrl: `swatch:${color.hex}:${category}`,
             });
             idx++;
           }
@@ -119,25 +165,23 @@ function buildCategory(
   return items;
 }
 
-// Accessories have no "fit" axis → single pseudo-fit to keep the loop uniform.
 function buildAccessories(startIdx: number): Item[] {
   const items: Item[] = [];
   let idx = startIdx;
   for (const color of COLORS) {
-    for (const style of STYLES) {
+    for (const series of SERIES) {
       for (const t of ACCESSORIES) {
         for (const material of ACC_MATERIALS) {
-          const name = `${style}${color}${material}${t.name}`;
-          const colors = [color];
+          const name = composeName(idx, color.name, material, "標準", t.name, series);
           items.push({
             id: `cat_${idx}`,
             brand: BRANDS[idx % BRANDS.length],
             name,
             category: "accessories",
             seasons: ["spring", "summer", "autumn", "winter"],
-            colors,
+            colors: [color.name],
             tags: t.tags,
-            imageUrl: getAutoImage(name, "accessories", colors),
+            imageUrl: `swatch:${color.hex}:accessories`,
           });
           idx++;
         }
@@ -149,14 +193,18 @@ function buildAccessories(startIdx: number): Item[] {
 
 let CATALOG_CACHE: Item[] | null = null;
 
-/** The full generated catalog (>10,000 items). Built once, memoised. */
+/** The full generated catalog (>10,000 items), scrambled for visual variety. */
 export function getCatalog(): Item[] {
   if (CATALOG_CACHE) return CATALOG_CACHE;
   const tops = buildCategory("tops", TOPS, TOP_MATERIALS, FITS, 0);
   const bottoms = buildCategory("bottoms", BOTTOMS, BOTTOM_MATERIALS, FITS, tops.length);
   const outer = buildCategory("outerwear", OUTER, OUTER_MATERIALS, FITS, tops.length + bottoms.length);
   const acc = buildAccessories(tops.length + bottoms.length + outer.length);
-  CATALOG_CACHE = [...tops, ...bottoms, ...outer, ...acc];
+  const all = [...tops, ...bottoms, ...outer, ...acc];
+  // Deterministic scramble so the grid (and category views) show varied
+  // neighbours rather than three near-identical items in a row.
+  all.sort((a, b) => hash(a.id) - hash(b.id));
+  CATALOG_CACHE = all;
   return CATALOG_CACHE;
 }
 

@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-Hant">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>OOTD PICKER | 我的衣櫥</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"/>
+    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed": "#d7e9b5",
+                    "on-secondary-fixed-variant": "#623f18",
+                    "secondary-fixed": "#ffdcbd",
+                    "inverse-primary": "#bbcd9b",
+                    "primary-fixed-dim": "#bbcd9b",
+                    "on-error": "#ffffff",
+                    "on-secondary-container": "#7a532a",
+                    "on-primary-fixed": "#131f01",
+                    "secondary-container": "#ffca98",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#45483e",
+                    "on-tertiary-fixed": "#1a1d07",
+                    "surface-bright": "#fbf9f4",
+                    "surface": "#fbf9f4",
+                    "surface-container": "#f0eee9",
+                    "on-error-container": "#93000a",
+                    "tertiary": "#5c6145",
+                    "secondary": "#7d562d",
+                    "error": "#ba1a1a",
+                    "on-tertiary-container": "#292d15",
+                    "primary-container": "#87986a",
+                    "inverse-on-surface": "#f2f1ec",
+                    "on-primary-container": "#222f0b",
+                    "surface-tint": "#54643b",
+                    "surface-container-high": "#eae8e3",
+                    "surface-variant": "#e4e2dd",
+                    "on-tertiary-fixed-variant": "#45492f",
+                    "on-primary-fixed-variant": "#3d4c25",
+                    "surface-dim": "#dbdad5",
+                    "secondary-fixed-dim": "#f0bd8b",
+                    "on-secondary": "#ffffff",
+                    "background": "#fbf9f4",
+                    "tertiary-fixed-dim": "#c5c9a7",
+                    "on-background": "#1b1c19",
+                    "on-secondary-fixed": "#2c1600",
+                    "outline": "#76786d",
+                    "surface-container-lowest": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "primary": "#54643b",
+                    "tertiary-fixed": "#e1e6c2",
+                    "inverse-surface": "#30312e",
+                    "outline-variant": "#c6c8ba",
+                    "surface-container-low": "#f5f3ee",
+                    "surface-container-highest": "#e4e2dd",
+                    "on-surface": "#1b1c19",
+                    "tertiary-container": "#909575"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-padding-mobile": "20px",
+                    "gutter": "24px",
+                    "base": "8px",
+                    "container-padding-desktop": "64px",
+                    "section-gap": "80px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Playfair Display"],
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "headline-md": ["Playfair Display"],
+                    "label-sm": ["DM Sans"],
+                    "label-md": ["DM Sans"],
+                    "headline-xl": ["Playfair Display"],
+                    "body-lg": ["DM Sans"],
+                    "body-md": ["DM Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-xl": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c6c8ba; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed-variant overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-[60] bg-surface/90 backdrop-blur-md border-b border-outline-variant/20">
+    <nav class="flex justify-between items-center w-full px-container-padding-desktop max-w-[1200px] mx-auto py-6">
+        <a href="index.html" class="font-headline-md text-headline-md tracking-tight text-primary">OOTD PICKER</a>
+        <div class="hidden md:flex gap-8 items-center">
+            <a class="text-on-surface-variant font-medium hover:text-primary transition-all duration-300" href="index.html">首頁</a>
+            <a class="text-primary font-bold border-b-2 border-primary pb-1" href="closet.html">我的衣櫥</a>
+            <a class="text-on-surface-variant font-medium hover:text-primary transition-all duration-300" href="about.html">關於</a>
+            <a href="picker.html" class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:scale-105 active:scale-95 transition-all text-center">開始搭配</a>
+        </div>
+        <!-- Mobile Toggle -->
+        <button class="md:hidden text-primary" onclick="toggleMobileMenu()">
+            <span class="material-symbols-outlined">menu</span>
+        </button>
+    </nav>
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-drawer" class="hidden md:hidden w-full bg-surface border-b border-outline-variant/20 px-8 py-6 flex flex-col gap-4 animate-fade-in">
+        <a class="text-on-surface-variant font-medium text-label-md" href="index.html">首頁</a>
+        <a class="text-primary font-bold text-label-md" href="closet.html">我的衣櫥</a>
+        <a class="text-on-surface-variant font-medium text-label-md" href="about.html">關於</a>
+        <a href="picker.html" class="bg-primary text-on-primary text-center py-3 rounded-full text-label-md mt-2">開始搭配</a>
+    </div>
+</header>
+
+<main class="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 flex flex-col md:flex-row gap-12">
+    <!-- Sidebar Filters -->
+    <aside class="w-full md:w-64 flex-shrink-0 space-y-10">
+        <div class="flex items-center justify-between">
+            <h2 class="font-headline-md text-headline-md text-primary">篩選</h2>
+            <button onclick="clearAllFilters()" class="text-xs text-secondary hover:underline">清除篩選</button>
+        </div>
+        
+        <!-- Categories -->
+        <div class="space-y-4">
+            <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">類別</h3>
+            <div class="flex flex-col gap-2" id="category-filter-list">
+                <button onclick="selectCategory('all')" id="cat-all" class="flex items-center justify-between w-full p-3 rounded-xl bg-primary-container/20 text-on-primary-container font-medium group transition-colors">
+                    <span class="flex items-center gap-3"><span class="material-symbols-outlined">grid_view</span>全部單品</span>
+                    <span class="text-xs opacity-60" id="count-all">0</span>
+                </button>
+                <button onclick="selectCategory('tops')" id="cat-tops" class="flex items-center justify-between w-full p-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors group">
+                    <span class="flex items-center gap-3"><span class="material-symbols-outlined">checkroom</span>上衣</span>
+                    <span class="text-xs opacity-60" id="count-tops">0</span>
+                </button>
+                <button onclick="selectCategory('bottoms')" id="cat-bottoms" class="flex items-center justify-between w-full p-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors group">
+                    <span class="flex items-center gap-3"><span class="material-symbols-outlined">bottom_panel_open</span>下著</span>
+                    <span class="text-xs opacity-60" id="count-bottoms">0</span>
+                </button>
+                <button onclick="selectCategory('outerwear')" id="cat-outerwear" class="flex items-center justify-between w-full p-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors group">
+                    <span class="flex items-center gap-3"><span class="material-symbols-outlined">layers</span>外套</span>
+                    <span class="text-xs opacity-60" id="count-outerwear">0</span>
+                </button>
+                <button onclick="selectCategory('accessories')" id="cat-accessories" class="flex items-center justify-between w-full p-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors group">
+                    <span class="flex items-center gap-3"><span class="material-symbols-outlined">watch</span>配件</span>
+                    <span class="text-xs opacity-60" id="count-accessories">0</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Season Chips -->
+        <div class="space-y-4">
+            <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">季節</h3>
+            <div class="flex flex-wrap gap-2" id="season-filter-list">
+                <button onclick="toggleSeasonFilter('spring')" id="btn-spring" class="px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all">春季</button>
+                <button onclick="toggleSeasonFilter('summer')" id="btn-summer" class="px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all">夏季</button>
+                <button onclick="toggleSeasonFilter('autumn')" id="btn-autumn" class="px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all">秋季</button>
+                <button onclick="toggleSeasonFilter('winter')" id="btn-winter" class="px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all">冬季</button>
+            </div>
+        </div>
+
+        <!-- Brand Filters -->
+        <div class="space-y-4">
+            <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">品牌</h3>
+            <div class="flex flex-col gap-2" id="brand-filter-list">
+                <button onclick="toggleBrandFilter('UNIQLO')" id="btn-brand-UNIQLO"
+                    class="flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#E60012] inline-block"></span> UNIQLO
+                    </span>
+                    <span class="text-xs opacity-50" id="count-brand-UNIQLO">100</span>
+                </button>
+                <button onclick="toggleBrandFilter('NET')" id="btn-brand-NET"
+                    class="flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#006AB7] inline-block"></span> NET
+                    </span>
+                    <span class="text-xs opacity-50" id="count-brand-NET">100</span>
+                </button>
+                <button onclick="toggleBrandFilter('GU')" id="btn-brand-GU"
+                    class="flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#E65000] inline-block"></span> GU
+                    </span>
+                    <span class="text-xs opacity-50" id="count-brand-GU">100</span>
+                </button>
+                <button onclick="toggleBrandFilter('自訂')" id="btn-brand-自訂"
+                    class="flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-[#54643b] inline-block"></span> 自訂單品
+                    </span>
+                    <span class="text-xs opacity-50" id="count-brand-自訂">0</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Material Filters -->
+        <div class="space-y-4">
+            <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">材質 (標籤)</h3>
+            <div class="space-y-2" id="tag-filter-list">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" onchange="toggleTagFilter('放鬆')" class="rounded-md border-outline-variant text-primary focus:ring-primary w-5 h-5 transition-all"/>
+                    <span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">放鬆</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" onchange="toggleTagFilter('工作')" class="rounded-md border-outline-variant text-primary focus:ring-primary w-5 h-5 transition-all"/>
+                    <span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">工作/專業</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" onchange="toggleTagFilter('約會')" class="rounded-md border-outline-variant text-primary focus:ring-primary w-5 h-5 transition-all"/>
+                    <span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">浪漫約會</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" onchange="toggleTagFilter('舒適')" class="rounded-md border-outline-variant text-primary focus:ring-primary w-5 h-5 transition-all"/>
+                    <span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">溫暖舒適</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Colors -->
+        <div class="space-y-4">
+            <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">配色方案</h3>
+            <div class="flex flex-wrap gap-3" id="color-filter-list">
+                <button onclick="toggleColorFilter('白色')" title="白色" class="w-8 h-8 rounded-full bg-white border border-outline-variant hover:scale-110 transition-transform shadow-sm relative"></button>
+                <button onclick="toggleColorFilter('鼠尾草綠')" title="鼠尾草綠" class="w-8 h-8 rounded-full bg-[#54643b] hover:scale-110 transition-transform shadow-sm relative"></button>
+                <button onclick="toggleColorFilter('焦糖色')" title="焦糖色/棕色" class="w-8 h-8 rounded-full bg-[#7d562d] hover:scale-110 transition-transform shadow-sm relative"></button>
+                <button onclick="toggleColorFilter('奶油色')" title="奶油色/燕麥色" class="w-8 h-8 rounded-full bg-[#e1e6c2] hover:scale-110 transition-transform shadow-sm relative"></button>
+                <button onclick="toggleColorFilter('靛藍')" title="靛藍/黑色" class="w-8 h-8 rounded-full bg-[#1b1c19] hover:scale-110 transition-transform shadow-sm relative"></button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Canvas -->
+    <section class="flex-1 space-y-10">
+        <!-- Header & Search -->
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div class="space-y-2">
+                <h2 class="font-headline-xl text-headline-xl text-on-surface">您的膠囊衣櫥</h2>
+                <p class="font-body-lg text-body-lg text-on-surface-variant max-w-md">按美學、實用性和舒適度分類。為您的日常靈感精心策劃的個人精品店。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative group w-full sm:w-auto">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-variant group-focus-within:text-primary transition-colors">search</span>
+                    <input id="search-input" oninput="handleSearch()" class="bg-surface-container-low border-none rounded-full pl-12 pr-6 py-3 font-body-md text-body-md w-full sm:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none" placeholder="搜尋單品或風格..." type="text"/>
+                </div>
+                <button class="bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full font-label-md text-label-md flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-md group" onclick="openUploadModal()">
+                    <span class="material-symbols-outlined text-[20px] group-hover:rotate-90 transition-transform duration-500">add</span>
+                    上傳新衣物
+                </button>
+            </div>
+        </div>
+
+        <!-- Grid Display -->
+        <div class="space-y-12">
+            <div id="no-items-msg" class="hidden text-center py-20 text-on-surface-variant space-y-4">
+                <span class="material-symbols-outlined text-6xl text-outline-variant">checkroom</span>
+                <p class="font-headline-md text-headline-md">沒有找到符合條件的衣物</p>
+                <button onclick="clearAllFilters()" class="text-primary underline">重設所有篩選</button>
+            </div>
+            
+            <div id="closet-grid" class="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Dynamic cards populated by script -->
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 w-[min(400px,90%)] flex justify-around items-center bg-surface/95 backdrop-blur-lg py-3 px-6 rounded-full border border-outline-variant/10 shadow-[0px_10px_30px_rgba(135,152,106,0.15)] z-50">
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-12 h-12 hover:scale-110 transition-transform" href="index.html">
+        <span class="material-symbols-outlined">home</span>
+        <span class="font-label-sm text-label-sm mt-0.5">首頁</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-12 h-12 hover:scale-110 transition-transform" href="picker.html">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <span class="font-label-sm text-label-sm mt-0.5">搭配</span>
+    </a>
+    <a class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full w-12 h-12 scale-90 transition-all" href="closet.html">
+        <span class="material-symbols-outlined">dresser</span>
+    </a>
+    <a class="flex flex-col items-center justify-center text-on-surface-variant w-12 h-12 hover:scale-110 transition-transform" href="about.html">
+        <span class="material-symbols-outlined">info</span>
+        <span class="font-label-sm text-label-sm mt-0.5">關於</span>
+    </a>
+</nav>
+
+<!-- Footer -->
+<footer class="w-full py-16 px-container-padding-desktop flex flex-col items-center gap-8 bg-surface border-t border-outline-variant/10 mt-section-gap">
+    <h2 class="font-headline-md text-headline-md text-primary">OOTD PICKER</h2>
+    <div class="flex gap-12">
+        <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-secondary transition-colors" href="index.html">隱私政策</a>
+        <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-secondary transition-colors" href="index.html">使用條款</a>
+        <a class="text-on-surface-variant font-label-sm text-label-sm hover:text-secondary transition-colors" href="about.html">聯絡我們</a>
+    </div>
+    <p class="font-body-md text-body-md text-on-surface-variant opacity-60">© 2026 OOTD Picker. 為您的個人風格與妝容而生。</p>
+</footer>
+
+<!-- Upload Modal -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center p-4 md:p-8" id="upload-modal">
+    <div class="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onclick="closeUploadModal()"></div>
+    <div class="relative w-full max-w-2xl bg-surface rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+        <div class="p-8 border-b border-outline-variant/20 flex justify-between items-center">
+            <h2 class="font-headline-md text-headline-md text-primary">上傳新衣物</h2>
+            <button class="text-on-surface-variant hover:text-primary" onclick="closeUploadModal()">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <div class="p-8 overflow-y-auto space-y-8">
+            <!-- Image Selector -->
+            <div id="drop-zone" class="border-2 border-dashed border-outline-variant rounded-lg p-12 flex flex-col items-center justify-center gap-4 bg-surface-container-low/50 hover:bg-surface-container-low transition-colors cursor-pointer group relative">
+                <input type="file" id="file-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer"/>
+                <span class="material-symbols-outlined text-4xl text-outline-variant group-hover:text-primary transition-colors" id="upload-icon">cloud_upload</span>
+                <p class="font-body-md text-on-surface-variant text-center" id="upload-text">
+                    <span class="text-primary font-bold">拖放照片至此</span>，或 <span class="underline">瀏覽檔案</span>
+                </p>
+                <img id="preview-image" class="hidden max-h-48 rounded object-cover shadow-md"/>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Name -->
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant uppercase">衣物名稱</label>
+                    <input id="input-name" class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface" placeholder="例如：經典卡其色短外套" type="text"/>
+                </div>
+                <!-- Category -->
+                <div class="space-y-2">
+                    <label class="font-label-md text-label-md text-on-surface-variant uppercase">類別</label>
+                    <select id="select-cat" class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface">
+                        <option value="tops">上衣</option>
+                        <option value="bottoms">下著</option>
+                        <option value="outerwear">外套</option>
+                        <option value="accessories">配件</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Brand -->
+            <div class="space-y-2">
+                <label class="font-label-md text-label-md text-on-surface-variant uppercase">品牌</label>
+                <div class="flex flex-wrap gap-2" id="modal-brand">
+                    <select id="select-brand" class="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface">
+                        <option value="自訂">自訂單品</option>
+                        <option value="UNIQLO">UNIQLO</option>
+                        <option value="NET">NET</option>
+                        <option value="GU">GU</option>
+                    </select>
+                </div>
+                <p class="text-xs text-on-surface-variant opacity-60">💡 不上傳圖片時，系統會根據名稱與類別自動配對適合的圖片</p>
+            </div>
+            
+            <!-- Seasons -->
+            <div class="space-y-3">
+                <label class="font-label-md text-label-md text-on-surface-variant uppercase">適合季節</label>
+                <div class="flex flex-wrap gap-2" id="modal-seasons">
+                    <button type="button" onclick="toggleModalSeason('spring')" id="m-btn-spring" class="px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20">春季</button>
+                    <button type="button" onclick="toggleModalSeason('summer')" id="m-btn-summer" class="px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20">夏季</button>
+                    <button type="button" onclick="toggleModalSeason('autumn')" id="m-btn-autumn" class="px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20">秋季</button>
+                    <button type="button" onclick="toggleModalSeason('winter')" id="m-btn-winter" class="px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20">冬季</button>
+                </div>
+            </div>
+            
+            <!-- Main Color -->
+            <div class="space-y-3">
+                <label class="font-label-md text-label-md text-on-surface-variant uppercase">主色調</label>
+                <div class="flex flex-wrap gap-3" id="modal-colors">
+                    <button type="button" onclick="selectModalColor('白色')" title="白色" class="w-8 h-8 rounded-full bg-white border border-outline-variant ring-offset-2 transition-transform"></button>
+                    <button type="button" onclick="selectModalColor('鼠尾草綠')" title="鼠尾草綠" class="w-8 h-8 rounded-full bg-[#54643b] ring-offset-2 transition-transform"></button>
+                    <button type="button" onclick="selectModalColor('焦糖色')" title="焦糖色" class="w-8 h-8 rounded-full bg-[#7d562d] ring-offset-2 transition-transform"></button>
+                    <button type="button" onclick="selectModalColor('奶油色')" title="奶油色" class="w-8 h-8 rounded-full bg-[#e1e6c2] ring-offset-2 transition-transform"></button>
+                    <button type="button" onclick="selectModalColor('靛藍')" title="靛藍" class="w-8 h-8 rounded-full bg-[#1b1c19] ring-offset-2 transition-transform"></button>
+                </div>
+            </div>
+            
+            <!-- Tags / Styles -->
+            <div class="space-y-3">
+                <label class="font-label-md text-label-md text-on-surface-variant uppercase">風格標籤 (可複選)</label>
+                <div class="flex flex-wrap gap-2" id="modal-tags">
+                    <button type="button" onclick="toggleModalTag('放鬆')" id="mt-relaxed" class="px-3 py-1 rounded border border-outline-variant text-xs">放鬆</button>
+                    <button type="button" onclick="toggleModalTag('工作')" id="mt-work" class="px-3 py-1 rounded border border-outline-variant text-xs">工作</button>
+                    <button type="button" onclick="toggleModalTag('專業')" id="mt-prof" class="px-3 py-1 rounded border border-outline-variant text-xs">專業</button>
+                    <button type="button" onclick="toggleModalTag('約會')" id="mt-date" class="px-3 py-1 rounded border border-outline-variant text-xs">約會</button>
+                    <button type="button" onclick="toggleModalTag('優雅')" id="mt-elegant" class="px-3 py-1 rounded border border-outline-variant text-xs">優雅</button>
+                    <button type="button" onclick="toggleModalTag('活力')" id="mt-energy" class="px-3 py-1 rounded border border-outline-variant text-xs">活力</button>
+                    <button type="button" onclick="toggleModalTag('舒適')" id="mt-cozy" class="px-3 py-1 rounded border border-outline-variant text-xs">舒適</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-8 bg-surface-container-low border-t border-outline-variant/20 flex justify-end gap-4">
+            <button class="px-8 py-2.5 rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-variant transition-colors" onclick="closeUploadModal()">取消</button>
+            <button class="px-8 py-2.5 rounded-full font-label-md text-label-md bg-primary text-on-primary shadow-md hover:scale-105 active:scale-95 transition-all" onclick="submitUpload()">確認上傳</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="app.js"></script>
+<script>
+    // State management for filters
+    let currentCategory = 'all';
+    let selectedSeasons = [];
+    let selectedTags = [];
+    let selectedColors = [];
+    let selectedBrands = [];
+    let searchQuery = '';
+
+    // Upload Form State
+    let uploadedImageBase64 = '';
+    let selectedModalSeasons = [];
+    let selectedModalColor = '';
+    let selectedModalTags = [];
+
+    // On Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+        renderGrid();
+        updateCategoryCounts();
+        setupFileUpload();
+    });
+
+    // Mobile Drawer toggle
+    function toggleMobileMenu() {
+        const drawer = document.getElementById('mobile-drawer');
+        drawer.classList.toggle('hidden');
+    }
+
+    // Calculate item counts for sidebar categories dynamically
+    function updateCategoryCounts() {
+        const items = getCloset();
+        document.getElementById('count-all').innerText = items.length;
+        document.getElementById('count-tops').innerText = items.filter(i => i.category === 'tops').length;
+        document.getElementById('count-bottoms').innerText = items.filter(i => i.category === 'bottoms').length;
+        document.getElementById('count-outerwear').innerText = items.filter(i => i.category === 'outerwear').length;
+        document.getElementById('count-accessories').innerText = items.filter(i => i.category === 'accessories').length;
+        // Brand counts
+        ['UNIQLO','NET','GU','自訂'].forEach(b => {
+            const el = document.getElementById(`count-brand-${b}`);
+            if (el) el.innerText = items.filter(i => (i.brand||'自訂') === b).length;
+        });
+    }
+
+    // Filter selection logic
+    function selectCategory(cat) {
+        currentCategory = cat;
+        // Update sidebar visual active state
+        const buttons = document.querySelectorAll('#category-filter-list button');
+        buttons.forEach(btn => {
+            btn.className = "flex items-center justify-between w-full p-3 rounded-xl text-on-surface-variant hover:bg-surface-container transition-colors group";
+        });
+        const activeBtn = document.getElementById(`cat-${cat}`);
+        if (activeBtn) {
+            activeBtn.className = "flex items-center justify-between w-full p-3 rounded-xl bg-primary-container/20 text-on-primary-container font-medium group transition-colors";
+        }
+        renderGrid();
+    }
+
+    function toggleSeasonFilter(season) {
+        const btn = document.getElementById(`btn-${season}`);
+        const idx = selectedSeasons.indexOf(season);
+        if (idx > -1) {
+            selectedSeasons.splice(idx, 1);
+            btn.className = "px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all";
+        } else {
+            selectedSeasons.push(season);
+            btn.className = "px-4 py-2 rounded-full bg-primary text-on-primary text-label-sm font-label-sm";
+        }
+        renderGrid();
+    }
+
+    function toggleTagFilter(tag) {
+        const idx = selectedTags.indexOf(tag);
+        if (idx > -1) {
+            selectedTags.splice(idx, 1);
+        } else {
+            selectedTags.push(tag);
+        }
+        renderGrid();
+    }
+
+    function toggleColorFilter(color) {
+        const idx = selectedColors.indexOf(color);
+        const list = document.getElementById('color-filter-list');
+        const btns = list.getElementsByTagName('button');
+        
+        // Find corresponding button
+        let targetBtn = null;
+        for (let btn of btns) {
+            if (btn.title === color || (color === '焦糖色' && btn.title.includes('焦糖')) || (color === '奶油色' && btn.title.includes('奶油')) || (color === '靛藍' && btn.title.includes('靛藍'))) {
+                targetBtn = btn;
+                break;
+            }
+        }
+
+        if (idx > -1) {
+            selectedColors.splice(idx, 1);
+            if (targetBtn) targetBtn.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        } else {
+            selectedColors.push(color);
+            if (targetBtn) targetBtn.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        }
+        renderGrid();
+    }
+
+    function toggleBrandFilter(brand) {
+        const btn = document.getElementById(`btn-brand-${brand}`);
+        const idx = selectedBrands.indexOf(brand);
+        if (idx > -1) {
+            selectedBrands.splice(idx, 1);
+            btn.className = 'flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all';
+        } else {
+            selectedBrands.push(brand);
+            btn.className = 'flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-primary bg-primary/10 text-primary text-label-sm font-label-sm transition-all';
+        }
+        renderGrid();
+    }
+
+    function handleSearch() {
+        searchQuery = document.getElementById('search-input').value.toLowerCase().trim();
+        renderGrid();
+    }
+
+    function clearAllFilters() {
+        currentCategory = 'all';
+        selectedSeasons = [];
+        selectedTags = [];
+        selectedColors = [];
+        selectedBrands = [];
+        searchQuery = '';
+
+        // Reset category buttons
+        selectCategory('all');
+
+        // Reset season buttons
+        ['spring', 'summer', 'autumn', 'winter'].forEach(s => {
+            const btn = document.getElementById(`btn-${s}`);
+            btn.className = "px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all";
+        });
+
+        // Reset brand buttons
+        ['UNIQLO','NET','GU','自訂'].forEach(b => {
+            const btn = document.getElementById(`btn-brand-${b}`);
+            if (btn) btn.className = 'flex items-center justify-between w-full px-4 py-2.5 rounded-xl border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant hover:border-primary hover:text-primary transition-all';
+        });
+
+        // Reset tags checkboxes
+        const checkboxes = document.querySelectorAll('#tag-filter-list input');
+        checkboxes.forEach(cb => cb.checked = false);
+
+        // Reset color buttons
+        const colorList = document.getElementById('color-filter-list');
+        const colorBtns = colorList.getElementsByTagName('button');
+        for (let btn of colorBtns) {
+            btn.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        }
+
+        // Reset search field
+        document.getElementById('search-input').value = '';
+
+        renderGrid();
+    }
+
+    // Grid rendering logic
+    function renderGrid() {
+        const closet = getCloset();
+        const grid = document.getElementById('closet-grid');
+        const noItems = document.getElementById('no-items-msg');
+        grid.innerHTML = '';
+
+        let filtered = closet.filter(item => {
+            // Category check
+            if (currentCategory !== 'all' && item.category !== currentCategory) return false;
+
+            // Brand check
+            if (selectedBrands.length > 0) {
+                const itemBrand = item.brand || '自訂';
+                if (!selectedBrands.includes(itemBrand)) return false;
+            }
+
+            // Season check
+            if (selectedSeasons.length > 0) {
+                const match = item.seasons.some(s => selectedSeasons.includes(s));
+                if (!match) return false;
+            }
+
+            // Tag check
+            if (selectedTags.length > 0) {
+                const match = selectedTags.every(t => item.tags.includes(t));
+                if (!match) return false;
+            }
+
+            // Color check
+            if (selectedColors.length > 0) {
+                const match = item.colors.some(c => selectedColors.includes(c));
+                if (!match) return false;
+            }
+
+            // Search query check
+            if (searchQuery !== '') {
+                const nameMatch = item.name.toLowerCase().includes(searchQuery);
+                const tagMatch = item.tags.some(t => t.toLowerCase().includes(searchQuery));
+                const catMatch = TRANSLATE.category[item.category].toLowerCase().includes(searchQuery);
+                const brandMatch = (item.brand||'').toLowerCase().includes(searchQuery);
+                if (!nameMatch && !tagMatch && !catMatch && !brandMatch) return false;
+            }
+
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            grid.classList.add('hidden');
+            noItems.classList.remove('hidden');
+            return;
+        }
+
+        grid.classList.remove('hidden');
+        noItems.classList.add('hidden');
+
+        filtered.forEach(item => {
+            const card = document.createElement('div');
+            card.className = "clothing-card group relative cursor-pointer";
+
+            // Season badges
+            const seasonLabels = item.seasons.map(s => {
+                const text = s==='spring'?'春':s==='summer'?'夏':s==='autumn'?'秋':'冬';
+                return `<span class="text-label-sm font-label-sm text-on-tertiary-container bg-tertiary-container/30 px-2 py-0.5 rounded">${text}季</span>`;
+            }).join('');
+
+            // Brand badge color
+            const brand = item.brand || '自訂';
+            const brandColor = brand==='UNIQLO'?'bg-[#E60012]/10 text-[#E60012]'
+                             : brand==='NET'   ?'bg-[#006AB7]/10 text-[#006AB7]'
+                             : brand==='GU'    ?'bg-[#E65000]/10 text-[#E65000]'
+                             :                  'bg-primary/10 text-primary';
+
+            card.innerHTML = `
+                <div class="relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-container mb-4 shadow-[0px_10px_30px_rgba(135,152,106,0.08)] transition-all duration-500 group-hover:shadow-[0px_15px_40px_rgba(135,152,106,0.15)] group-hover:-translate-y-1">
+                    <img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="${item.name}" src="${item.imageUrl}"/>
+                    <!-- Brand badge on image -->
+                    <div class="absolute top-3 left-3 ${brandColor} text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm bg-white/80 border border-white/40 shadow-sm">${brand}</div>
+                    <!-- Delete button -->
+                    <div class="absolute top-3 right-3 bg-surface/90 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-error hover:text-white transition-colors duration-200" onclick="handleDeleteItem(event, '${item.id}')" title="刪除單品">
+                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                    </div>
+                </div>
+                <h4 class="font-headline-md text-headline-md text-[17px] leading-snug">${item.name}</h4>
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                    ${seasonLabels}
+                    <span class="text-label-sm font-label-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded">${item.colors.join('/')}</span>
+                    <span class="text-label-sm font-label-sm text-secondary bg-secondary-fixed/30 px-2 py-0.5 rounded">${TRANSLATE.category[item.category]}</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function handleDeleteItem(event, id) {
+        event.stopPropagation(); // Avoid triggering card click
+        if (confirm('確定要從衣櫥中刪除此單品嗎？')) {
+            deleteClosetItem(id);
+            renderGrid();
+            updateCategoryCounts();
+        }
+    }
+
+    // Modal Control
+    function openUploadModal() {
+        const modal = document.getElementById('upload-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        // Reset modal inputs
+        document.getElementById('input-name').value = '';
+        document.getElementById('select-cat').value = 'tops';
+        document.getElementById('select-brand').value = '自訂';
+        selectedModalSeasons = [];
+        selectedModalColor = '';
+        selectedModalTags = [];
+        uploadedImageBase64 = '';
+        
+        // Reset seasons styling
+        const seasons = ['spring', 'summer', 'autumn', 'winter'];
+        seasons.forEach(s => {
+            const btn = document.getElementById(`m-btn-${s}`);
+            btn.className = "px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20";
+        });
+        
+        // Reset colors styling
+        const colorBtns = document.querySelectorAll('#modal-colors button');
+        colorBtns.forEach(btn => btn.className = btn.className.split(' ').filter(c => !c.startsWith('ring-')).join(' '));
+
+        // Reset tags styling
+        const tagButtons = document.querySelectorAll('#modal-tags button');
+        tagButtons.forEach(btn => btn.className = "px-3 py-1 rounded border border-outline-variant text-xs");
+
+        // Reset file preview
+        document.getElementById('preview-image').classList.add('hidden');
+        document.getElementById('upload-icon').classList.remove('hidden');
+        document.getElementById('upload-text').classList.remove('hidden');
+        document.getElementById('file-input').value = '';
+    }
+
+    function closeUploadModal() {
+        const modal = document.getElementById('upload-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Drag-and-Drop and File Upload setup
+    function setupFileUpload() {
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const preview = document.getElementById('preview-image');
+        const icon = document.getElementById('upload-icon');
+        const text = document.getElementById('upload-text');
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        // Drag events
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('bg-primary-container/10', 'border-primary');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('bg-primary-container/10', 'border-primary');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('請上傳圖片檔案！');
+                return;
+            }
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                uploadedImageBase64 = reader.result;
+                preview.src = reader.result;
+                preview.classList.remove('hidden');
+                icon.classList.add('hidden');
+                text.classList.add('hidden');
+            };
+        }
+    }
+
+    function toggleModalSeason(season) {
+        const btn = document.getElementById(`m-btn-${season}`);
+        const idx = selectedModalSeasons.indexOf(season);
+        if (idx > -1) {
+            selectedModalSeasons.splice(idx, 1);
+            btn.className = "px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20";
+        } else {
+            selectedModalSeasons.push(season);
+            btn.className = "px-4 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-label-sm";
+        }
+    }
+
+    function selectModalColor(color) {
+        selectedModalColor = color;
+        const buttons = document.querySelectorAll('#modal-colors button');
+        buttons.forEach(btn => {
+            // Remove previous rings
+            btn.className = btn.className.split(' ').filter(c => !c.startsWith('ring-')).join(' ');
+            if (btn.title === color) {
+                btn.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+            }
+        });
+    }
+
+    function toggleModalTag(tag) {
+        const idx = selectedModalTags.indexOf(tag);
+        // Find matching tag button by looking for matching text
+        const tagButtons = document.querySelectorAll('#modal-tags button');
+        let btn = null;
+        for (let b of tagButtons) {
+            if (b.innerText === tag) {
+                btn = b;
+                break;
+            }
+        }
+
+        if (idx > -1) {
+            selectedModalTags.splice(idx, 1);
+            if (btn) btn.className = "px-3 py-1 rounded border border-outline-variant text-xs";
+        } else {
+            selectedModalTags.push(tag);
+            if (btn) btn.className = "px-3 py-1 rounded bg-secondary-container text-on-secondary-container border border-secondary text-xs";
+        }
+    }
+
+    function submitUpload() {
+        const name = document.getElementById('input-name').value.trim();
+        const category = document.getElementById('select-cat').value;
+        const brand = document.getElementById('select-brand').value;
+
+        if (!name) {
+            alert('請輸入衣物名稱！');
+            return;
+        }
+        if (selectedModalSeasons.length === 0) {
+            alert('請選擇至少一個適合季節！');
+            return;
+        }
+        if (!selectedModalColor) {
+            alert('請選擇主色調！');
+            return;
+        }
+
+        // Use uploaded image, or let addClosetItem use getAutoImage() for smart matching
+        const finalImage = uploadedImageBase64 || '';
+
+        // Add to database (addClosetItem will call getAutoImage if no image)
+        addClosetItem(
+            name,
+            category,
+            selectedModalSeasons,
+            selectedModalColor,
+            selectedModalTags.length > 0 ? selectedModalTags : ['放鬆'],
+            finalImage,
+            brand
+        );
+
+        // Refresh UI
+        closeUploadModal();
+        renderGrid();
+        updateCategoryCounts();
+    }
+</script>
+</body>
+</html>

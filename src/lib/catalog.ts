@@ -11,22 +11,22 @@ const BRANDS = ["UNIQLO", "NET", "GU"];
 // Real product photos: the original 17 studio shots + verified Unsplash photos.
 const C = (f: string) => `/images/catalog/${f}`;
 const PHOTOS = {
-  tshirtLight: [IMG.white_tshirt, C("tshirt_white.jpg")],
-  tshirtDark: [IMG.black_tshirt],
-  shirt: [IMG.flannel_shirt, IMG.linen_blouse, C("shirt_white.jpg"), C("shirt_blue.jpg")],
-  sweater: [IMG.pink_sweater, C("sweater_beige.jpg"), C("sweater_grey.jpg")],
+  tshirtLight: [IMG.white_tshirt, C("tshirt_white.jpg"), C("tee_beige.jpg")],
+  tshirtDark: [IMG.black_tshirt, C("tee_green.jpg"), C("tee_navy.jpg")],
+  shirt: [IMG.flannel_shirt, IMG.linen_blouse, C("shirt_white.jpg"), C("shirt_blue.jpg"), C("shirt_stripe.jpg"), C("shirt_linen.jpg")],
+  sweater: [IMG.pink_sweater, C("sweater_beige.jpg"), C("sweater_grey.jpg"), C("knit_grey.jpg")],
   hoodie: [IMG.blue_hoodie, C("hoodie_grey.jpg")],
   pantsDark: [IMG.black_trousers],
-  pantsLight: [IMG.blue_jeans, C("jeans_blue.jpg")],
+  pantsLight: [IMG.blue_jeans, C("jeans_blue.jpg"), C("jeans_light.jpg"), C("jeans_black.jpg"), C("chino_grey.jpg")],
   widepants: [IMG.wide_pants],
   shorts: [IMG.khaki_shorts, C("shorts_khaki.jpg")],
-  skirt: [IMG.pleated_skirt, C("skirt_black.jpg")],
-  jacket: [IMG.denim_jacket, IMG.leather_jacket, C("jacket_leather.jpg")],
-  coat: [IMG.trench_coat, IMG.white_puffer, C("coat_camel.jpg")],
-  cardigan: [IMG.pink_sweater, C("sweater_beige.jpg")],
-  backpack: [IMG.black_backpack, C("backpack_black.jpg")],
-  handbag: [IMG.leather_handbag, C("handbag_brown.jpg")],
-  crossbag: [IMG.leather_handbag, IMG.black_backpack],
+  skirt: [IMG.pleated_skirt, C("skirt_black.jpg"), C("skirt_beige.jpg")],
+  jacket: [IMG.denim_jacket, IMG.leather_jacket, C("jacket_leather.jpg"), C("jacket_rust.jpg")],
+  coat: [IMG.trench_coat, IMG.white_puffer, C("coat_camel.jpg"), C("coat_black.jpg")],
+  cardigan: [IMG.pink_sweater, C("sweater_beige.jpg"), C("knit_grey.jpg")],
+  backpack: [IMG.black_backpack, C("backpack_black.jpg"), C("backpack_grey.jpg"), C("backpack_brown.jpg")],
+  handbag: [IMG.leather_handbag, C("handbag_brown.jpg"), C("handbag_tan.jpg")],
+  crossbag: [IMG.leather_handbag, IMG.black_backpack, C("handbag_tan.jpg")],
 };
 
 // When generated images exist (see scripts/generate-images.ts), enable them with

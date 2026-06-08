@@ -4,7 +4,7 @@ import next from "eslint-config-next";
 const eslintConfig = [
   ...next,
   {
-    ignores: ["legacy/**", ".next/**", "node_modules/**", "public/**", "e2e/**", "playwright-report/**", "test-results/**"],
+    ignores: ["legacy/**", ".next/**", "node_modules/**", "public/**", "e2e/**", "scripts/**", "playwright-report/**", "test-results/**"],
   },
   {
     // The Material Symbols icon font is loaded via a <link> with display=block

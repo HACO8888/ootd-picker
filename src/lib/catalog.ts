@@ -29,8 +29,18 @@ const PHOTOS = {
   crossbag: [IMG.leather_handbag, IMG.black_backpack],
 };
 
+// When generated images exist (see scripts/generate-images.ts), enable them with
+// NEXT_PUBLIC_USE_GENERATED_IMAGES=1 to serve one unique photo per item.
+const USE_GEN = process.env.NEXT_PUBLIC_USE_GENERATED_IMAGES === "1";
+
 const DARK_COLOR = /黑|藏青|靛|墨綠|咖啡|酒紅/;
 const pick = (arr: string[], idx: number) => arr[idx % arr.length];
+
+/** The image for catalog item #idx: a generated one if enabled, else a photo. */
+function imageForItem(idx: number, silhouette: string, colorName: string): string {
+  if (USE_GEN) return `/images/catalog/gen/cat_${idx}.png`;
+  return catalogPhoto(silhouette, colorName, idx);
+}
 
 /** Map a silhouette + colour to a real product photo (deterministic spread). */
 function catalogPhoto(silhouette: string, colorName: string, idx: number): string {
@@ -244,7 +254,7 @@ function buildCategory(
               seasons: resolveSeasons(t, material),
               colors: [color.name],
               tags: t.tags,
-              imageUrl: catalogPhoto(silhouetteFor(category, t.name), color.name, idx),
+              imageUrl: imageForItem(idx, silhouetteFor(category, t.name), color.name),
             });
             idx++;
           }
@@ -271,7 +281,7 @@ function buildAccessories(startIdx: number): Item[] {
             seasons: ["spring", "summer", "autumn", "winter"],
             colors: [color.name],
             tags: t.tags,
-            imageUrl: catalogPhoto(silhouetteFor("accessories", t.name), color.name, idx),
+            imageUrl: imageForItem(idx, silhouetteFor("accessories", t.name), color.name),
           });
           idx++;
         }

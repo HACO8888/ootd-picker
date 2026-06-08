@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "legacy",
-    "e2e"
+    "e2e",
+    "scripts"
   ]
 }

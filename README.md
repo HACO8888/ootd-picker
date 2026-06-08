@@ -25,6 +25,23 @@ pnpm build       # production build
 pnpm lint
 ```
 
+## 為每件款式生成專屬圖片（選用）
+
+預設用真實照片池對應款式。若要讓 **每件款式各自生成一張 AI 圖**，用內建管線
+（需自備 OpenAI key，費用自付）：
+
+```bash
+# 先小量測試（20 張）
+OPENAI_API_KEY=sk-... pnpm gen:images --limit 20
+# 全部生成（約 13,248 張，~US$530、數小時、可中斷續跑）
+OPENAI_API_KEY=sk-... pnpm gen:images
+# 生成完成後啟用：
+NEXT_PUBLIC_USE_GENERATED_IMAGES=1 pnpm build
+```
+
+圖片輸出至 `public/images/catalog/gen/<id>.png`（已 gitignore，建議走 CDN）。
+生圖服務可在 `scripts/generate-images.ts` 內替換（OpenAI / Replicate / 自備）。
+
 ## 目錄結構
 
 ```

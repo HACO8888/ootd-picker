@@ -14,11 +14,13 @@
 
 ## 開發
 
+本專案使用 **Bun** 作為套件管理與執行器。
+
 ```bash
-npm install
-npm run dev      # http://localhost:3000
-npm run build    # production build
-npm run lint
+bun install
+bun run dev      # http://localhost:3000
+bun run build    # production build
+bun run lint
 ```
 
 ## 目錄結構

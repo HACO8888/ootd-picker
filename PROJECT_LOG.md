@@ -35,3 +35,31 @@
 - [ ] 設計：補上 Stitch 原稿連結至 DESIGN.md §1。
 
 **第 1 輪結論：MVP 驗收通過，可進入第 2 輪迭代規劃。**
+
+---
+
+## 第 2 輪 loop（迭代擴充）
+
+**範圍**：PROJECT_LOG 第 1 輪列出的候選項目 + 使用者追加需求。
+**技術切換**：套件管理由 Bun → **pnpm**（`pnpm-lock.yaml`；`onlyBuiltDependencies` 允許 sharp/unrs-resolver）。
+
+### 產出
+1. **天氣自動偵測**：`src/lib/weather.ts` 對接 Open-Meteo（免金鑰）+ Geolocation；嚮導步驟 2 新增「偵測目前天氣」按鈕，自動帶入並前進。
+2. **收藏命名 + 匯出/匯入**：`Favorite.name`；抽屜可就地改名、匯出 `ootd-favorites.json`、匯入（去重合併）。
+3. **衣櫥單品編輯**：`UploadModal` 編輯模式、`updateClosetItem`、卡片新增編輯鈕。
+4. **1 萬+ 款式目錄**：`src/lib/catalog.ts` 程序化生成 **13,248 款**（確定性、無亂數）；衣櫥模型改為 **靜態 catalog ⊕ 使用者自訂**（localStorage v11：user_items / hidden / overrides，含 v10 遷移）；衣櫥頁加分頁（每頁 48 + 載入更多 + 總數）。
+5. **Playwright e2e**：`e2e/` 涵蓋嚮導完整流程、衣櫥分頁、類別篩選、新增單品。
+6. **修正**：`next.config.ts` 設 `turbopack.root` 解決 workspace root 誤判的 build 失敗。
+
+### 驗收結果
+
+| 項目 | 結果 | 證據 |
+|---|---|---|
+| 工程品質 | ✅ | `pnpm lint` exit 0、`pnpm build` 成功（5 路由靜態） |
+| 1 萬+ 款式 | ✅ | production server 顯示「共 **13,248** 件」、分頁「載入更多」、編輯鈕 |
+| e2e | ✅ | `pnpm test:e2e` → **4 passed**（嚮導/分頁/篩選/新增） |
+| 天氣偵測 | ✅（程式/型別） | build 編譯通過；按鈕於步驟 2 顯示（互動需瀏覽器授權定位） |
+| 收藏命名/匯出匯入 | ✅（程式/型別） | build 通過；抽屜開啟時呈現 |
+| 單品編輯 | ✅ | e2e 新增 + 卡片編輯鈕（aria-label「編輯 …」） |
+
+**第 2 輪結論：全部追加需求完成並通過 build / lint / e2e。**

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { TRANSLATE } from "@/lib/data";
-import type { Category, Season } from "@/lib/types";
+import { getAutoImage } from "@/lib/recommend";
+import type { Category, Item, Season } from "@/lib/types";
 import { Footer } from "@/components/nav/Footer";
 import { Icon } from "@/components/ui/Icon";
 import { ItemCard } from "@/components/closet/ItemCard";
@@ -47,7 +48,7 @@ const COLORS: { value: string; swatch: string; border?: boolean }[] = [
 ];
 
 export default function ClosetPage() {
-  const { closet, addItem, deleteItem } = useCloset();
+  const { closet, addItem, deleteItem, updateItem } = useCloset();
 
   const [category, setCategory] = useState<Category | "all">("all");
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -56,6 +57,7 @@ export default function ClosetPage() {
   const [brands, setBrands] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Item | null>(null);
 
   const toggle = <T,>(setter: React.Dispatch<React.SetStateAction<T[]>>, v: T) =>
     setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
@@ -91,6 +93,18 @@ export default function ClosetPage() {
     });
   }, [closet, category, brands, seasons, tags, colors, search]);
 
+  // Pagination — the catalog has 10,000+ items, so render in pages. Reset the
+  // visible count while rendering whenever the active filters change.
+  const PAGE = 48;
+  const filterKey = `${category}|${seasons.join()}|${tags.join()}|${colors.join()}|${brands.join()}|${search}`;
+  const [shownKey, setShownKey] = useState(filterKey);
+  const [visible, setVisible] = useState(PAGE);
+  if (filterKey !== shownKey) {
+    setShownKey(filterKey);
+    setVisible(PAGE);
+  }
+  const shown = filtered.slice(0, visible);
+
   const clearAll = () => {
     setCategory("all");
     setSeasons([]);
@@ -104,9 +118,37 @@ export default function ClosetPage() {
     if (confirm("確定要從衣櫥中刪除此單品嗎？")) deleteItem(id);
   };
 
-  const handleSubmit = (p: UploadPayload) => {
-    addItem(p.name, p.category, p.seasons, p.colors, p.tags, p.imageUrl, p.brand);
+  const openAdd = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (item: Item) => {
+    setEditing(item);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
     setModalOpen(false);
+    setEditing(null);
+  };
+
+  const handleSubmit = (p: UploadPayload) => {
+    if (editing) {
+      const imageUrl = p.imageUrl || getAutoImage(p.name, p.category, p.colors);
+      updateItem(editing.id, {
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        seasons: p.seasons,
+        colors: p.colors,
+        tags: p.tags,
+        imageUrl,
+      });
+    } else {
+      addItem(p.name, p.category, p.seasons, p.colors, p.tags, p.imageUrl, p.brand);
+    }
+    closeModal();
   };
 
   return (
@@ -242,7 +284,7 @@ export default function ClosetPage() {
               </div>
               <button
                 className="bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full font-label-md text-label-md flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-md group"
-                onClick={() => setModalOpen(true)}
+                onClick={openAdd}
               >
                 <Icon name="add" className="text-[20px] group-hover:rotate-90 transition-transform duration-500" />
                 上傳新衣物
@@ -259,18 +301,52 @@ export default function ClosetPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((item) => (
-                <ItemCard key={item.id} item={item} onDelete={handleDelete} />
-              ))}
-            </div>
+            <>
+              <p className="text-sm text-on-surface-variant">
+                共 <span className="font-bold text-on-surface">{filtered.length.toLocaleString()}</span> 件，
+                已顯示 {shown.length.toLocaleString()} 件
+              </p>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                {shown.map((item) => (
+                  <ItemCard key={item.id} item={item} onDelete={handleDelete} onEdit={openEdit} />
+                ))}
+              </div>
+              {visible < filtered.length && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={() => setVisible((v) => v + PAGE)}
+                    className="flex items-center gap-2 bg-primary text-on-primary px-8 py-3 rounded-full font-label-md text-label-md hover:scale-105 active:scale-95 transition-all shadow-md"
+                  >
+                    <Icon name="expand_more" className="text-[20px]" /> 載入更多（剩 {(filtered.length - visible).toLocaleString()} 件）
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
 
       <Footer />
 
-      {modalOpen && <UploadModal onClose={() => setModalOpen(false)} onSubmit={handleSubmit} />}
+      {modalOpen && (
+        <UploadModal
+          onClose={closeModal}
+          onSubmit={handleSubmit}
+          initial={
+            editing
+              ? {
+                  name: editing.name,
+                  category: editing.category,
+                  brand: editing.brand,
+                  seasons: editing.seasons,
+                  colors: editing.colors,
+                  tags: editing.tags,
+                  imageUrl: editing.imageUrl,
+                }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }

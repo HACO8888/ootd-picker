@@ -19,7 +19,15 @@ function brandColor(brand: string): string {
   return "text-primary";
 }
 
-export function ItemCard({ item, onDelete }: { item: Item; onDelete: (id: string) => void }) {
+export function ItemCard({
+  item,
+  onDelete,
+  onEdit,
+}: {
+  item: Item;
+  onDelete: (id: string) => void;
+  onEdit: (item: Item) => void;
+}) {
   const brand = item.brand || "自訂";
   return (
     <div className="group relative">
@@ -28,14 +36,24 @@ export function ItemCard({ item, onDelete }: { item: Item; onDelete: (id: string
         <div className={`absolute top-3 left-3 ${brandColor(brand)} text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm bg-white/80 border border-white/40 shadow-sm`}>
           {brand}
         </div>
-        <button
-          onClick={() => onDelete(item.id)}
-          className="absolute top-3 right-3 bg-surface/90 backdrop-blur-md p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-error hover:text-white"
-          title="刪除單品"
-          aria-label={`刪除 ${item.name}`}
-        >
-          <Icon name="delete" className="text-[18px]" />
-        </button>
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
+          <button
+            onClick={() => onEdit(item)}
+            className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-primary hover:text-white transition-colors"
+            title="編輯單品"
+            aria-label={`編輯 ${item.name}`}
+          >
+            <Icon name="edit" className="text-[18px]" />
+          </button>
+          <button
+            onClick={() => onDelete(item.id)}
+            className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-error hover:text-white transition-colors"
+            title="刪除單品"
+            aria-label={`刪除 ${item.name}`}
+          >
+            <Icon name="delete" className="text-[18px]" />
+          </button>
+        </div>
       </div>
       <h4 className="font-headline-md text-headline-md text-[17px] leading-snug">{item.name}</h4>
       <div className="flex flex-wrap gap-1.5 mt-2">

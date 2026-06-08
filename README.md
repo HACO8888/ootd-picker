@@ -7,20 +7,22 @@
 ## 技術棧
 
 - **Next.js 16.2**（App Router、Turbopack、React Compiler）
-- **React 19** · **TypeScript**（strict）
+- **React 19** · **TypeScript**（strict）· 套件管理 **pnpm**
 - **Tailwind CSS v4**（CSS-first `@theme`，Material Design 3 配色）
 - `next/font`（Playfair Display + DM Sans 自託管）、`next/image`（AVIF/WebP）
+- 程序化 **1 萬+ 款式目錄**（`src/lib/catalog.ts`）⊕ 使用者自訂單品
+- 即時天氣偵測（Open-Meteo）、收藏命名/匯出匯入、單品編輯
 - 資料持久化：瀏覽器 `localStorage`（透過 `useSyncExternalStore` 共享）
 
 ## 開發
 
-本專案使用 **Bun** 作為套件管理與執行器。
+本專案使用 **pnpm** 作為套件管理器。
 
 ```bash
-bun install
-bun run dev      # http://localhost:3000
-bun run build    # production build
-bun run lint
+pnpm install
+pnpm dev         # http://localhost:3000
+pnpm build       # production build
+pnpm lint
 ```
 
 ## 目錄結構

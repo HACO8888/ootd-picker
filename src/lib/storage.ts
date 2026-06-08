@@ -1,33 +1,68 @@
-// localStorage persistence — ported from legacy app.js, made SSR-safe.
-// Storage keys are kept identical to v10 so existing user data still loads.
-import { buildCloset } from "./data";
+// localStorage persistence — SSR-safe.
+// Closet model (v11): a large static CATALOG (>10,000 items) composed with the
+// user's own additions, hidden catalog ids and per-item overrides. Only the
+// user's deltas are stored in localStorage, so the catalog never bloats it.
 import { getAutoImage } from "./recommend";
+import { getCatalog } from "./catalog";
 import type { Item, Favorite, Outfit, Category, Season } from "./types";
 
-const STORAGE_KEY = "ootd_picker_closet_v10";
+const LEGACY_CLOSET_KEY = "ootd_picker_closet_v10";
+const USER_KEY = "ootd_picker_user_items_v11";
+const HIDDEN_KEY = "ootd_picker_hidden_v11";
+const OVERRIDE_KEY = "ootd_picker_overrides_v11";
 const FAVORITES_KEY = "ootd_picker_favorites_v10";
 
 const hasWindow = () => typeof window !== "undefined";
 
-/* ─── Closet ─────────────────────────────────────────────────────────────── */
-export function getCloset(): Item[] {
-  if (!hasWindow()) return buildCloset();
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    const seed = buildCloset();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-    return seed;
-  }
+function read<T>(key: string, fallback: T): T {
+  if (!hasWindow()) return fallback;
+  const raw = localStorage.getItem(key);
+  if (!raw) return fallback;
   try {
-    return JSON.parse(raw) as Item[];
+    return JSON.parse(raw) as T;
   } catch {
-    return buildCloset();
+    return fallback;
   }
 }
 
-export function saveCloset(closet: Item[]): void {
+function write(key: string, value: unknown): void {
+  if (hasWindow()) localStorage.setItem(key, JSON.stringify(value));
+}
+
+/* ─── Closet (catalog ⊕ user deltas) ─────────────────────────────────────── */
+function readUser(): Item[] {
+  return read<Item[]>(USER_KEY, []);
+}
+function readHidden(): string[] {
+  return read<string[]>(HIDDEN_KEY, []);
+}
+function readOverrides(): Record<string, Partial<Item>> {
+  return read<Record<string, Partial<Item>>>(OVERRIDE_KEY, {});
+}
+
+/** One-time migration: lift v10 user-added items (id `c_…`) into the v11 store. */
+function migrate(): void {
   if (!hasWindow()) return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(closet));
+  if (localStorage.getItem(USER_KEY) !== null) return; // already migrated
+  const legacy = read<Item[]>(LEGACY_CLOSET_KEY, []);
+  const userItems = legacy.filter((i) => typeof i.id === "string" && i.id.startsWith("c_"));
+  write(USER_KEY, userItems);
+}
+
+function compose(): Item[] {
+  const user = readUser();
+  const hidden = new Set(readHidden());
+  const overrides = readOverrides();
+  const catalog = getCatalog()
+    .filter((i) => !hidden.has(i.id))
+    .map((i) => (overrides[i.id] ? { ...i, ...overrides[i.id] } : i));
+  return [...user, ...catalog];
+}
+
+export function getCloset(): Item[] {
+  if (!hasWindow()) return getCatalog();
+  migrate();
+  return compose();
 }
 
 export function addClosetItem(
@@ -39,9 +74,7 @@ export function addClosetItem(
   imageUrl: string,
   brand?: string,
 ): Item[] {
-  const closet = getCloset();
   const colorsArr = Array.isArray(colors) ? colors : [colors];
-  const finalImg = imageUrl || getAutoImage(name, category, colorsArr);
   const item: Item = {
     id: "c_" + Date.now(),
     name,
@@ -50,17 +83,34 @@ export function addClosetItem(
     seasons,
     colors: colorsArr,
     tags: Array.isArray(tags) ? tags : [tags],
-    imageUrl: finalImg,
+    imageUrl: imageUrl || getAutoImage(name, category, colorsArr),
   };
-  const next = [item, ...closet];
-  saveCloset(next);
-  return next;
+  write(USER_KEY, [item, ...readUser()]);
+  return compose();
 }
 
 export function deleteClosetItem(id: string): Item[] {
-  const next = getCloset().filter((i) => i.id !== id);
-  saveCloset(next);
-  return next;
+  const user = readUser();
+  if (user.some((i) => i.id === id)) {
+    write(USER_KEY, user.filter((i) => i.id !== id));
+  } else {
+    const hidden = new Set(readHidden());
+    hidden.add(id);
+    write(HIDDEN_KEY, [...hidden]);
+  }
+  return compose();
+}
+
+export function updateClosetItem(id: string, patch: Partial<Omit<Item, "id">>): Item[] {
+  const user = readUser();
+  if (user.some((i) => i.id === id)) {
+    write(USER_KEY, user.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  } else {
+    const overrides = readOverrides();
+    overrides[id] = { ...overrides[id], ...patch };
+    write(OVERRIDE_KEY, overrides);
+  }
+  return compose();
 }
 
 /* ─── Favorites ──────────────────────────────────────────────────────────── */
@@ -75,20 +125,45 @@ export function getFavorites(): Favorite[] {
   }
 }
 
-export function addFavorite(outfit: Outfit): Favorite[] {
-  const favorites = getFavorites();
+function persistFavorites(list: Favorite[]): Favorite[] {
+  if (hasWindow()) localStorage.setItem(FAVORITES_KEY, JSON.stringify(list));
+  return list;
+}
+
+export function addFavorite(outfit: Outfit, name?: string): Favorite[] {
   const fav: Favorite = {
     id: "f_" + Date.now(),
     date: new Date().toLocaleDateString("zh-Hant"),
+    name: name?.trim() || undefined,
     outfit,
   };
-  const next = [fav, ...favorites];
-  if (hasWindow()) localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-  return next;
+  return persistFavorites([fav, ...getFavorites()]);
 }
 
 export function deleteFavorite(id: string): Favorite[] {
-  const next = getFavorites().filter((f) => f.id !== id);
-  if (hasWindow()) localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-  return next;
+  return persistFavorites(getFavorites().filter((f) => f.id !== id));
+}
+
+export function renameFavorite(id: string, name: string): Favorite[] {
+  const trimmed = name.trim();
+  return persistFavorites(
+    getFavorites().map((f) => (f.id === id ? { ...f, name: trimmed || undefined } : f)),
+  );
+}
+
+/** Replace the whole favorites list (used by import). */
+export function setFavorites(list: Favorite[]): Favorite[] {
+  return persistFavorites(list);
+}
+
+/** Parse + validate an exported favorites JSON string. Throws on bad shape. */
+export function parseFavoritesJSON(raw: string): Favorite[] {
+  const data = JSON.parse(raw);
+  if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
+  for (const f of data) {
+    if (!f || typeof f.id !== "string" || !f.outfit || !f.outfit.context) {
+      throw new Error("格式錯誤：缺少必要欄位");
+    }
+  }
+  return data as Favorite[];
 }

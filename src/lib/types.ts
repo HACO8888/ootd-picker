@@ -71,5 +71,7 @@ export interface Outfit {
 export interface Favorite {
   id: string;
   date: string;
+  /** Optional user-given name for the combination. */
+  name?: string;
   outfit: Outfit;
 }

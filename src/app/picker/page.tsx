@@ -11,6 +11,7 @@ import {
   swapMakeupLook,
   swapPerfumePick,
 } from "@/lib/recommend";
+import { detectTodayWeather } from "@/lib/weather";
 import type { Gender, Outfit, Weather, Item } from "@/lib/types";
 import { Stepper } from "@/components/picker/Stepper";
 import { ChoiceCard } from "@/components/picker/ChoiceCard";
@@ -67,6 +68,7 @@ export default function PickerPage() {
     secondary: "正在調配今日妝容與香氛...",
   });
   const [appliedFavId, setAppliedFavId] = useState<string | null>(null);
+  const [detecting, setDetecting] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const activeCloset = useCallback(() => (closet.length ? closet : buildCloset()), [closet]);
@@ -106,6 +108,20 @@ export default function PickerPage() {
   const selectWeather = (w: Weather) => {
     setWeather(w);
     setStep(3);
+  };
+
+  const detectWeather = async () => {
+    if (detecting) return;
+    setDetecting(true);
+    try {
+      const d = await detectTodayWeather();
+      showToast(`已偵測到目前天氣：${d.label}`);
+      selectWeather(d.weather);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "無法偵測天氣，請手動選擇");
+    } finally {
+      setDetecting(false);
+    }
   };
   const selectMood = (m: string) => {
     setMood(m);
@@ -227,7 +243,17 @@ export default function PickerPage() {
         {step === 2 && (
           <div className="step-slide w-full flex flex-col gap-8">
             <StepHeading step="Step 2 / 4" title="今天出門，外面的天氣如何？" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
+            <div className="flex justify-center -mt-2">
+              <button
+                onClick={detectWeather}
+                disabled={detecting}
+                className="flex items-center gap-2 border border-primary text-primary px-5 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary/5 transition-all disabled:opacity-60"
+              >
+                <Icon name={detecting ? "progress_activity" : "my_location"} className={`text-[18px] ${detecting ? "animate-spin" : ""}`} />
+                {detecting ? "偵測中…" : "偵測目前天氣"}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-2">
               {WEATHERS.map((w) => (
                 <ChoiceCard key={w.value} onClick={() => selectWeather(w.value)} icon={w.icon} iconClass={w.iconClass} title={w.title} subtitle={w.subtitle} />
               ))}

@@ -4,14 +4,15 @@
 
 ## 必要資訊（每個任務都適用）
 
-- **套件管理器：Bun**（勿用 npm/yarn）。
+- **套件管理器：pnpm**（勿用 npm/yarn/bun）。
 - 指令：
-  - `bun install`
-  - `bun run dev`　開發伺服器（http://localhost:3000）
-  - `bun run build`　production build（含 TypeScript 型別檢查）
-  - `bun run lint`　ESLint（flat config）
+  - `pnpm install`
+  - `pnpm dev`　開發伺服器（http://localhost:3000，可用 `PORT=4400 pnpm dev` 換埠）
+  - `pnpm build`　production build（含 TypeScript 型別檢查）
+  - `pnpm lint`　ESLint（flat config）
+- 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler）、React 19、TypeScript strict、Tailwind CSS v4。
-- **改動後必須**：`bun run lint` 與 `bun run build` 皆綠燈才算完成。
+- **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
 
 ## 目錄速覽
 
@@ -19,7 +20,8 @@
 src/app/        路由：/ · /picker · /closet · /about（layout 提供共用 nav/chrome）
 src/components/  nav · picker · results · closet · favorites · ui · chrome · home
 src/hooks/       useCloset · useFavorites（皆包 useSyncExternalStore）
-src/lib/         types · data · recommend(推薦引擎) · storage · store(共享狀態)
+src/lib/         types · data · catalog(1萬+款式) · recommend · storage · store · weather
+                 衣櫥 = 靜態 catalog ⊕ 使用者自訂(localStorage：user_items/hidden/overrides v11)
 public/images/   服裝圖 + 首頁圖    public/looks/  妝容/香水圖
 legacy/          重建前舊版（僅供對照，勿在此開發）
 ```

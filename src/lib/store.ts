@@ -1,15 +1,17 @@
 // Shared external stores for closet + favorites, built on useSyncExternalStore.
 // This keeps every component in sync (saving in the picker instantly updates the
 // favorites drawer) and reads localStorage the React-blessed way (no effect).
-import { buildCloset } from "./data";
+import { getCatalog } from "./catalog";
 import {
   getCloset,
-  saveCloset,
   addClosetItem as persistAdd,
   deleteClosetItem as persistDelete,
+  updateClosetItem as persistUpdate,
   getFavorites,
   addFavorite as persistAddFav,
   deleteFavorite as persistDeleteFav,
+  renameFavorite as persistRenameFav,
+  setFavorites as persistSetFavs,
 } from "./storage";
 import type { Item, Favorite, Outfit, Category, Season } from "./types";
 
@@ -38,7 +40,7 @@ function createStore<T>(serverValue: T, read: () => T) {
 }
 
 // Stable server-side snapshots (must be referentially constant across renders).
-const SERVER_CLOSET = buildCloset();
+const SERVER_CLOSET = getCatalog();
 const SERVER_FAVORITES: Favorite[] = [];
 
 export const closetStore = createStore<Item[]>(SERVER_CLOSET, getCloset);
@@ -61,16 +63,23 @@ export function deleteClosetItemFromStore(id: string) {
   closetStore.set(persistDelete(id));
 }
 
-export function resetClosetStore(items: Item[]) {
-  saveCloset(items);
-  closetStore.set(items);
+export function updateClosetItemInStore(id: string, patch: Partial<Omit<Item, "id">>) {
+  closetStore.set(persistUpdate(id, patch));
 }
 
 /* ─── favorites mutators ─────────────────────────────────────────────────── */
-export function addFavoriteToStore(outfit: Outfit) {
-  favoritesStore.set(persistAddFav(outfit));
+export function addFavoriteToStore(outfit: Outfit, name?: string) {
+  favoritesStore.set(persistAddFav(outfit, name));
 }
 
 export function deleteFavoriteFromStore(id: string) {
   favoritesStore.set(persistDeleteFav(id));
+}
+
+export function renameFavoriteInStore(id: string, name: string) {
+  favoritesStore.set(persistRenameFav(id, name));
+}
+
+export function setFavoritesInStore(list: Favorite[]) {
+  favoritesStore.set(persistSetFavs(list));
 }

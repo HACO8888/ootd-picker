@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useFavorites } from "@/hooks/useFavorites";
 import { TRANSLATE } from "@/lib/data";
+import { parseFavoritesJSON } from "@/lib/storage";
 import type { Favorite } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 
@@ -13,7 +15,10 @@ interface Props {
 }
 
 export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
-  const { favorites, deleteFav } = useFavorites();
+  const { favorites, deleteFav, renameFav, replaceAll } = useFavorites();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
 
@@ -25,6 +30,48 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
     }
   };
 
+  const startRename = (fav: Favorite) => {
+    setEditingId(fav.id);
+    setDraftName(fav.name ?? "");
+  };
+
+  const commitRename = (id: string) => {
+    renameFav(id, draftName);
+    setEditingId(null);
+    onToast("已更新收藏名稱！");
+  };
+
+  const exportFavorites = () => {
+    if (favorites.length === 0) {
+      onToast("目前沒有可匯出的收藏");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(favorites, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ootd-favorites.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    onToast("已匯出收藏 JSON！");
+  };
+
+  const importFavorites = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = parseFavoritesJSON(reader.result as string);
+        const seen = new Set(favorites.map((f) => f.id));
+        const merged = [...imported.filter((f) => !seen.has(f.id)), ...favorites];
+        replaceAll(merged);
+        onToast(`已匯入 ${imported.length} 筆收藏！`);
+      } catch (err) {
+        onToast(err instanceof Error ? `匯入失敗：${err.message}` : "匯入失敗");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={onClose} />
@@ -33,9 +80,28 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
           <h2 className="font-headline-md text-headline-md text-primary flex items-center gap-2">
             <Icon name="favorite" /> 我的風格收藏
           </h2>
-          <button className="text-on-surface-variant hover:text-primary" onClick={onClose} aria-label="關閉收藏">
-            <Icon name="close" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={exportFavorites} className="text-on-surface-variant hover:text-primary p-1" title="匯出 JSON" aria-label="匯出收藏">
+              <Icon name="download" className="text-[20px]" />
+            </button>
+            <button onClick={() => fileRef.current?.click()} className="text-on-surface-variant hover:text-primary p-1" title="匯入 JSON" aria-label="匯入收藏">
+              <Icon name="upload" className="text-[20px]" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importFavorites(file);
+                e.target.value = "";
+              }}
+            />
+            <button className="text-on-surface-variant hover:text-primary p-1" onClick={onClose} aria-label="關閉收藏">
+              <Icon name="close" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 space-y-6">
@@ -68,10 +134,36 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                   >
                     <Icon name="delete" className="text-[18px]" />
                   </button>
+
+                  {/* Name (editable) */}
+                  {editingId === fav.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRename(fav.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        placeholder="為這組造型命名…"
+                        className="flex-1 bg-surface-container border-none rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                      <button onClick={() => commitRename(fav.id)} className="text-primary" aria-label="儲存名稱">
+                        <Icon name="check" className="text-[20px]" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => startRename(fav)} className="flex items-center gap-1.5 text-left group/name" title="點擊命名">
+                      <span className="font-headline-md text-headline-md text-[17px] text-on-surface">
+                        {fav.name || "未命名造型"}
+                      </span>
+                      <Icon name="edit" className="text-[14px] text-on-surface-variant opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                    </button>
+                  )}
+
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded font-mono">
-                      {fav.date}
-                    </span>
+                    <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded font-mono">{fav.date}</span>
                     <span className="text-xs text-primary font-bold uppercase tracking-wider">
                       {TRANSLATE.weather[fav.outfit.context.weather]} | {fav.outfit.context.destination}
                     </span>

@@ -5,8 +5,9 @@ import {
   closetStore,
   addClosetItemToStore,
   deleteClosetItemFromStore,
+  updateClosetItemInStore,
 } from "@/lib/store";
-import type { Category, Season } from "@/lib/types";
+import type { Category, Item, Season } from "@/lib/types";
 
 /** Subscribes to the shared closet store (synced across all components). */
 export function useCloset() {
@@ -31,5 +32,10 @@ export function useCloset() {
 
   const deleteItem = useCallback((id: string) => deleteClosetItemFromStore(id), []);
 
-  return { closet, addItem, deleteItem };
+  const updateItem = useCallback(
+    (id: string, patch: Partial<Omit<Item, "id">>) => updateClosetItemInStore(id, patch),
+    [],
+  );
+
+  return { closet, addItem, deleteItem, updateItem };
 }

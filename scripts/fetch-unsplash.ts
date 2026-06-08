@@ -12,15 +12,18 @@
  * Unsplash photos are free to use (Unsplash licence). Demo API keys allow
  * 50 requests/hour — this makes one search request per silhouette (~14 total).
  */
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { EXTRA_POOL as CURRENT } from "../src/lib/photo-pool";
 
 const KEY = process.env.UNSPLASH_ACCESS_KEY;
 const POOL_DIR = path.resolve("public/images/catalog/pool");
 const POOL_TS = path.resolve("src/lib/photo-pool.ts");
 
 const perArg = process.argv.indexOf("--per");
-const PER = perArg > -1 ? parseInt(process.argv[perArg + 1], 10) : 24;
+const PER = Math.min(perArg > -1 ? parseInt(process.argv[perArg + 1], 10) : 30, 30); // Unsplash max 30
+const pagesArg = process.argv.indexOf("--pages");
+const PAGES = pagesArg > -1 ? parseInt(process.argv[pagesArg + 1], 10) : 3;
 
 // silhouette -> Unsplash search query
 const QUERIES: Record<string, string> = {
@@ -44,14 +47,32 @@ interface UnsplashPhoto {
   urls: { small: string; regular: string };
 }
 
-async function search(query: string): Promise<UnsplashPhoto[]> {
+async function searchPage(query: string, page: number): Promise<UnsplashPhoto[]> {
   const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
     query,
-  )}&per_page=${PER}&orientation=portrait&content_filter=high`;
+  )}&per_page=${PER}&page=${page}&orientation=portrait&content_filter=high`;
   const res = await fetch(url, { headers: { Authorization: `Client-ID ${KEY}` } });
+  if (res.status === 403) throw new Error("rate-limit（403）— 已達 Unsplash 每小時上限，請稍後再試");
   if (!res.ok) throw new Error(`Unsplash ${res.status}: ${await res.text()}`);
   const json = await res.json();
   return (json.results ?? []) as UnsplashPhoto[];
+}
+
+/** Fetch up to PAGES pages, de-duplicated by image URL. */
+async function search(query: string): Promise<UnsplashPhoto[]> {
+  const seen = new Set<string>();
+  const out: UnsplashPhoto[] = [];
+  for (let page = 1; page <= PAGES; page++) {
+    const results = await searchPage(query, page);
+    if (results.length === 0) break;
+    for (const p of results) {
+      if (!seen.has(p.urls.small)) {
+        seen.add(p.urls.small);
+        out.push(p);
+      }
+    }
+  }
+  return out;
 }
 
 async function download(srcUrl: string, dest: string): Promise<boolean> {
@@ -70,17 +91,17 @@ async function main() {
     console.error("✗ 缺少 UNSPLASH_ACCESS_KEY。請先 `export UNSPLASH_ACCESS_KEY=...` 再執行。");
     process.exit(1);
   }
-  await rm(POOL_DIR, { recursive: true, force: true });
   await mkdir(POOL_DIR, { recursive: true });
 
-  const pool: Record<string, string[]> = {};
+  // Start from the existing pool so a partial/rate-limited run never loses data.
+  const pool: Record<string, string[]> = { ...CURRENT };
   for (const [sil, query] of Object.entries(QUERIES)) {
     process.stdout.write(`搜尋 ${sil} … `);
     let photos: UnsplashPhoto[] = [];
     try {
       photos = await search(query);
     } catch (err) {
-      console.error(`失敗：${err instanceof Error ? err.message : err}`);
+      console.error(`失敗（保留現有 ${pool[sil]?.length ?? 0} 張）：${err instanceof Error ? err.message : err}`);
       continue;
     }
     const files: string[] = [];

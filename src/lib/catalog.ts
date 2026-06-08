@@ -4,6 +4,7 @@
 // Each item carries its real colour, so thumbnails are colour-accurate swatches
 // (rendered by SmartImage) instead of reusing a handful of photos.
 import { IMG } from "./data";
+import { EXTRA_POOL } from "./photo-pool";
 import type { Item, Category, Season } from "./types";
 
 const BRANDS = ["UNIQLO", "NET", "GU"];
@@ -42,43 +43,49 @@ function imageForItem(idx: number, silhouette: string, colorName: string): strin
   return catalogPhoto(silhouette, colorName, idx);
 }
 
-/** Map a silhouette + colour to a real product photo (deterministic spread). */
-function catalogPhoto(silhouette: string, colorName: string, idx: number): string {
-  const dark = DARK_COLOR.test(colorName);
+/** Built-in candidate photos for a silhouette (colour-aware where it matters). */
+function basePool(silhouette: string, dark: boolean): string[] {
   switch (silhouette) {
     case "tshirt":
     case "polo":
     case "vest":
-      return dark ? PHOTOS.tshirtDark[0] : pick(PHOTOS.tshirtLight, idx);
+      return dark ? PHOTOS.tshirtDark : PHOTOS.tshirtLight;
     case "shirt":
-      return pick(PHOTOS.shirt, idx);
+      return PHOTOS.shirt;
     case "sweater":
-      return pick(PHOTOS.sweater, idx);
+      return PHOTOS.sweater;
     case "hoodie":
-      return pick(PHOTOS.hoodie, idx);
+      return PHOTOS.hoodie;
     case "pants":
-      return dark ? PHOTOS.pantsDark[0] : pick(PHOTOS.pantsLight, idx);
+      return dark ? PHOTOS.pantsDark : PHOTOS.pantsLight;
     case "widepants":
-      return PHOTOS.widepants[0];
+      return PHOTOS.widepants;
     case "shorts":
-      return pick(PHOTOS.shorts, idx);
+      return PHOTOS.shorts;
     case "skirt":
-      return pick(PHOTOS.skirt, idx);
+      return PHOTOS.skirt;
     case "jacket":
-      return pick(PHOTOS.jacket, idx);
+      return PHOTOS.jacket;
     case "coat":
-      return pick(PHOTOS.coat, idx);
+      return PHOTOS.coat;
     case "cardigan":
-      return pick(PHOTOS.cardigan, idx);
+      return PHOTOS.cardigan;
     case "backpack":
-      return pick(PHOTOS.backpack, idx);
+      return PHOTOS.backpack;
     case "handbag":
-      return pick(PHOTOS.handbag, idx);
+      return PHOTOS.handbag;
     case "crossbag":
-      return pick(PHOTOS.crossbag, idx);
+      return PHOTOS.crossbag;
     default:
-      return IMG.white_tshirt;
+      return [IMG.white_tshirt];
   }
+}
+
+/** Map a silhouette + colour to a real photo, merging API-fetched extras. */
+function catalogPhoto(silhouette: string, colorName: string, idx: number): string {
+  const dark = DARK_COLOR.test(colorName);
+  const pool = [...basePool(silhouette, dark), ...(EXTRA_POOL[silhouette] ?? [])];
+  return pick(pool, idx);
 }
 
 // 16 colours with display name + hex (drives the swatch thumbnail).

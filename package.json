@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
-    "gen:images": "tsx scripts/generate-images.ts"
+    "gen:images": "tsx scripts/generate-images.ts",
+    "fetch:photos": "tsx scripts/fetch-unsplash.ts"
   },
   "dependencies": {
     "next": "^16.2.7",

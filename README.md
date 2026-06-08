@@ -25,30 +25,15 @@ pnpm build       # production build
 pnpm lint
 ```
 
-## 用 Unsplash API 擴充真實照片（選用，免費）
+## 為每件款式生成專屬 AI 圖片（選用）
 
-申請免費的 [Unsplash API](https://unsplash.com/developers) access key 後：
-
-```bash
-UNSPLASH_ACCESS_KEY=xxx pnpm fetch:photos   # 依衣型關鍵字搜尋並下載上百張真照
-pnpm build
-```
-
-會下載到 `public/images/catalog/pool/` 並自動改寫 `src/lib/photo-pool.ts`，
-目錄即會把這些真實照片併入各衣型的對應池（重複感大幅降低）。照片為 Unsplash 授權。
-
-## 為每件款式生成專屬圖片（選用）
-
-預設用真實照片池對應款式。若要讓 **每件款式各自生成一張 AI 圖**，用內建管線
-（需自備 OpenAI key，費用自付）：
+目錄預設用 17 張乾淨商品照衍生（~340 款）。若要讓 **每件各自生成一張乾淨商品圖**
+（像原本那 17 張的風格），用內建管線（需自備 OpenAI key，費用自付）：
 
 ```bash
-# 先小量測試（20 張）
-OPENAI_API_KEY=sk-... pnpm gen:images --limit 20
-# 全部生成（約 13,248 張，~US$530、數小時、可中斷續跑）
-OPENAI_API_KEY=sk-... pnpm gen:images
-# 生成完成後啟用：
-NEXT_PUBLIC_USE_GENERATED_IMAGES=1 pnpm build
+OPENAI_API_KEY=sk-... pnpm gen:images --limit 20  # 先小量試
+OPENAI_API_KEY=sk-... pnpm gen:images             # 全部（~340 張，約 US$14）
+NEXT_PUBLIC_USE_GENERATED_IMAGES=1 pnpm build      # 啟用
 ```
 
 圖片輸出至 `public/images/catalog/gen/<id>.png`（已 gitignore，建議走 CDN）。

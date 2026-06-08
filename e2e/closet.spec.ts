@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("膠囊衣櫥", () => {
-  test("顯示上萬款式並可分頁載入更多", async ({ page }) => {
+  test("顯示款式並可分頁載入更多", async ({ page }) => {
     await page.goto("/closet");
 
     await expect(page.getByText(/共\s*[\d,]+\s*件/)).toBeVisible();

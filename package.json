@@ -9,8 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
-    "gen:images": "tsx scripts/generate-images.ts",
-    "fetch:photos": "tsx scripts/fetch-unsplash.ts"
+    "gen:images": "tsx scripts/generate-images.ts"
   },
   "dependencies": {
     "next": "^16.2.7",
@@ -27,6 +26,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.7",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"

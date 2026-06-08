@@ -20,8 +20,9 @@
 src/app/        路由：/ · /picker · /closet · /about（layout 提供共用 nav/chrome）
 src/components/  nav · picker · results · closet · favorites · ui · chrome · home
 src/hooks/       useCloset · useFavorites（皆包 useSyncExternalStore）
-src/lib/         types · data · catalog(1萬+款式) · recommend · storage · store · weather
+src/lib/         types · data · catalog(~340 款，由 17 張乾淨商品照衍生) · recommend · storage · store · weather
                  衣櫥 = 靜態 catalog ⊕ 使用者自訂(localStorage：user_items/hidden/overrides v11)
+                 圖片：每件用乾淨單品照，名稱與圖（顏色＋品項）對應；可選 pnpm gen:images 改用 AI 生圖
 public/images/   服裝圖 + 首頁圖    public/looks/  妝容/香水圖
 legacy/          重建前舊版（僅供對照，勿在此開發）
 ```

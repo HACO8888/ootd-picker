@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useWearLog } from "@/hooks/useWearLog";
 import { useChrome } from "@/components/chrome/ChromeProvider";
 import { buildCloset, TRANSLATE } from "@/lib/data";
-import { generateOOTD, seasonsForWeather, swapMakeupLook, swapPerfumePick } from "@/lib/recommend";
+import { buildReasons, generateOOTDSet, swapClosetItem, swapMakeupLook, swapPerfumePick } from "@/lib/recommend";
+import { evaluateHarmony } from "@/lib/color-harmony";
 import { detectTodayWeather } from "@/lib/weather";
-import type { Gender, Weather, Item } from "@/lib/types";
+import { recentlyWornItemIds, todayISO } from "@/lib/wearlog";
+import type { Gender, Weather, Item, Outfit } from "@/lib/types";
 import { wizardReducer, initialWizard, type Step } from "@/components/picker/wizard";
 import { WizardStepsView } from "@/components/picker/WizardStepsView";
 import { ResultsView } from "@/components/picker/ResultsView";
@@ -17,13 +20,23 @@ type SlotKey = "top" | "bottom" | "outerwear" | "accessory";
 export default function PickerPage() {
   const { closet } = useCloset();
   const { addFav } = useFavorites();
-  const { showToast, pendingFavorite, consumePendingFavorite } = useChrome();
+  const { wearLogs, logWear } = useWearLog();
+  const { showToast, openShare, pendingFavorite, consumePendingFavorite } = useChrome();
+
+  const recentlyWornIds = useMemo(() => recentlyWornItemIds(wearLogs, 7), [wearLogs]);
 
   const [state, dispatch] = useReducer(wizardReducer, initialWizard);
-  const { step, gender, weather, mood, destination, rec, saved, loadingText, appliedFavId, detecting } = state;
+  const { step, gender, weather, mood, destination, rec, candidates, activeIdx, saved, loadingText, appliedFavId, detecting } = state;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const activeCloset = () => (closet.length ? closet : buildCloset());
+
+  // Recompute reasons + harmony after a swap so they stay in sync with the look.
+  const enrichOutfit = (o: Outfit): Outfit => {
+    const harmony = evaluateHarmony(o);
+    const withHarmony = { ...o, harmony };
+    return { ...withHarmony, reasons: buildReasons(withHarmony) };
+  };
 
   // Apply a favorite handed off from the global drawer (derive state from props
   // while rendering — avoids effect-driven cascading renders).
@@ -70,14 +83,15 @@ export default function PickerPage() {
     );
     timers.current.push(
       setTimeout(() => {
-        const outfit = generateOOTD(activeCloset(), weather as Weather, mood, d, gender as Gender);
-        dispatch({ type: "setResult", rec: outfit });
+        const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender);
+        dispatch({ type: "setResultSet", outfits: set.outfits });
       }, 2500),
     );
   };
 
   const regenerate = () => {
-    dispatch({ type: "setResult", rec: generateOOTD(activeCloset(), weather as Weather, mood, destination, gender as Gender) });
+    const set = generateOOTDSet(activeCloset(), weather as Weather, mood, destination, gender as Gender);
+    dispatch({ type: "setResultSet", outfits: set.outfits });
     showToast("已重新生成穿搭組合！");
   };
 
@@ -85,31 +99,27 @@ export default function PickerPage() {
     if (!rec) return;
     const slotToCat: Record<SlotKey, Item["category"]> = { top: "tops", bottom: "bottoms", outerwear: "outerwear", accessory: "accessories" };
     const dbCategory = slotToCat[slot];
-    const targetSeasons = weather ? seasonsForWeather(weather as Weather) : [];
     const currentId = rec[slot]?.id ?? "";
-    const pool = activeCloset().filter((i) => i.category === dbCategory && i.seasons.some((s) => targetSeasons.includes(s)));
-    let available = pool.filter((i) => i.id !== currentId);
-    if (available.length === 0) {
-      available = activeCloset().filter((i) => i.category === dbCategory && i.id !== currentId);
-    }
-    if (available.length === 0) {
+    // Same matching as the engine: match-floored + weighted by fit, falling
+    // back to any other piece in the category so the swap always works.
+    const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context);
+    if (!next) {
       showToast("衣櫥中沒有其他單品可以更換了！");
       return;
     }
-    const next = available[Math.floor(Math.random() * available.length)];
-    dispatch({ type: "setRec", rec: { ...rec, [slot]: next } });
+    dispatch({ type: "setRec", rec: enrichOutfit({ ...rec, [slot]: next }) });
     showToast(`已更換${TRANSLATE.category[dbCategory]}！`);
   };
 
   const swapMakeup = () => {
     if (!rec) return;
-    dispatch({ type: "setRec", rec: { ...rec, makeup: swapMakeupLook(rec.makeup, rec.context) } });
+    dispatch({ type: "setRec", rec: enrichOutfit({ ...rec, makeup: swapMakeupLook(rec.makeup, rec.context) }) });
     showToast("已為您更換推薦妝容！");
   };
 
   const swapPerfume = () => {
     if (!rec) return;
-    dispatch({ type: "setRec", rec: { ...rec, perfume: swapPerfumePick(rec.perfume, rec.context) } });
+    dispatch({ type: "setRec", rec: enrichOutfit({ ...rec, perfume: swapPerfumePick(rec.perfume, rec.context) }) });
     showToast("已為您更換香水！");
   };
 
@@ -120,12 +130,21 @@ export default function PickerPage() {
     showToast("已成功收藏至您的風格記錄中！");
   };
 
+  const logWearToday = () => {
+    if (!rec) return;
+    logWear(rec, todayISO());
+    showToast("已記錄今天的穿搭至日誌！");
+  };
+
   return (
-    <main className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 md:py-16">
+    <div className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 md:py-16">
       {step === "results" && rec ? (
         <div className="relative min-h-[500px]">
           <ResultsView
             rec={rec}
+            candidates={candidates ?? [rec]}
+            activeIdx={activeIdx}
+            onSelectCandidate={(idx) => dispatch({ type: "selectCandidate", idx })}
             saved={saved}
             onRegenerate={regenerate}
             onSwapItem={swapItem}
@@ -133,6 +152,9 @@ export default function PickerPage() {
             onSwapPerfume={swapPerfume}
             onSave={saveCombination}
             onReset={() => dispatch({ type: "reset" })}
+            onLogWear={logWearToday}
+            onShare={() => rec && openShare(rec)}
+            recentlyWornIds={recentlyWornIds}
           />
         </div>
       ) : (
@@ -149,6 +171,6 @@ export default function PickerPage() {
           onBack={(s: Step) => dispatch({ type: "setStep", value: s })}
         />
       )}
-    </main>
+    </div>
   );
 }

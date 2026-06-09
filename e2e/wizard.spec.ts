@@ -15,7 +15,7 @@ test.describe("風格嚮導", () => {
     await expect(page.getByText("推薦今日香水")).toBeVisible();
 
     // 收藏
-    await page.getByRole("button", { name: "收藏此風格組合" }).click();
-    await expect(page.getByRole("button", { name: "已收藏此風格" })).toBeVisible();
+    await page.getByRole("button", { name: "收藏組合" }).click();
+    await expect(page.getByRole("button", { name: "已收藏" })).toBeVisible();
   });
 });

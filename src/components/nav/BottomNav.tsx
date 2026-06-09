@@ -16,7 +16,7 @@ export function BottomNav() {
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
   return (
-    <nav className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 w-[min(400px,90%)] flex justify-around items-center bg-surface/95 backdrop-blur-lg py-3 px-6 rounded-full border border-outline-variant/10 shadow-[0px_10px_30px_rgba(135,152,106,0.15)] z-50">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 flex justify-around items-stretch bg-background border-t border-outline">
       {ITEMS.map((item) => {
         const active = isActive(item.href);
         return (
@@ -27,12 +27,12 @@ export function BottomNav() {
             aria-current={active ? "page" : undefined}
             className={
               active
-                ? "flex flex-col items-center justify-center bg-primary text-on-primary rounded-full w-12 h-12 scale-90 transition-all"
-                : "flex flex-col items-center justify-center text-on-surface-variant w-12 h-12 hover:scale-110 transition-transform"
+                ? "flex flex-col items-center justify-center gap-0.5 py-2.5 flex-1 text-primary border-t-2 border-primary -mt-px transition-colors"
+                : "flex flex-col items-center justify-center gap-0.5 py-2.5 flex-1 text-on-surface-variant transition-colors"
             }
           >
-            <Icon name={item.icon} />
-            {!active && <span className="font-label-sm text-label-sm mt-0.5">{item.label}</span>}
+            <Icon name={item.icon} className="text-[22px]" />
+            <span className="kicker text-[10px]">{item.label}</span>
           </Link>
         );
       })}

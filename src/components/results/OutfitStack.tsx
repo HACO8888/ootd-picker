@@ -10,40 +10,37 @@ const SLOTS: SlotKey[] = ["top", "bottom", "outerwear", "accessory"];
 
 export function OutfitStack({ outfit, onSwap }: { outfit: Outfit; onSwap: (slot: SlotKey) => void }) {
   return (
-    <div className="space-y-4 flex-1">
+    <div className="flex-1 border-t border-outline-variant">
       {SLOTS.map((slot) => {
         const item = outfit[slot];
         if (!item) return null;
         return (
           <div
             key={slot}
-            className="flex items-center gap-6 p-4 rounded-xl border border-outline-variant/15 hover:border-primary/20 transition-all bg-surface-container-lowest/50 group"
+            className="flex items-center gap-5 py-4 border-b border-outline-variant group"
           >
-            <div className="w-20 h-24 rounded overflow-hidden flex-shrink-0 bg-surface-container shadow-sm relative">
-              <SmartImage src={item.imageUrl} alt={item.name} sizes="80px" className="object-cover" />
+            <div className="w-16 h-20 overflow-hidden flex-shrink-0 bg-surface-container relative border border-outline-variant">
+              <SmartImage src={item.imageUrl} alt={item.name} sizes="64px" className="object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
             </div>
-            <div className="flex-1">
-              <span className="text-xs text-secondary font-medium tracking-wide uppercase">
-                {TRANSLATE.category[item.category]}
-              </span>
-              <h4 className="font-headline-md text-headline-md text-[18px] leading-snug text-on-surface mt-1">
+            <div className="flex-1 min-w-0">
+              <span className="kicker text-on-surface-variant">{TRANSLATE.category[item.category]}</span>
+              <h4 className="font-headline-md text-headline-md text-[18px] leading-snug text-on-surface mt-1 truncate">
                 {item.name}
               </h4>
-              <div className="flex gap-2 mt-2">
-                <span className="text-xs text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded">
-                  {item.colors.join("/")}
-                </span>
-              </div>
+              <span className="font-body-md text-body-md text-[13px] text-on-surface-variant">
+                {item.colors.join(" / ")}
+              </span>
             </div>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => onSwap(slot)}
-              className="p-2.5 rounded-full border border-outline-variant/30 hover:bg-primary-container/20 hover:border-primary/30 transition-all"
+              className="p-2.5 border border-outline-variant hover:border-on-surface transition-colors flex-shrink-0"
               title="換一件"
               aria-label={`更換${TRANSLATE.category[item.category]}`}
             >
               <Icon
                 name="sync"
-                className="text-[20px] text-on-surface-variant group-hover:rotate-180 transition-transform duration-300"
+                className="text-[18px] text-on-surface group-hover:rotate-180 transition-transform duration-500"
               />
             </button>
           </div>

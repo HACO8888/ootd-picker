@@ -121,9 +121,9 @@ export default function PickerPage() {
   };
 
   return (
-    <main className="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12">
+    <main className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 md:py-16">
       {step === "results" && rec ? (
-        <div className="relative min-h-[500px] max-w-4xl mx-auto">
+        <div className="relative min-h-[500px]">
           <ResultsView
             rec={rec}
             saved={saved}

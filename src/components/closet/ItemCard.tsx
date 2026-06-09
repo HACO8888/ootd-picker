@@ -31,41 +31,40 @@ export function ItemCard({
   const brand = item.brand || "自訂";
   return (
     <div className="group relative">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-container mb-4 shadow-[0px_10px_30px_rgba(135,152,106,0.08)] transition-all duration-500 group-hover:shadow-[0px_15px_40px_rgba(135,152,106,0.15)] group-hover:-translate-y-1">
-        <SmartImage src={item.imageUrl} alt={item.name} sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
-        <div className={`absolute top-3 left-3 ${brandColor(brand)} text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm bg-white/80 border border-white/40 shadow-sm`}>
+      <div className="relative aspect-[3/4] overflow-hidden bg-surface-container mb-3 border border-outline-variant">
+        <SmartImage src={item.imageUrl} alt={item.name} sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
+        <div className={`absolute top-2 left-2 ${brandColor(brand)} kicker px-2 py-1 bg-background/90 border border-outline-variant`}>
           {brand}
         </div>
-        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
-          <button type="button"
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            type="button"
             onClick={() => onEdit(item)}
-            className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-primary hover:text-white transition-colors"
+            className="bg-background/90 p-2 border border-outline-variant hover:bg-on-surface hover:text-background transition-colors"
             title="編輯單品"
             aria-label={`編輯 ${item.name}`}
           >
-            <Icon name="edit" className="text-[18px]" />
+            <Icon name="edit" className="text-[16px]" />
           </button>
-          <button type="button"
+          <button
+            type="button"
             onClick={() => onDelete(item.id)}
-            className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-error hover:text-white transition-colors"
+            className="bg-background/90 p-2 border border-outline-variant hover:bg-error hover:text-white transition-colors"
             title="刪除單品"
             aria-label={`刪除 ${item.name}`}
           >
-            <Icon name="delete" className="text-[18px]" />
+            <Icon name="delete" className="text-[16px]" />
           </button>
         </div>
       </div>
-      <h4 className="font-headline-md text-headline-md text-[17px] leading-snug">{item.name}</h4>
+      <h4 className="font-headline-md text-headline-md text-[16px] leading-snug truncate">{item.name}</h4>
       <div className="flex flex-wrap gap-1.5 mt-2">
         {item.seasons.map((s) => (
-          <span key={s} className="text-label-sm font-label-sm text-on-tertiary-container bg-tertiary-container/30 px-2 py-0.5 rounded">
-            {SEASON_LABEL[s]}季
+          <span key={s} className="kicker text-on-surface-variant border border-outline-variant px-1.5 py-0.5">
+            {SEASON_LABEL[s]}
           </span>
         ))}
-        <span className="text-label-sm font-label-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded">
-          {item.colors.join("/")}
-        </span>
-        <span className="text-label-sm font-label-sm text-secondary bg-secondary-fixed/30 px-2 py-0.5 rounded">
+        <span className="kicker text-on-surface-variant border border-outline-variant px-1.5 py-0.5">
           {TRANSLATE.category[item.category]}
         </span>
       </div>

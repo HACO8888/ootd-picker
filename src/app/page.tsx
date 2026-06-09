@@ -3,21 +3,46 @@ import Link from "next/link";
 import { HomeHero } from "@/components/home/HomeHero";
 import { Footer } from "@/components/nav/Footer";
 import { Icon } from "@/components/ui/Icon";
+import { Kicker, SectionRule } from "@/components/ui/Editorial";
+
+const CONTENTS = [
+  {
+    no: "01",
+    href: "/picker",
+    title: "THE PICKER",
+    sub: "穿搭嚮導",
+    body: "回答四個問題——性別、天氣、心情、目的地——換得一套今日專屬的穿搭、妝容與香氛提案。",
+  },
+  {
+    no: "02",
+    href: "/closet",
+    title: "THE WARDROBE",
+    sub: "我的衣櫥",
+    body: "策展逾三千件單品，依類別、季節、色系與場合自由篩選，打造屬於你的膠囊衣櫥。",
+  },
+  {
+    no: "03",
+    href: "/about",
+    title: "THE PHILOSOPHY",
+    sub: "品牌理念",
+    body: "我們相信早晨的儀式應是喜悅而非壓力。妝造合一，讓風格隨心情與氣候自在應變。",
+  },
+];
 
 const STEPS = [
   {
-    icon: "favorite",
-    title: "1. 設定您的心情與目的",
+    no: "01",
+    title: "設定心情與目的",
     body: "您今天感覺如何？活力十足、放鬆，還是準備好前往約會、工作或派對？",
   },
   {
-    icon: "partly_cloudy_day",
-    title: "2. 確認天氣狀態",
+    no: "02",
+    title: "確認天氣狀態",
     body: "我們與在地預報同步，確保您的造型既防風保暖又實用時尚。",
   },
   {
-    icon: "auto_awesome",
-    title: "3. 獲得穿搭與妝容推薦",
+    no: "03",
+    title: "獲得穿搭與妝容",
     body: "獲得為您的今日氛圍和目的地量身定製的專屬穿搭及美妝提案。",
   },
 ];
@@ -48,93 +73,107 @@ export default function HomePage() {
     <>
       <HomeHero />
 
-      {/* Bento Grid Intro */}
-      <section className="py-section-gap px-container-padding-mobile md:px-container-padding-desktop max-w-[1200px] mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch">
-          <div className="md:col-span-7 bg-surface-container rounded-lg p-8 md:p-12 flex flex-col justify-center gap-6">
-            <span className="text-primary font-label-md text-label-md uppercase tracking-[0.2em]">體驗流程</span>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">每天早晨，為您打造自信姿態。</h2>
-            <p className="font-body-md text-body-md text-on-surface-variant max-w-md leading-relaxed">
-              我們相信早晨的例行公事應該是喜悅的來源，而非壓力。OOTD &amp; Makeup Picker 使用智慧對應，將您的現有衣櫥與精緻妝容完美結合。
-            </p>
-          </div>
-          <div className="md:col-span-5 relative group overflow-hidden rounded-lg aspect-square">
-            <Image
-              src="/images/home/closet.jpg"
-              alt="高質感極簡衣櫥細節"
-              fill
-              sizes="(max-width: 768px) 100vw, 40vw"
-              className="object-cover transition-transform duration-700 group-hover:scale-110"
-            />
-          </div>
+      {/* Contents — editorial table-of-contents index */}
+      <section className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-section-gap">
+        <div className="flex items-baseline justify-between mb-12">
+          <Kicker className="text-primary">內容導覽</Kicker>
+          <Kicker className="text-on-surface-variant">CONTENTS</Kicker>
         </div>
+        <SectionRule />
+        {CONTENTS.map((c) => (
+          <Link key={c.no} href={c.href} className="group block">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-baseline py-10 border-b border-outline-variant">
+              <div className="md:col-span-2 font-headline-lg text-headline-lg text-on-surface-variant group-hover:text-primary transition-colors">
+                {c.no}
+              </div>
+              <div className="md:col-span-4">
+                <h3 className="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">
+                  {c.title}
+                </h3>
+                <Kicker className="text-on-surface-variant mt-2 block">{c.sub}</Kicker>
+              </div>
+              <p className="md:col-span-5 font-body-md text-body-md text-on-surface-variant">{c.body}</p>
+              <div className="md:col-span-1 flex md:justify-end">
+                <Icon
+                  name="arrow_outward"
+                  className="text-on-surface-variant group-hover:text-primary group-hover:translate-x-1 transition-all"
+                />
+              </div>
+            </div>
+          </Link>
+        ))}
       </section>
 
-      {/* How It Works */}
-      <section className="bg-surface-container-low py-section-gap relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary-fixed/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-secondary-fixed/20 rounded-full blur-3xl" />
-        <div className="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop text-center">
-          <h2 className="font-headline-lg text-headline-lg text-on-surface mb-16">運作方式</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+      {/* How It Works — oversized serif numerals */}
+      <section className="bg-surface-container-low border-y border-outline">
+        <div className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-section-gap">
+          <div className="max-w-xl mb-16">
+            <Kicker className="text-primary">運作方式</Kicker>
+            <h2 className="font-headline-lg text-headline-lg text-on-surface mt-4">三步，成就今日姿態。</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-outline-variant border border-outline-variant">
             {STEPS.map((s) => (
-              <div key={s.title} className="group flex flex-col items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-white shadow-[0px_10px_30px_rgba(135,152,106,0.08)] flex items-center justify-center transition-transform duration-300 group-hover:-translate-y-2">
-                  <Icon name={s.icon} className="text-primary text-3xl" />
-                </div>
-                <div>
-                  <h3 className="font-headline-md text-headline-md text-on-surface mb-2">{s.title}</h3>
-                  <p className="font-body-md text-body-md text-on-surface-variant px-4">{s.body}</p>
-                </div>
+              <div key={s.no} className="bg-surface-container-low p-8 md:p-10 flex flex-col gap-5">
+                <span className="font-headline-xl text-headline-xl text-primary leading-none">{s.no}</span>
+                <h3 className="font-headline-md text-headline-md text-on-surface">{s.title}</h3>
+                <p className="font-body-md text-body-md text-on-surface-variant">{s.body}</p>
               </div>
             ))}
           </div>
-          <div className="mt-20">
+          <div className="mt-12">
             <Link
               href="/picker"
-              className="inline-flex bg-primary-container text-on-primary-container px-12 py-5 rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:shadow-xl transition-all duration-300 items-center gap-3 mx-auto"
+              className="group inline-flex items-center gap-3 bg-primary text-on-primary px-10 py-4 kicker hover:bg-surface-tint transition-colors"
             >
-              立即開始 <Icon name="arrow_forward" />
+              立即開始
+              <Icon name="arrow_forward" className="text-[18px] transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Featured Outfit Cards */}
-      <section className="py-section-gap max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-          <div className="max-w-xl text-left">
-            <span className="text-secondary font-label-md text-label-md uppercase tracking-[0.2em] block mb-4">今日靈感</span>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">精選風格推薦</h2>
+      {/* Featured — asymmetric editorial cards */}
+      <section className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-section-gap">
+        <div className="flex items-baseline justify-between mb-12">
+          <div>
+            <Kicker className="text-primary">今日靈感</Kicker>
+            <h2 className="font-headline-lg text-headline-lg text-on-surface mt-4">精選風格推薦</h2>
           </div>
+          <Kicker className="text-on-surface-variant hidden md:block">EDITOR&apos;S PICKS</Kicker>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
-          {FEATURED.map((o) => (
-            <div
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+          {FEATURED.map((o, i) => (
+            <Link
               key={o.title}
-              className="bg-white rounded-lg overflow-hidden shadow-[0px_10px_30px_rgba(135,152,106,0.08)] group hover:scale-[1.02] transition-transform duration-300"
+              href="/picker"
+              className={`group block ${i === 1 ? "md:mt-16" : ""}`}
             >
-              <div className="aspect-[4/5] overflow-hidden relative">
+              <div className="aspect-[4/5] overflow-hidden relative border border-outline-variant">
                 <Image
                   src={o.src}
                   alt={o.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
               </div>
-              <div className="p-8">
-                <div className="flex flex-wrap gap-2 mb-4">
+              <div className="pt-5">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {o.tags.map((t) => (
-                    <span key={t} className="px-4 py-1.5 rounded-full border border-primary text-primary font-label-sm text-label-sm">
+                    <span
+                      key={t}
+                      className="kicker text-on-surface-variant border border-outline-variant px-3 py-1"
+                    >
                       {t}
                     </span>
                   ))}
                 </div>
-                <h4 className="font-headline-md text-headline-md text-on-surface mb-2">{o.title}</h4>
-                <p className="font-body-md text-body-md text-on-surface-variant">{o.body}</p>
+                <h4 className="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">
+                  {o.title}
+                </h4>
+                <p className="font-body-md text-body-md text-on-surface-variant mt-2">{o.body}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

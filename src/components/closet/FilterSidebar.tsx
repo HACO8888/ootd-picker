@@ -3,6 +3,7 @@
 import type { Dispatch } from "react";
 import type { Category, Season } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Kicker } from "@/components/ui/Editorial";
 
 /* ─── Filter state (useReducer) ──────────────────────────────────────────── */
 export interface FilterState {
@@ -86,7 +87,7 @@ const BRANDS: { value: string; label: string; dot: string }[] = [
   { value: "UNIQLO", label: "UNIQLO", dot: "bg-[#E60012]" },
   { value: "NET", label: "NET", dot: "bg-[#006AB7]" },
   { value: "GU", label: "GU", dot: "bg-[#E65000]" },
-  { value: "自訂", label: "自訂單品", dot: "bg-[#54643b]" },
+  { value: "自訂", label: "自訂單品", dot: "bg-[#16140f]" },
 ];
 
 const TAGS: { value: string; label: string }[] = [
@@ -116,40 +117,40 @@ export function FilterSidebar({
   open: boolean;
 }) {
   return (
-    <aside className={`w-full md:w-64 flex-shrink-0 space-y-8 md:space-y-10 ${open ? "block" : "hidden"} md:block`}>
-      <div className="flex items-center justify-between">
-        <h2 className="hidden md:block font-headline-md text-headline-md text-primary">篩選</h2>
-        <button type="button" onClick={() => dispatch({ type: "clear" })} className="text-xs text-secondary hover:underline ml-auto">
-          清除篩選
+    <aside className={`w-full md:w-60 flex-shrink-0 ${open ? "block" : "hidden"} md:block`}>
+      <div className="flex items-center justify-between pb-4 border-b border-outline">
+        <Kicker className="hidden md:block text-on-surface">篩選 / FILTER</Kicker>
+        <button type="button" onClick={() => dispatch({ type: "clear" })} className="kicker text-on-surface-variant hover:text-primary transition-colors ml-auto">
+          清除
         </button>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">類別</h3>
-        <div className="flex flex-col gap-2">
+      <div className="py-6 border-b border-outline-variant">
+        <Kicker className="text-on-surface-variant mb-4 block">類別</Kicker>
+        <div className="flex flex-col">
           {CATEGORIES.map((c) => (
             <button
               type="button"
               key={c.value}
               onClick={() => dispatch({ type: "setCategory", value: c.value })}
-              className={`flex items-center justify-between w-full p-3 rounded-xl transition-colors group ${
+              className={`flex items-center justify-between w-full py-2 transition-colors group ${
                 filters.category === c.value
-                  ? "bg-primary-container/20 text-on-primary-container font-medium"
-                  : "text-on-surface-variant hover:bg-surface-container"
+                  ? "text-primary"
+                  : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
-              <span className="flex items-center gap-3">
-                <Icon name={c.icon} />
+              <span className="flex items-center gap-3 font-body-md text-body-md text-[15px]">
+                <Icon name={c.icon} className="text-[20px]" />
                 {c.label}
               </span>
-              <span className="text-xs opacity-60">{counts[c.value] ?? 0}</span>
+              <span className="kicker">{counts[c.value] ?? 0}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">季節</h3>
+      <div className="py-6 border-b border-outline-variant">
+        <Kicker className="text-on-surface-variant mb-4 block">季節</Kicker>
         <div className="flex flex-wrap gap-2">
           {SEASONS.map((s) => (
             <button
@@ -158,8 +159,8 @@ export function FilterSidebar({
               onClick={() => dispatch({ type: "toggleSeason", value: s.value })}
               className={
                 filters.seasons.includes(s.value)
-                  ? "px-4 py-2 rounded-full bg-primary text-on-primary text-label-sm font-label-sm"
-                  : "px-4 py-2 rounded-full border border-outline-variant text-label-sm font-label-sm hover:border-primary hover:text-primary transition-all"
+                  ? "px-4 py-1.5 bg-on-surface text-background kicker"
+                  : "px-4 py-1.5 border border-outline-variant kicker text-on-surface-variant hover:border-on-surface hover:text-on-surface transition-colors"
               }
             >
               {s.label}
@@ -168,48 +169,48 @@ export function FilterSidebar({
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">品牌</h3>
-        <div className="flex flex-col gap-2">
+      <div className="py-6 border-b border-outline-variant">
+        <Kicker className="text-on-surface-variant mb-4 block">品牌</Kicker>
+        <div className="flex flex-col gap-1.5">
           {BRANDS.map((b) => (
             <button
               type="button"
               key={b.value}
               onClick={() => dispatch({ type: "toggleBrand", value: b.value })}
-              className={`flex items-center justify-between w-full px-4 py-2.5 rounded-xl text-label-sm font-label-sm transition-all ${
+              className={`flex items-center justify-between w-full px-3 py-2 kicker transition-colors ${
                 filters.brands.includes(b.value)
-                  ? "border border-primary bg-primary/10 text-primary"
-                  : "border border-outline-variant/40 text-on-surface-variant hover:border-primary hover:text-primary"
+                  ? "border border-primary text-primary"
+                  : "border border-outline-variant text-on-surface-variant hover:border-on-surface hover:text-on-surface"
               }`}
             >
               <span className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${b.dot} inline-block`} /> {b.label}
+                <span className={`w-2 h-2 rounded-[9999px] ${b.dot} inline-block`} /> {b.label}
               </span>
-              <span className="text-xs opacity-50">{counts[`brand-${b.value}`] ?? 0}</span>
+              <span>{counts[`brand-${b.value}`] ?? 0}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">材質 (標籤)</h3>
-        <div className="space-y-2">
+      <div className="py-6 border-b border-outline-variant">
+        <Kicker className="text-on-surface-variant mb-4 block">場合 (標籤)</Kicker>
+        <div className="space-y-2.5">
           {TAGS.map((t) => (
             <label key={t.value} className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
                 checked={filters.tags.includes(t.value)}
                 onChange={() => dispatch({ type: "toggleTag", value: t.value })}
-                className="rounded-md border-outline-variant text-primary focus:ring-primary w-5 h-5 transition-all"
+                className="rounded-none border-outline text-primary focus:ring-0 focus:ring-offset-0 w-4 h-4"
               />
-              <span className="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">{t.label}</span>
+              <span className="font-body-md text-body-md text-[15px] text-on-surface group-hover:text-primary transition-colors">{t.label}</span>
             </label>
           ))}
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">配色方案</h3>
+      <div className="py-6">
+        <Kicker className="text-on-surface-variant mb-4 block">配色</Kicker>
         <div className="flex flex-wrap gap-3">
           {COLORS.map((c) => (
             <button
@@ -218,8 +219,8 @@ export function FilterSidebar({
               onClick={() => dispatch({ type: "toggleColor", value: c.value })}
               title={c.value}
               aria-label={c.value}
-              className={`w-8 h-8 rounded-full ${c.swatch} ${c.border ? "border border-outline-variant" : ""} hover:scale-110 transition-transform shadow-sm ring-offset-2 ${
-                filters.colors.includes(c.value) ? "ring-2 ring-primary" : ""
+              className={`w-8 h-8 rounded-[9999px] ${c.swatch} ${c.border ? "border border-outline-variant" : ""} hover:scale-110 transition-transform ring-offset-2 ${
+                filters.colors.includes(c.value) ? "ring-2 ring-on-surface" : ""
               }`}
             />
           ))}

@@ -17,9 +17,9 @@
 ## 目錄速覽
 
 ```
-src/app/        路由：/ · /picker · /closet · /about（layout 提供共用 nav/chrome）
-src/components/  nav · picker · results · closet · favorites · ui · chrome · home
-src/hooks/       useCloset · useFavorites（皆包 useSyncExternalStore）
+src/app/        路由：/ · /picker · /closet · /insights · /journal · /share · /about
+src/components/  nav · picker · results · closet · favorites · insights · journal · share · ui · chrome · home
+src/hooks/       useCloset · useFavorites · useUserCloset · useWearLog（皆包 useSyncExternalStore）
 src/lib/         types · data · catalog · catalog-data.json · recommend · storage · store · weather
                  catalog = Fashion Product Images 資料集(MIT)~3000 件，每件一張白底商品照，
                  名稱由資料集的顏色＋品類標籤產生（文字與圖對應、不重複）。
@@ -36,7 +36,7 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - localStorage 一律走 `src/lib/store.ts`（`useSyncExternalStore`）以跨元件同步；**勿**用 effect 直接 `setState` 讀取（會觸發 `react-hooks/set-state-in-effect`）。
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
-- 推薦演算法為核心契約（引擎 `generateOOTDSet`／單套 `generateOOTD`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，含匹配下限與加權隨機），調整前先確認對 USER_STORY 的影響。
+- 推薦演算法為核心契約（引擎 `generateOOTDSet`／單套 `generateOOTD`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加語意相近標籤、天氣實穿性、性別脈絡補正；整套再以 `totalOutfitScore` 比對上下身/配件/外套相容性、色彩和諧、近似去重）。調整前先確認對 USER_STORY 的影響。
 
 ## 專案文件（progressive disclosure）
 
@@ -73,16 +73,16 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 > 由 **PM＋軟體** 共同精修；對應 USER_STORY 的 ✅ 條件。每輪 loop 結束逐項勾稽。
 
 ### A. 工程品質（硬性門檻）
-- [ ] `pnpm build` 成功，5 條路由皆靜態預渲染、無型別錯誤。
+- [ ] `pnpm build` 成功，7 條主要頁面皆靜態預渲染、無型別錯誤。
 - [ ] `pnpm lint` exit 0（零錯誤、零警告）。
-- [ ] dev server 啟動後 `/`、`/picker`、`/closet`、`/about` 皆回 200，**無 hydration/console 錯誤**。
+- [ ] dev server 啟動後 `/`、`/picker`、`/closet`、`/insights`、`/journal`、`/share`、`/about` 皆回 200，**無 hydration/console 錯誤**。
 - [ ] 所有圖片資源（`/images/*`、`/looks/*`）皆可正常載入（200）。
 
 ### B. 風格嚮導（US-01～04）
 - [ ] 四步驟可前進/返回，進度條同步；第 4 步後出現載入過場再顯示結果。
-- [ ] 結果含 上衣／下著／配件／妝容／香水；寒冷或雨天必含外套。
+- [ ] 結果含 上衣／下著／妝容／香水；配件有合適候選時出現，寒冷或雨天有外套候選時必含外套。
 - [ ] 純男性情境下妝容卡標題顯示「推薦理容保養」。
-- [ ] 「換一件／換妝容／換香水／重新生成」皆能更新且不重複當前項；無可換時顯示提示。
+- [ ] 「換一件／換妝容／換香水／重新生成」皆能更新且不重複當前項；換單品會考量目前整套相容性，無可換時顯示提示。
 - [ ] 結果頂端正確回顯本次 性別/天氣/心情/目的地 標籤。
 
 ### C. 膠囊衣櫥（US-05～08）

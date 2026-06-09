@@ -18,18 +18,19 @@
 
 ## 3. 範圍
 
-**In scope（本輪 MVP）**：US-01～US-14（嚮導、衣櫥、收藏、首頁/關於、RWD、localStorage 持久化）。
-**Out of scope**：帳號/雲端同步、真實天氣 API、電商與社群分享（見 USER_STORY §5）。
+**In scope（目前產品）**：US-01～US-14（嚮導、衣櫥、收藏、首頁/關於、RWD、localStorage 持久化），並已擴充天氣偵測、衣櫥洞察、穿搭日誌與分享。
+**Out of scope**：帳號/雲端同步、電商導購、跨裝置會員資料同步（見 USER_STORY §5）。
 
 ## 4. 功能需求（FR）
 
 ### FR-1 風格嚮導（/picker）
 - FR-1.1 四步驟收集 `gender / weather / mood / destination`，含進度條、返回、載入過場。
 - FR-1.2 呼叫推薦引擎 `generateOOTDSet(closet, weather, mood, destination, gender)` 產生數套可比較的 `Outfit`（A/B 切換；亦保留單套 `generateOOTD`）。
-- FR-1.3 規則（評分集中於 `scoreItem`）：單品依「目的地 +5、天氣/季節 +4（軟加權，非硬篩）、心情 +3」加權；**設匹配下限**（score>0 才入選——可選的配件/外套無符合者留空，核心的上衣/下著才退而取最接近）；以**加權隨機（機率 ∝ 分數²）**從前幾名挑選，兼顧貼合與變化；寒冷/雨天必出外套，多雲機率出外套。多套候選依「**貼合度優先、色彩和諧度次之**」排序並去重。
-- FR-1.4 妝容/香水依 `gender` 過濾，並以 天氣/心情/目的地 加權選最高分。
-- FR-1.5 換一個（單品/妝容/香水）、重新生成；換單品沿用同一套匹配（`swapClosetItem`：加權隨機＋匹配下限），排除目前項。
-- FR-1.6 結果可「收藏此組合」。
+- FR-1.3 規則（評分集中於 `scoreItem`）：單品依「目的地 +5、天氣/季節 +4（軟加權，非硬篩）、心情 +3」加權；再補上語意相近標籤（如約會⇄優雅、居家⇄舒適/放鬆）、天氣實穿性（冷天厚薄、雨天功能性）、性別脈絡推斷（男性情境降低裙/手拿包/內搭褲等明顯不合候選）。**匹配下限**維持 score>0；配件為可選，無合適者可留空，核心上衣/下著才退而取最接近。
+- FR-1.4 多套候選由 `generateOOTDSet` 建立較大的高分候選池，再以 `totalOutfitScore` 排序：貼合度優先，其次整套相容性（上下身正式/休閒/運動/舒適輪廓、目的地配件、冷/雨外套規則）與色彩和諧度；A/B/C 以商品名稱與服裝類型近似去重，避免同名 catalog 商品洗版。
+- FR-1.5 妝容/香水依 `gender` 過濾，並以 天氣/心情/目的地 加權選最高分；純男性情境只從男性理容候選中選，避免女性妝容落入男性結果。
+- FR-1.6 換一個（單品/妝容/香水）、重新生成；換單品沿用同一套匹配（`swapClosetItem`：匹配下限＋整套相容性＋加權隨機），排除目前項。妝容/香水更換只從高分候選池抽樣，不再從全資料集隨機。
+- FR-1.7 結果可「收藏此組合」。
 
 ### FR-2 膠囊衣櫥（/closet）
 - FR-2.1 以網格呈現單品（圖、名稱、品牌徽章、季節/配色/類別標籤）。
@@ -63,13 +64,14 @@
 
 - `Item { id, brand, name, category, seasons[], colors[], tags[], imageUrl }`
 - `Makeup` / `Perfume`（含 gender[]、tags[]、weather[]、描述欄位、圖片）
-- `Outfit { top, bottom, outerwear, accessory, makeup, perfume, context }`
-- `Favorite { id, date, outfit }`
-- 持久化：`closet`、`favorites` 兩個 localStorage 集合。
+- `Outfit { top, bottom, outerwear, accessory, makeup, perfume, context, reasons?, harmony? }`
+- `Favorite { id, date, name?, outfit }`
+- `WearLog { id, date, outfit, note?, favoriteId?, createdAt }`
+- 持久化：衣櫥 deltas（user_items/hidden/overrides）、favorites、wear_log 皆透過 `src/lib/store.ts` 對外同步。
 
 ## 7. 相依與技術決策
 
-- Next.js 16（App Router/Turbopack/React Compiler）、React 19、TypeScript、Tailwind v4、**Bun** 為套件管理。
+- Next.js 16（App Router/Turbopack/React Compiler）、React 19、TypeScript、Tailwind v4、**pnpm** 為套件管理。
 - 狀態：`useSyncExternalStore` 共享 closet/favorites，跨元件即時同步。
 
 ## 8. 待確認事項（決策記錄）

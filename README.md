@@ -11,7 +11,7 @@
 - **Tailwind CSS v4**（CSS-first `@theme`，編輯感 / VOGUE 風配色：黑白 + 朱砂紅 accent）
 - `next/font`（Fraunces serif + Inter 自託管）、`next/image`（AVIF/WebP）
 - **~3000 款目錄**，圖源為 MIT 授權的 Fashion Product Images 資料集（白底商品照＋顏色/品類標籤，文字與圖對應）⊕ 使用者自訂單品
-- 即時天氣偵測（Open-Meteo）、收藏命名/匯出匯入、單品編輯
+- 即時天氣偵測（Open-Meteo）、收藏命名/匯出匯入、單品編輯、穿搭日誌、衣櫥洞察、造型分享
 - 資料持久化：瀏覽器 `localStorage`（透過 `useSyncExternalStore` 共享）
 
 ## 開發
@@ -47,20 +47,25 @@ NEXT_PUBLIC_USE_GENERATED_IMAGES=1 pnpm build      # 啟用
 
 ```
 src/
-├── app/                 # 路由：/ · /picker · /closet · /about
-├── components/          # nav · picker · results · closet · favorites · ui
-├── hooks/               # useCloset · useFavorites
-└── lib/                 # types · data · recommend(推薦引擎) · storage · store
+├── app/                 # 路由：/ · /picker · /closet · /insights · /journal · /share · /about
+├── components/          # nav · picker · results · closet · favorites · insights · journal · share · ui
+├── hooks/               # useCloset · useFavorites · useUserCloset · useWearLog
+└── lib/                 # types · data · catalog · recommend(推薦引擎) · storage · store
 public/
-├── images/              # 17 張服裝圖 + 首頁裝飾圖
+├── images/              # 目錄服裝圖 + 首頁裝飾圖
 └── looks/               # 妝容／香水圖
 legacy/                  # 重建前的舊版 HTML/JS（保留對照）
 ```
+
+## 推薦引擎
+
+`src/lib/recommend.ts` 以 `generateOOTDSet` 產生 A/B/C 多套候選。核心單品分數仍遵守 PRD 權重：目的地 +5、天氣/季節 +4、心情 +3；其上補上語意相近標籤、天氣實穿性與性別脈絡。候選組合再以整套分數排序，檢查上下身正式/休閒/運動/舒適輪廓、目的地配件、冷/雨外套需求與色彩和諧度；同名/同類型商品會近似去重，避免 catalog 變體看起來像重複推薦。
 
 ## 核心功能
 
 - **推薦嚮導**（`/picker`）：4 步驟選擇 → 生成穿搭、妝容、香水；可單獨更換任一單品、重新生成、收藏。
 - **我的衣櫥**（`/closet`）：依類別／季節／品牌／標籤／配色篩選與搜尋；上傳新衣物（含拖放，未附圖時自動配對圖片）。
 - **我的收藏**：右側抽屜檢視／刪除／載入收藏組合，跨頁即時同步。
+- **衣櫥洞察 / 穿搭日誌 / 造型分享**：統計衣櫥缺口與使用頻率、記錄每日穿搭、輸出分享圖或分享連結。
 
 © 2026 OOTD Picker.

@@ -102,7 +102,7 @@ export default function PickerPage() {
     const currentId = rec[slot]?.id ?? "";
     // Same matching as the engine: match-floored + weighted by fit, falling
     // back to any other piece in the category so the swap always works.
-    const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context);
+    const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context, rec);
     if (!next) {
       showToast("衣櫥中沒有其他單品可以更換了！");
       return;

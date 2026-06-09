@@ -7,7 +7,7 @@
 
 - **外部實體**：使用者、瀏覽器 localStorage、靜態資源（圖片/字體）。
 - **處理（Process）**：應用中的邏輯模組。
-- **資料儲存（Data Store）**：D1 衣櫥、D2 收藏。
+- **資料儲存（Data Store）**：D1 衣櫥、D2 收藏、D3 穿搭日誌。
 
 ---
 
@@ -33,14 +33,16 @@ flowchart TD
 
     subgraph APP[OOTD Picker]
         P1[P1 風格嚮導<br/>收集情境輸入]
-        P2[P2 推薦引擎<br/>generateOOTD / swap]
+        P2[P2 推薦引擎<br/>generateOOTDSet / swap]
         P3[P3 衣櫥管理<br/>篩選/搜尋/CRUD]
         P4[P4 收藏管理<br/>save/list/delete/apply]
         P5[P5 結果呈現<br/>OutfitStack/Makeup/Perfume]
+        P6[P6 洞察/日誌/分享<br/>insights/journal/share]
     end
 
-    D1[(D1 衣櫥<br/>ootd_picker_closet_v10)]
+    D1[(D1 衣櫥<br/>catalog + user_items/hidden/overrides v11)]
     D2[(D2 收藏<br/>ootd_picker_favorites_v10)]
+    D3[(D3 穿搭日誌<br/>ootd_picker_wear_log_v1)]
     CAT[/靜態資料<br/>data.ts：品牌單品·妝容·香水/]
 
     U -->|gender/weather/mood/destination| P1
@@ -59,6 +61,9 @@ flowchart TD
     P5 -->|目前 Outfit| P4
     P4 <-->|讀寫收藏| D2
     P4 -->|載入至預覽 applyFavorite| P5
+    D1 & D2 & D3 -->|統計/回顧/分享| P6
+    P6 -->|畫面/PNG/分享連結| U
+    P6 <-->|讀寫日誌| D3
 ```
 
 ---
@@ -67,18 +72,15 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    IN[/輸入 context + closet/] --> S1[依天氣映射季節<br/>seasonsForWeather]
-    S1 --> S2[過濾當季單品<br/>無則退回全部]
-    S2 --> S3[計分：目的地+5 心情+3<br/>各類取前3隨機]
-    S3 --> T[top]
-    S3 --> B[bottom]
-    S3 --> A[accessory]
-    S3 --> O{需要外套?<br/>冷/雨必出·多雲60%}
-    O -->|是| OW[outerwear]
-    O -->|否| NOW[無外套]
-    IN --> M[妝容：依gender過濾<br/>天氣+4 心情+3 目的地+2 取最高]
-    IN --> PF[香水：gender+5 天氣+3<br/>心情+2 目的地+1 取最高]
-    T & B & A & OW & NOW & M & PF --> OUT[/輸出 Outfit/]
+    IN[/輸入 context + closet/] --> S1[單品計分 scoreItem<br/>目的地+5 天氣/季節+4 心情+3]
+    S1 --> S2[補分/扣分<br/>語意相近標籤·天氣實穿性·性別脈絡]
+    S2 --> S3[分類候選池<br/>score>0 入選；上下身可 fallback；配件可留空]
+    S3 --> C[組合候選<br/>top + bottom + optional accessory/outerwear]
+    C --> R[整套排序 totalOutfitScore<br/>貼合度 + 上下身/配件/外套相容性 + 色彩和諧]
+    R --> D[近似去重<br/>商品名稱 + 服裝類型]
+    IN --> M[妝容：依gender過濾<br/>男性只取理容候選；天氣/心情/目的地取高分]
+    IN --> PF[香水：gender+5 天氣+3<br/>心情+2 目的地+1 取高分]
+    D & M & PF --> OUT[/輸出 OOTDSet + Outfit/]
 ```
 
 ---
@@ -87,7 +89,8 @@ flowchart TD
 
 | Store | Key | 結構 | 寫入時機 |
 |---|---|---|---|
-| **D1 衣櫥** | `ootd_picker_closet_v10` | `Item[]` | 首次載入種子、新增、刪除 |
-| **D2 收藏** | `ootd_picker_favorites_v10` | `Favorite[]` | 收藏、刪除收藏 |
+| **D1 衣櫥** | catalog + `ootd_picker_user_items_v11` / `ootd_picker_hidden_v11` / `ootd_picker_overrides_v11` | `Item[]` composed from catalog + deltas | 新增、編輯、刪除/隱藏、覆寫 catalog 單品 |
+| **D2 收藏** | `ootd_picker_favorites_v10` | `Favorite[]` | 收藏、命名、刪除、匯入 |
+| **D3 穿搭日誌** | `ootd_picker_wear_log_v1` | `WearLog[]` | 標記今天穿、編輯備註、刪除、匯入 |
 
-> 兩個 Store 於前端透過 `src/lib/store.ts`（`useSyncExternalStore`）對所有元件廣播變更，確保 P3/P4/P5 即時一致。
+> Store 於前端透過 `src/lib/store.ts`（`useSyncExternalStore`）對所有元件廣播變更，確保 P3/P4/P5/P6 即時一致。

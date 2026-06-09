@@ -55,16 +55,19 @@
 | # | 畫面 | 路由 | 關鍵元件 |
 |---|---|---|---|
 | S1 | 首頁 | `/` | HomeHero（full-bleed 封面）、Contents 目錄索引、運作流程（大序號）、不對稱精選卡、Footer |
-| S2 | 風格嚮導 | `/picker` | Stepper（極簡進度）、ChoiceCard ×4 步（全螢幕單步）、Loading、結果（OutfitStack / MakeupCard / PerfumeCard） |
+| S2 | 風格嚮導 | `/picker` | Stepper（極簡進度）、ChoiceCard ×4 步（全螢幕單步）、Loading、結果（OutfitTabs / OutfitStack / HarmonyBadge / ReasonsPanel / MakeupCard / PerfumeCard） |
 | S3 | 我的衣櫥 | `/closet` | 篩選側欄、搜尋、ItemCard 網格、UploadModal |
 | S4 | 關於 | `/about` | 理念四原則、CTA |
 | S5 | 收藏抽屜 | 全站浮層 | FavoritesDrawer（右側滑入） |
 | S6 | 上傳單品 | `/closet` 浮層 | UploadModal（拖放上傳、表單） |
+| S7 | 衣櫥洞察 | `/insights` | StatBar、ColorSwatchRow、GapCard、UsageList |
+| S8 | 穿搭日誌 | `/journal` | CalendarGrid、DayDetailDrawer、穿搭套用/分享/備註 |
+| S9 | 造型分享 | `/share` + 全站浮層 | ShareSheet、分享卡片 PNG、分享連結還原 |
 
 ## 4. 響應式斷點
 
 - `md`(768px) 為主斷點：桌機三段式報頭導覽 + 多欄；行動裝置底部細邊框導覽 bar + 全螢幕漢堡選單，單/雙欄。
-- 結果頁：桌機 7/5 雙欄（THE LOOK 穿搭 / THE FACE 妝容），THE SCENT 香水滿版；行動裝置單欄堆疊。
+- 結果頁：桌機 7/5 雙欄（THE LOOK 穿搭 / THE FACE 妝容），THE SCENT 香水滿版；A/B 候選 tabs、推薦理由與色彩徽章在穿搭卡內收斂；行動裝置單欄堆疊。
 
 ## 5. 可及性（設計層）
 
@@ -74,5 +77,5 @@
 
 ## 6. 圖像資產
 
-- 服裝單品：`public/images/*.png`（17 張，AI 生成、與品名一致）。
+- 服裝單品：`public/images/catalog/fp/*.jpg`（Fashion Product Images 目錄）與少量 fallback PNG（自訂單品未附圖時使用）。
 - 妝容/香水：`public/looks/*.jpg`。首頁/關於情境圖：`public/images/home/*.jpg`。

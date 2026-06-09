@@ -2,74 +2,81 @@
 @plugin "@tailwindcss/forms";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Design tokens — Material Design 3 sage/brown palette
-   Ported from the legacy tailwind.config (inline in every HTML page).
+   Design tokens — Editorial "magazine" palette (VOGUE-style)
+   Near-black ink on warm paper, hairline rules, one accent: vermilion red.
+   Token NAMES are kept identical to the legacy MD3 system so every component's
+   semantic class (bg-primary / text-on-surface-variant / …) re-skins by value.
+   Naming stays neutral (surface/on-surface/outline) for future dark mode.
    ═══════════════════════════════════════════════════════════════════════════ */
 @theme {
-  /* Colors */
-  --color-primary: #54643b;
+  /* Colors — accent: vermilion red */
+  --color-primary: #d6453d;
   --color-on-primary: #ffffff;
-  --color-primary-container: #87986a;
-  --color-on-primary-container: #222f0b;
-  --color-primary-fixed: #d7e9b5;
-  --color-primary-fixed-dim: #bbcd9b;
-  --color-on-primary-fixed: #131f01;
-  --color-on-primary-fixed-variant: #3d4c25;
-  --color-inverse-primary: #bbcd9b;
+  --color-primary-container: #fbeae8;
+  --color-on-primary-container: #8e241e;
+  --color-primary-fixed: #fbeae8;
+  --color-primary-fixed-dim: #f3c9c5;
+  --color-on-primary-fixed: #4a0f0b;
+  --color-on-primary-fixed-variant: #8e241e;
+  --color-inverse-primary: #f3c9c5;
 
-  --color-secondary: #7d562d;
+  /* Secondary — ink black (used for second-tier CTAs) */
+  --color-secondary: #16140f;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #ffca98;
-  --color-on-secondary-container: #7a532a;
-  --color-secondary-fixed: #ffdcbd;
-  --color-secondary-fixed-dim: #f0bd8b;
-  --color-on-secondary-fixed: #2c1600;
-  --color-on-secondary-fixed-variant: #623f18;
+  --color-secondary-container: #16140f;
+  --color-on-secondary-container: #ffffff;
+  --color-secondary-fixed: #e7e5e1;
+  --color-secondary-fixed-dim: #d4d1cb;
+  --color-on-secondary-fixed: #16140f;
+  --color-on-secondary-fixed-variant: #45433d;
 
-  --color-tertiary: #5c6145;
+  /* Tertiary — neutral grey */
+  --color-tertiary: #45433d;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #909575;
-  --color-on-tertiary-container: #292d15;
-  --color-tertiary-fixed: #e1e6c2;
-  --color-tertiary-fixed-dim: #c5c9a7;
-  --color-on-tertiary-fixed: #1a1d07;
-  --color-on-tertiary-fixed-variant: #45492f;
+  --color-tertiary-container: #eeedea;
+  --color-on-tertiary-container: #16140f;
+  --color-tertiary-fixed: #eeedea;
+  --color-tertiary-fixed-dim: #d4d1cb;
+  --color-on-tertiary-fixed: #16140f;
+  --color-on-tertiary-fixed-variant: #45433d;
 
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
-  --color-background: #fbf9f4;
-  --color-on-background: #1b1c19;
-  --color-surface: #fbf9f4;
-  --color-surface-bright: #fbf9f4;
-  --color-surface-dim: #dbdad5;
-  --color-surface-tint: #54643b;
-  --color-on-surface: #1b1c19;
-  --color-on-surface-variant: #45483e;
-  --color-surface-variant: #e4e2dd;
+  --color-background: #fafaf8;
+  --color-on-background: #16140f;
+  --color-surface: #fafaf8;
+  --color-surface-bright: #ffffff;
+  --color-surface-dim: #e7e5e1;
+  --color-surface-tint: #b5332c;
+  --color-on-surface: #16140f;
+  --color-on-surface-variant: #6b675e;
+  --color-surface-variant: #eeedea;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f5f3ee;
-  --color-surface-container: #f0eee9;
-  --color-surface-container-high: #eae8e3;
-  --color-surface-container-highest: #e4e2dd;
-  --color-inverse-surface: #30312e;
-  --color-inverse-on-surface: #f2f1ec;
+  --color-surface-container-low: #f4f3f0;
+  --color-surface-container: #eeedea;
+  --color-surface-container-high: #e7e5e1;
+  --color-surface-container-highest: #e2e0db;
+  --color-inverse-surface: #16140f;
+  --color-inverse-on-surface: #fafaf8;
 
-  --color-outline: #76786d;
-  --color-outline-variant: #c6c8ba;
+  --color-outline: #16140f;
+  --color-outline-variant: #e2e0db;
 
   /* Custom spacing scale */
   --spacing-base: 8px;
   --spacing-gutter: 24px;
-  --spacing-section-gap: 80px;
+  --spacing-section-gap: 120px;
   --spacing-container-padding-mobile: 20px;
   --spacing-container-padding-desktop: 64px;
+  /* Content container width — `--container-*` namespace powers max-w-content */
+  --container-content: 1280px;
 
-  /* Border radius — legacy overrides (DEFAULT 1rem, lg 2rem, xl 3rem) */
-  --radius-lg: 2rem;
-  --radius-xl: 3rem;
+  /* Border radius — editorial: square / hairline corners */
+  --radius-lg: 0px;
+  --radius-xl: 0px;
   --radius-full: 9999px;
 
   /* Font families (wired to next/font CSS variables in layout.tsx) */
@@ -82,47 +89,72 @@
   --font-label-md: var(--font-dm-sans), sans-serif;
   --font-label-sm: var(--font-dm-sans), sans-serif;
 
-  /* Font sizes with line-height + weight */
-  --text-headline-xl: 48px;
-  --text-headline-xl--line-height: 1.1;
-  --text-headline-xl--letter-spacing: -0.02em;
-  --text-headline-xl--font-weight: 700;
+  /* Font sizes — magazine ladder (large display, tight tracking) */
+  --text-headline-xl: 72px;
+  --text-headline-xl--line-height: 0.95;
+  --text-headline-xl--letter-spacing: -0.03em;
+  --text-headline-xl--font-weight: 600;
 
-  --text-headline-lg: 32px;
-  --text-headline-lg--line-height: 1.2;
+  --text-headline-lg: 44px;
+  --text-headline-lg--line-height: 1.05;
+  --text-headline-lg--letter-spacing: -0.02em;
   --text-headline-lg--font-weight: 600;
 
-  --text-headline-lg-mobile: 28px;
-  --text-headline-lg-mobile--line-height: 1.2;
+  --text-headline-lg-mobile: 32px;
+  --text-headline-lg-mobile--line-height: 1.1;
+  --text-headline-lg-mobile--letter-spacing: -0.02em;
   --text-headline-lg-mobile--font-weight: 600;
 
-  --text-headline-md: 24px;
-  --text-headline-md--line-height: 1.3;
+  --text-headline-md: 26px;
+  --text-headline-md--line-height: 1.2;
+  --text-headline-md--letter-spacing: -0.01em;
   --text-headline-md--font-weight: 600;
 
   --text-body-lg: 18px;
-  --text-body-lg--line-height: 1.6;
+  --text-body-lg--line-height: 1.7;
   --text-body-lg--font-weight: 400;
 
   --text-body-md: 16px;
-  --text-body-md--line-height: 1.6;
+  --text-body-md--line-height: 1.65;
   --text-body-md--font-weight: 400;
 
-  --text-label-md: 14px;
+  --text-label-md: 12px;
   --text-label-md--line-height: 1.2;
-  --text-label-md--letter-spacing: 0.05em;
+  --text-label-md--letter-spacing: 0.16em;
   --text-label-md--font-weight: 600;
 
-  --text-label-sm: 12px;
-  --text-label-sm--line-height: 1.2;
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 1.3;
+  --text-label-sm--letter-spacing: 0.08em;
   --text-label-sm--font-weight: 500;
 }
 
-/* The legacy config set the bare `rounded` (DEFAULT) to 1rem. Tailwind v4 has no
-   theme token for the bare utility, so restore it explicitly. */
+/* Editorial corners: near-square. The bare `rounded` and pill `rounded-full`
+   are flattened here (Tailwind v4 has no theme token for these utilities).
+   Anything that must stay a true circle/pill uses the arbitrary value
+   `rounded-[9999px]`, which is unaffected by this override. */
 @layer utilities {
   .rounded {
-    border-radius: 1rem;
+    border-radius: 0.125rem;
+  }
+  .rounded-full {
+    border-radius: 0 !important;
+  }
+
+  /* Editorial kicker — uppercase, wide-tracked eyebrow label */
+  .kicker {
+    font-family: var(--font-dm-sans), sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* Hairline rule — the structural backbone of editorial layouts */
+  .editorial-rule {
+    border: none;
+    border-top: 1px solid var(--color-outline-variant);
   }
 }
 
@@ -133,6 +165,13 @@ body {
   background-color: var(--color-background);
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Editorial serif headings render with optical sizing for display weights. */
+.font-headline-xl,
+.font-headline-lg,
+.font-headline-md {
+  font-optical-sizing: auto;
 }
 
 /* Self-hosted Material Symbols (no external Google Fonts dependency — fixes the
@@ -184,15 +223,15 @@ body {
 }
 
 .gender-card-active {
-  border-color: #54643b !important;
-  background-color: rgba(84, 100, 59, 0.08) !important;
-  box-shadow: 0 0 0 2px #54643b44;
+  border-color: var(--color-on-surface) !important;
+  background-color: rgba(22, 20, 15, 0.04) !important;
+  box-shadow: inset 0 0 0 1px var(--color-on-surface);
 }
 
-/* Home hero glass card */
+/* Editorial card surface (replaces the old frosted-glass hero card) */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
+  background: rgba(250, 250, 248, 0.92);
+  backdrop-filter: blur(4px);
 }
 
 /* Custom scrollbar (closet) */
@@ -203,7 +242,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c6c8ba;
+  background: #c9c6c0;
   border-radius: 10px;
 }
 
@@ -222,7 +261,7 @@ body {
   }
 }
 .animate-fade-in {
-  animation: fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes slide-left {
@@ -234,7 +273,7 @@ body {
   }
 }
 .animate-slide-left {
-  animation: slide-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: slide-left 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes scale-up {
@@ -248,5 +287,17 @@ body {
   }
 }
 .animate-scale-up {
-  animation: scale-up 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: scale-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Accessibility — honour reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

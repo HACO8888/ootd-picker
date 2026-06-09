@@ -17,19 +17,20 @@ interface Props {
 
 export function ChoiceCard({ onClick, title, subtitle, icon, iconClass = "", emoji, active, compact }: Props) {
   return (
-    <button type="button"
+    <button
+      type="button"
       onClick={onClick}
-      className={`${compact ? "p-6 gap-3" : "p-8 gap-4"} rounded-xl border bg-white shadow-[0px_10px_35px_rgba(135,152,106,0.04)] hover:shadow-lg hover:border-primary/50 transition-all duration-300 flex flex-col items-center group ${
-        active ? "gender-card-active border-2" : "border-outline-variant/30"
+      className={`${compact ? "p-5 gap-2" : "p-7 gap-3"} border bg-surface-bright hover:border-on-surface transition-colors duration-300 flex flex-col items-start text-left group ${
+        active ? "gender-card-active border-2" : "border-outline-variant"
       }`}
     >
       {emoji ? (
-        <span className="text-5xl">{emoji}</span>
+        <span className="text-4xl">{emoji}</span>
       ) : (
-        icon && <Icon name={icon} className={`text-4xl group-hover:scale-110 transition-transform ${iconClass}`} />
+        icon && <Icon name={icon} className={`text-4xl text-on-surface transition-transform group-hover:scale-110 ${iconClass}`} />
       )}
-      <span className="font-headline-md text-headline-md text-[18px] text-center">{title}</span>
-      {subtitle && <span className="text-xs text-on-surface-variant text-center">{subtitle}</span>}
+      <span className="font-headline-md text-headline-md text-[20px] text-on-surface mt-1">{title}</span>
+      {subtitle && <span className="font-body-md text-body-md text-[14px] text-on-surface-variant">{subtitle}</span>}
     </button>
   );
 }

@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
 import { TopNav } from "@/components/nav/TopNav";
 import { BottomNav } from "@/components/nav/BottomNav";
 
-const playfair = Playfair_Display({
+// Editorial high-contrast serif for headlines. CSS variable name is kept as
+// `--font-playfair` so the @theme `--font-headline-*` tokens need no change.
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "900"],
+  axes: ["opsz"],
   variable: "--font-playfair",
   display: "swap",
 });
 
-const dmSans = DM_Sans({
+// Neutral grotesque for body + labels. Variable name kept as `--font-dm-sans`.
+const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-dm-sans",
@@ -38,8 +41,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-Hant" className={`${playfair.variable} ${dmSans.variable}`}>
-      <body className="bg-background text-on-surface font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed-variant overflow-x-hidden">
+    <html lang="zh-Hant" className={`${fraunces.variable} ${inter.variable}`}>
+      <body className="bg-background text-on-surface font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed-variant overflow-x-hidden pb-16 md:pb-0">
         <ChromeProvider>
           <TopNav />
           {children}

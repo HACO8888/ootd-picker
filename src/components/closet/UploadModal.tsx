@@ -3,6 +3,7 @@
 import { useReducer, useRef } from "react";
 import type { Category, Season } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Kicker } from "@/components/ui/Editorial";
 
 export interface UploadPayload {
   name: string;
@@ -124,11 +125,14 @@ export function UploadModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
-      <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-surface rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
-        <div className="p-8 border-b border-outline-variant/20 flex justify-between items-center">
-          <h2 className="font-headline-md text-headline-md text-primary">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
-          <button type="button" className="text-on-surface-variant hover:text-primary" onClick={onClose} aria-label="關閉">
+      <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
+      <div className="relative w-full max-w-2xl bg-surface-bright border border-outline shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+        <div className="px-8 py-6 border-b border-outline flex justify-between items-center">
+          <div>
+            <Kicker className="text-primary">{isEdit ? "EDIT ITEM" : "NEW ITEM"}</Kicker>
+            <h2 className="font-headline-md text-headline-md text-on-surface mt-1">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
+          </div>
+          <button type="button" className="text-on-surface-variant hover:text-primary transition-colors" onClick={onClose} aria-label="關閉">
             <Icon name="close" />
           </button>
         </div>
@@ -155,8 +159,8 @@ export function UploadModal({
               const file = e.dataTransfer.files[0];
               if (file) handleFile(file);
             }}
-            className={`border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center gap-4 transition-colors cursor-pointer group relative ${
-              dragging ? "bg-primary-container/10 border-primary" : "border-outline-variant bg-surface-container-low/50 hover:bg-surface-container-low"
+            className={`border border-dashed p-12 flex flex-col items-center justify-center gap-4 transition-colors cursor-pointer group relative ${
+              dragging ? "bg-primary-container border-primary" : "border-outline bg-surface-container-low hover:bg-surface-container"
             }`}
           >
             <input
@@ -171,12 +175,12 @@ export function UploadModal({
             />
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={image} alt="預覽" className="max-h-48 rounded object-cover shadow-md" />
+              <img src={image} alt="預覽" className="max-h-48 object-cover border border-outline-variant" />
             ) : (
               <>
-                <Icon name="cloud_upload" className="text-4xl text-outline-variant group-hover:text-primary transition-colors" />
+                <Icon name="cloud_upload" className="text-4xl text-outline group-hover:text-primary transition-colors" />
                 <p className="font-body-md text-on-surface-variant text-center">
-                  <span className="text-primary font-bold">拖放照片至此</span>，或 <span className="underline">瀏覽檔案</span>
+                  <span className="text-primary font-semibold">拖放照片至此</span>，或 <span className="underline">瀏覽檔案</span>
                 </p>
               </>
             )}
@@ -184,23 +188,23 @@ export function UploadModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label htmlFor="up-name" className="block font-label-md text-label-md text-on-surface-variant uppercase">衣物名稱</label>
+              <label htmlFor="up-name" className="block kicker text-on-surface-variant">衣物名稱</label>
               <input
                 id="up-name"
                 value={name}
                 onChange={(e) => dispatch({ type: "set", patch: { name: e.target.value } })}
-                className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant rounded-none px-4 py-3 focus:ring-0 focus:border-on-surface transition-colors outline-none font-body-md text-on-surface"
                 placeholder="例如：經典卡其色短外套"
                 type="text"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="up-cat" className="block font-label-md text-label-md text-on-surface-variant uppercase">類別</label>
+              <label htmlFor="up-cat" className="block kicker text-on-surface-variant">類別</label>
               <select
                 id="up-cat"
                 value={category}
                 onChange={(e) => dispatch({ type: "set", patch: { category: e.target.value as Category } })}
-                className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant rounded-none px-4 py-3 focus:ring-0 focus:border-on-surface transition-colors outline-none font-body-md text-on-surface"
               >
                 <option value="tops">上衣</option>
                 <option value="bottoms">下著</option>
@@ -211,23 +215,23 @@ export function UploadModal({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="up-brand" className="block font-label-md text-label-md text-on-surface-variant uppercase">品牌</label>
+            <label htmlFor="up-brand" className="block kicker text-on-surface-variant">品牌</label>
             <select
               id="up-brand"
               value={brand}
               onChange={(e) => dispatch({ type: "set", patch: { brand: e.target.value } })}
-              className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant rounded-none px-4 py-3 focus:ring-0 focus:border-on-surface transition-colors outline-none font-body-md text-on-surface"
             >
               <option value="自訂">自訂單品</option>
               <option value="UNIQLO">UNIQLO</option>
               <option value="NET">NET</option>
               <option value="GU">GU</option>
             </select>
-            <p className="text-xs text-on-surface-variant opacity-60">💡 不上傳圖片時，系統會根據名稱與類別自動配對適合的圖片</p>
+            <p className="font-body-md text-body-md text-[13px] text-on-surface-variant">💡 不上傳圖片時，系統會根據名稱與類別自動配對適合的圖片</p>
           </div>
 
           <div className="space-y-3">
-            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">適合季節</span>
+            <span className="block kicker text-on-surface-variant">適合季節</span>
             <div className="flex flex-wrap gap-2">
               {SEASONS.map((s) => (
                 <button
@@ -236,8 +240,8 @@ export function UploadModal({
                   onClick={() => dispatch({ type: "toggleSeason", value: s.value })}
                   className={
                     seasons.includes(s.value)
-                      ? "px-4 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-label-sm"
-                      : "px-4 py-1.5 rounded-full border border-outline-variant text-label-sm font-label-sm hover:bg-primary-container/20"
+                      ? "px-4 py-1.5 bg-on-surface text-background kicker"
+                      : "px-4 py-1.5 border border-outline-variant kicker text-on-surface-variant hover:border-on-surface hover:text-on-surface transition-colors"
                   }
                 >
                   {s.label}
@@ -247,7 +251,7 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">主色調</span>
+            <span className="block kicker text-on-surface-variant">主色調</span>
             <div className="flex flex-wrap gap-3">
               {COLORS.map((c) => (
                 <button
@@ -256,8 +260,8 @@ export function UploadModal({
                   onClick={() => dispatch({ type: "set", patch: { color: c.value } })}
                   title={c.label}
                   aria-label={c.label}
-                  className={`w-8 h-8 rounded-full ${c.swatch} ${c.border ? "border border-outline-variant" : ""} ring-offset-2 transition-transform ${
-                    color === c.value ? "ring-2 ring-primary" : ""
+                  className={`w-8 h-8 rounded-[9999px] ${c.swatch} ${c.border ? "border border-outline-variant" : ""} ring-offset-2 transition-transform hover:scale-110 ${
+                    color === c.value ? "ring-2 ring-on-surface" : ""
                   }`}
                 />
               ))}
@@ -265,7 +269,7 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">風格標籤 (可複選)</span>
+            <span className="block kicker text-on-surface-variant">風格標籤 (可複選)</span>
             <div className="flex flex-wrap gap-2">
               {TAGS.map((t) => (
                 <button
@@ -274,8 +278,8 @@ export function UploadModal({
                   onClick={() => dispatch({ type: "toggleTag", value: t })}
                   className={
                     tags.includes(t)
-                      ? "px-3 py-1 rounded bg-secondary-container text-on-secondary-container border border-secondary text-xs"
-                      : "px-3 py-1 rounded border border-outline-variant text-xs"
+                      ? "px-3 py-1.5 bg-on-surface text-background kicker"
+                      : "px-3 py-1.5 border border-outline-variant kicker text-on-surface-variant hover:border-on-surface hover:text-on-surface transition-colors"
                   }
                 >
                   {t}
@@ -285,17 +289,17 @@ export function UploadModal({
           </div>
         </div>
 
-        <div className="p-8 bg-surface-container-low border-t border-outline-variant/20 flex justify-end gap-4">
+        <div className="px-8 py-6 bg-surface-container-low border-t border-outline flex justify-end gap-3">
           <button
             type="button"
-            className="px-8 py-2.5 rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-variant transition-colors"
+            className="px-8 py-3 kicker text-on-surface-variant border border-outline-variant hover:border-on-surface hover:text-on-surface transition-colors"
             onClick={onClose}
           >
             取消
           </button>
           <button
             type="button"
-            className="px-8 py-2.5 rounded-full font-label-md text-label-md bg-primary text-on-primary shadow-md hover:scale-105 active:scale-95 transition-all"
+            className="px-8 py-3 kicker bg-primary text-on-primary hover:bg-surface-tint transition-colors"
             onClick={submit}
           >
             {isEdit ? "儲存變更" : "確認上傳"}

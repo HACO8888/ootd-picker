@@ -6,6 +6,7 @@ import { TRANSLATE } from "@/lib/data";
 import { parseFavoritesJSON } from "@/lib/storage";
 import type { Favorite } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { Kicker } from "@/components/ui/Editorial";
 
 interface Props {
   open: boolean;
@@ -74,12 +75,13 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
 
   return (
     <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto">
-        <div className="flex justify-between items-center border-b border-outline-variant/20 pb-4">
-          <h2 className="font-headline-md text-headline-md text-primary flex items-center gap-2">
-            <Icon name="favorite" /> 我的風格收藏
-          </h2>
+      <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface-bright border-l border-outline shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto">
+        <div className="flex justify-between items-end border-b border-outline pb-4">
+          <div>
+            <Kicker className="text-primary">MY EDIT</Kicker>
+            <h2 className="font-headline-md text-headline-md text-on-surface mt-1">我的風格收藏</h2>
+          </div>
           <div className="flex items-center gap-1">
             <button type="button" onClick={exportFavorites} className="text-on-surface-variant hover:text-primary p-1" title="匯出 JSON" aria-label="匯出收藏">
               <Icon name="download" className="text-[20px]" />
@@ -108,8 +110,8 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
           {favorites.length === 0 ? (
             <div className="text-center py-20 text-on-surface-variant space-y-4">
               <Icon name="favorite_border" className="text-5xl text-outline-variant" />
-              <p className="text-sm font-medium">目前還沒有收藏任何風格組合</p>
-              <p className="text-xs opacity-60">快點選嚮導來生成你的穿搭與妝容吧！</p>
+              <p className="font-headline-md text-headline-md text-[18px] text-on-surface">尚無收藏的風格組合</p>
+              <p className="font-body-md text-body-md text-[14px]">快點選嚮導來生成你的穿搭與妝容吧！</p>
             </div>
           ) : (
             favorites.map((fav) => {
@@ -124,7 +126,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
               return (
                 <div
                   key={fav.id}
-                  className="p-5 rounded-xl border border-outline-variant/30 bg-white/50 space-y-4 relative group"
+                  className="p-5 border border-outline-variant bg-surface-bright space-y-4 relative group hover:border-on-surface transition-colors"
                 >
                   <button type="button"
                     onClick={(e) => handleDelete(e, fav.id)}
@@ -148,7 +150,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                           if (e.key === "Escape") setEditingId(null);
                         }}
                         placeholder="為這組造型命名…"
-                        className="flex-1 bg-surface-container border-none rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        className="flex-1 bg-surface-container-low border border-outline-variant rounded-none px-3 py-1.5 text-sm focus:ring-0 focus:border-on-surface outline-none"
                       />
                       <button type="button" onClick={() => commitRename(fav.id)} className="text-primary" aria-label="儲存名稱">
                         <Icon name="check" className="text-[20px]" />
@@ -164,28 +166,28 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                   )}
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded font-mono">{fav.date}</span>
-                    <span className="text-xs text-primary font-bold uppercase tracking-wider">
-                      {TRANSLATE.weather[fav.outfit.context.weather]} | {fav.outfit.context.destination}
+                    <span className="kicker text-on-surface-variant">{fav.date}</span>
+                    <span className="kicker text-primary">
+                      {TRANSLATE.weather[fav.outfit.context.weather]} · {fav.outfit.context.destination}
                     </span>
-                    {genderLabel && <span className="text-xs text-secondary">{genderLabel}</span>}
+                    {genderLabel && <span className="kicker text-on-surface-variant">{genderLabel}</span>}
                   </div>
-                  <div className="space-y-1 border-l-2 border-primary/30 pl-3">
-                    <p className="text-sm font-bold text-on-surface leading-tight">{garments.join(" + ")}</p>
-                    <p className="text-xs text-on-surface-variant mt-1 flex items-center gap-1">
-                      <Icon name="auto_awesome" className="text-xs text-secondary" />
+                  <div className="space-y-1.5 border-l-2 border-primary pl-3">
+                    <p className="font-body-md text-body-md text-[14px] font-semibold text-on-surface leading-snug">{garments.join(" + ")}</p>
+                    <p className="font-body-md text-body-md text-[13px] text-on-surface-variant flex items-center gap-1.5">
+                      <Icon name="auto_awesome" className="text-[14px] text-on-surface" />
                       妝容：{fav.outfit.makeup.name}
                     </p>
                     {fav.outfit.perfume && (
-                      <p className="text-xs text-on-surface-variant flex items-center gap-1">
-                        <Icon name="self_care" className="text-xs text-[#7d562d]" />
+                      <p className="font-body-md text-body-md text-[13px] text-on-surface-variant flex items-center gap-1.5">
+                        <Icon name="self_care" className="text-[14px] text-on-surface" />
                         香水：{fav.outfit.perfume.name}
                       </p>
                     )}
                   </div>
                   <button type="button"
                     onClick={() => onApply(fav)}
-                    className="w-full bg-primary-container/20 text-on-primary-container py-2 rounded font-label-md text-label-md text-xs hover:bg-primary-container/40 transition-colors"
+                    className="w-full border border-on-surface text-on-surface py-2.5 kicker hover:bg-on-surface hover:text-background transition-colors"
                   >
                     載入至畫布預覽
                   </button>

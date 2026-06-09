@@ -58,9 +58,13 @@ export default function ClosetPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const toggle = <T,>(setter: React.Dispatch<React.SetStateAction<T[]>>, v: T) =>
     setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+
+  const activeFilters =
+    (category !== "all" ? 1 : 0) + seasons.length + tags.length + colors.length + brands.length + (search ? 1 : 0);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: closet.length };
@@ -153,12 +157,27 @@ export default function ClosetPage() {
 
   return (
     <>
-      <main className="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 flex flex-col md:flex-row gap-12">
+      <main className="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop py-8 md:py-12 flex flex-col md:flex-row gap-6 md:gap-12">
+        {/* Mobile filter toggle */}
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="md:hidden flex items-center justify-between w-full px-5 py-3 rounded-full border border-outline-variant/40 bg-surface-container-low font-label-md text-label-md"
+          aria-expanded={filtersOpen}
+        >
+          <span className="flex items-center gap-2">
+            <Icon name="tune" className="text-[20px] text-primary" /> 篩選
+            {activeFilters > 0 && (
+              <span className="bg-primary text-on-primary text-xs rounded-full px-2 py-0.5">{activeFilters}</span>
+            )}
+          </span>
+          <Icon name={filtersOpen ? "expand_less" : "expand_more"} className="text-[20px] text-on-surface-variant" />
+        </button>
+
         {/* Sidebar */}
-        <aside className="w-full md:w-64 flex-shrink-0 space-y-10">
+        <aside className={`w-full md:w-64 flex-shrink-0 space-y-8 md:space-y-10 ${filtersOpen ? "block" : "hidden"} md:block`}>
           <div className="flex items-center justify-between">
-            <h2 className="font-headline-md text-headline-md text-primary">篩選</h2>
-            <button onClick={clearAll} className="text-xs text-secondary hover:underline">
+            <h2 className="hidden md:block font-headline-md text-headline-md text-primary">篩選</h2>
+            <button onClick={clearAll} className="text-xs text-secondary hover:underline ml-auto">
               清除篩選
             </button>
           </div>

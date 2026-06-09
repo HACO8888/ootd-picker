@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Icon } from "@/components/ui/Icon";
 
 const LINKS = [
   { href: "/", label: "首頁" },
@@ -36,17 +35,7 @@ export function Footer() {
 
         <hr className="editorial-rule my-10" />
 
-        <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-6">
-          <p className="kicker text-on-surface-variant">© 2026 OOTD PICKER. ALL RIGHTS RESERVED.</p>
-          <div className="flex gap-3">
-            <span className="w-10 h-10 border border-outline flex items-center justify-center hover:bg-on-surface hover:text-background transition-colors cursor-pointer">
-              <Icon name="public" className="text-[18px]" />
-            </span>
-            <span className="w-10 h-10 border border-outline flex items-center justify-center hover:bg-on-surface hover:text-background transition-colors cursor-pointer">
-              <Icon name="mail" className="text-[18px]" />
-            </span>
-          </div>
-        </div>
+        <p className="kicker text-on-surface-variant">© 2026 OOTD PICKER. ALL RIGHTS RESERVED.</p>
       </div>
     </footer>
   );

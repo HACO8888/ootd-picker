@@ -35,7 +35,7 @@ export function OutfitStack({ outfit, onSwap }: { outfit: Outfit; onSwap: (slot:
                 </span>
               </div>
             </div>
-            <button
+            <button type="button"
               onClick={() => onSwap(slot)}
               className="p-2.5 rounded-full border border-outline-variant/30 hover:bg-primary-container/20 hover:border-primary/30 transition-all"
               title="換一件"

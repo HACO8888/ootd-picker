@@ -88,7 +88,7 @@ export function UploadModal({
       <div className="relative w-full max-w-2xl bg-surface rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
         <div className="p-8 border-b border-outline-variant/20 flex justify-between items-center">
           <h2 className="font-headline-md text-headline-md text-primary">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
-          <button className="text-on-surface-variant hover:text-primary" onClick={onClose} aria-label="關閉">
+          <button type="button" className="text-on-surface-variant hover:text-primary" onClick={onClose} aria-label="關閉">
             <Icon name="close" />
           </button>
         </div>
@@ -144,8 +144,9 @@ export function UploadModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase">衣物名稱</label>
+              <label htmlFor="up-name" className="block font-label-md text-label-md text-on-surface-variant uppercase">衣物名稱</label>
               <input
+                id="up-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
@@ -154,8 +155,9 @@ export function UploadModal({
               />
             </div>
             <div className="space-y-2">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase">類別</label>
+              <label htmlFor="up-cat" className="block font-label-md text-label-md text-on-surface-variant uppercase">類別</label>
               <select
+                id="up-cat"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as Category)}
                 className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
@@ -169,8 +171,9 @@ export function UploadModal({
           </div>
 
           <div className="space-y-2">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase">品牌</label>
+            <label htmlFor="up-brand" className="block font-label-md text-label-md text-on-surface-variant uppercase">品牌</label>
             <select
+              id="up-brand"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
@@ -184,12 +187,11 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase">適合季節</label>
+            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">適合季節</span>
             <div className="flex flex-wrap gap-2">
               {SEASONS.map((s) => (
-                <button
+                <button type="button"
                   key={s.value}
-                  type="button"
                   onClick={() => toggleSeason(s.value)}
                   className={
                     seasons.includes(s.value)
@@ -204,12 +206,11 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase">主色調</label>
+            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">主色調</span>
             <div className="flex flex-wrap gap-3">
               {COLORS.map((c) => (
-                <button
+                <button type="button"
                   key={c.value}
-                  type="button"
                   onClick={() => setColor(c.value)}
                   title={c.label}
                   aria-label={c.label}
@@ -222,12 +223,11 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase">風格標籤 (可複選)</label>
+            <span className="block font-label-md text-label-md text-on-surface-variant uppercase">風格標籤 (可複選)</span>
             <div className="flex flex-wrap gap-2">
               {TAGS.map((t) => (
-                <button
+                <button type="button"
                   key={t}
-                  type="button"
                   onClick={() => toggleTag(t)}
                   className={
                     tags.includes(t)
@@ -243,13 +243,13 @@ export function UploadModal({
         </div>
 
         <div className="p-8 bg-surface-container-low border-t border-outline-variant/20 flex justify-end gap-4">
-          <button
+          <button type="button"
             className="px-8 py-2.5 rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-variant transition-colors"
             onClick={onClose}
           >
             取消
           </button>
-          <button
+          <button type="button"
             className="px-8 py-2.5 rounded-full font-label-md text-label-md bg-primary text-on-primary shadow-md hover:scale-105 active:scale-95 transition-all"
             onClick={submit}
           >

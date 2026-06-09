@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   favoritesStore,
   addFavoriteToStore,
@@ -18,10 +18,11 @@ export function useFavorites() {
     favoritesStore.getServerSnapshot,
   );
 
-  const addFav = useCallback((outfit: Outfit, name?: string) => addFavoriteToStore(outfit, name), []);
-  const deleteFav = useCallback((id: string) => deleteFavoriteFromStore(id), []);
-  const renameFav = useCallback((id: string, name: string) => renameFavoriteInStore(id, name), []);
-  const replaceAll = useCallback((list: Favorite[]) => setFavoritesInStore(list), []);
+  // The React Compiler memoizes these — no manual useCallback needed.
+  const addFav = (outfit: Outfit, name?: string) => addFavoriteToStore(outfit, name);
+  const deleteFav = (id: string) => deleteFavoriteFromStore(id);
+  const renameFav = (id: string, name: string) => renameFavoriteInStore(id, name);
+  const replaceAll = (list: Favorite[]) => setFavoritesInStore(list);
 
   return { favorites, addFav, deleteFav, renameFav, replaceAll };
 }

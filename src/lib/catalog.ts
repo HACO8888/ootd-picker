@@ -48,5 +48,3 @@ export function getCatalog(): Item[] {
   CATALOG_CACHE = items;
   return CATALOG_CACHE;
 }
-
-export const CATALOG_SIZE = (): number => getCatalog().length;

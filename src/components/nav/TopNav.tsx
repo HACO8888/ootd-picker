@@ -40,7 +40,7 @@ export function TopNav() {
               {l.label}
             </Link>
           ))}
-          <button
+          <button type="button"
             onClick={openFavorites}
             className="flex items-center gap-2 border border-primary text-primary px-5 py-2 rounded-full font-label-md text-label-md hover:bg-primary/5 transition-all"
           >
@@ -55,7 +55,7 @@ export function TopNav() {
           </Link>
         </div>
 
-        <button
+        <button type="button"
           className="md:hidden text-primary"
           onClick={() => setDrawerOpen((v) => !v)}
           aria-label="開啟選單"
@@ -81,7 +81,7 @@ export function TopNav() {
               {l.label}
             </Link>
           ))}
-          <button
+          <button type="button"
             onClick={() => {
               openFavorites();
               setDrawerOpen(false);

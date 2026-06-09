@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, use, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Favorite } from "@/lib/types";
 import { FavoritesDrawer } from "@/components/favorites/FavoritesDrawer";
@@ -27,7 +19,7 @@ interface ChromeContextValue {
 const ChromeContext = createContext<ChromeContextValue | null>(null);
 
 export function useChrome(): ChromeContextValue {
-  const ctx = useContext(ChromeContext);
+  const ctx = use(ChromeContext);
   if (!ctx) throw new Error("useChrome must be used within <ChromeProvider>");
   return ctx;
 }
@@ -39,29 +31,30 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
   const [pendingFavorite, setPendingFavorite] = useState<Favorite | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback((message: string) => {
+  // The React Compiler memoizes these handlers and the context value.
+  const showToast = (message: string) => {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2500);
-  }, []);
+  };
 
-  const openFavorites = useCallback(() => setFavoritesOpen(true), []);
+  const openFavorites = () => setFavoritesOpen(true);
 
-  const applyFavorite = useCallback(
-    (fav: Favorite) => {
-      setPendingFavorite(fav);
-      setFavoritesOpen(false);
-      router.push("/picker");
-    },
-    [router],
-  );
+  const applyFavorite = (fav: Favorite) => {
+    setPendingFavorite(fav);
+    setFavoritesOpen(false);
+    router.push("/picker");
+  };
 
-  const consumePendingFavorite = useCallback(() => setPendingFavorite(null), []);
+  const consumePendingFavorite = () => setPendingFavorite(null);
 
-  const value = useMemo<ChromeContextValue>(
-    () => ({ showToast, openFavorites, applyFavorite, pendingFavorite, consumePendingFavorite }),
-    [showToast, openFavorites, applyFavorite, pendingFavorite, consumePendingFavorite],
-  );
+  const value: ChromeContextValue = {
+    showToast,
+    openFavorites,
+    applyFavorite,
+    pendingFavorite,
+    consumePendingFavorite,
+  };
 
   return (
     <ChromeContext.Provider value={value}>

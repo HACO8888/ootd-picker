@@ -53,9 +53,10 @@ function compose(): Item[] {
   const user = readUser();
   const hidden = new Set(readHidden());
   const overrides = readOverrides();
-  const catalog = getCatalog()
-    .filter((i) => !hidden.has(i.id))
-    .map((i) => (overrides[i.id] ? { ...i, ...overrides[i.id] } : i));
+  // Single pass: drop hidden ids and apply per-item overrides.
+  const catalog = getCatalog().flatMap((i) =>
+    hidden.has(i.id) ? [] : [overrides[i.id] ? { ...i, ...overrides[i.id] } : i],
+  );
   return [...user, ...catalog];
 }
 

@@ -113,7 +113,7 @@ export function generateOOTD(
   const validMakeup = MAKEUP_LOOKBOOK.filter(
     (m) => !m.gender || m.gender.includes(gender) || m.gender.includes("unisex") || gender === "unisex",
   );
-  const makeup = [...validMakeup].sort((a, b) => mScore(b) - mScore(a))[0];
+  const makeup = validMakeup.reduce((best, m) => (mScore(m) > mScore(best) ? m : best));
 
   const pScore = (p: Perfume) => {
     let s = 0;
@@ -125,7 +125,7 @@ export function generateOOTD(
     });
     return s;
   };
-  const perfume = [...PERFUME_LOOKBOOK].sort((a, b) => pScore(b) - pScore(a))[0];
+  const perfume = PERFUME_LOOKBOOK.reduce((best, p) => (pScore(p) > pScore(best) ? p : best));
 
   return { top, bottom, outerwear, accessory, makeup, perfume, context: { weather, mood, destination, gender } };
 }

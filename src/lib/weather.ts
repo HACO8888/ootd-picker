@@ -9,7 +9,7 @@ export interface DetectedWeather {
 }
 
 /** Map an Open-Meteo WMO weather code + temperature to our 4 weather buckets. */
-export function mapToWeather(code: number, temp: number): Weather {
+function mapToWeather(code: number, temp: number): Weather {
   // Cold dominates regardless of sky when it is genuinely chilly.
   if (temp <= 12) return "cold";
   // Rain / drizzle / snow / thunderstorm codes.

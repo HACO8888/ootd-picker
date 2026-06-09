@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   closetStore,
   addClosetItemToStore,
@@ -17,25 +17,19 @@ export function useCloset() {
     closetStore.getServerSnapshot,
   );
 
-  const addItem = useCallback(
-    (
-      name: string,
-      category: Category,
-      seasons: Season[],
-      colors: string | string[],
-      tags: string | string[],
-      imageUrl: string,
-      brand?: string,
-    ) => addClosetItemToStore(name, category, seasons, colors, tags, imageUrl, brand),
-    [],
-  );
+  // The React Compiler memoizes these — no manual useCallback needed.
+  const addItem = (
+    name: string,
+    category: Category,
+    seasons: Season[],
+    colors: string | string[],
+    tags: string | string[],
+    imageUrl: string,
+    brand?: string,
+  ) => addClosetItemToStore(name, category, seasons, colors, tags, imageUrl, brand);
 
-  const deleteItem = useCallback((id: string) => deleteClosetItemFromStore(id), []);
-
-  const updateItem = useCallback(
-    (id: string, patch: Partial<Omit<Item, "id">>) => updateClosetItemInStore(id, patch),
-    [],
-  );
+  const deleteItem = (id: string) => deleteClosetItemFromStore(id);
+  const updateItem = (id: string, patch: Partial<Omit<Item, "id">>) => updateClosetItemInStore(id, patch);
 
   return { closet, addItem, deleteItem, updateItem };
 }

@@ -37,7 +37,7 @@ export function ItemCard({
           {brand}
         </div>
         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
-          <button
+          <button type="button"
             onClick={() => onEdit(item)}
             className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-primary hover:text-white transition-colors"
             title="編輯單品"
@@ -45,7 +45,7 @@ export function ItemCard({
           >
             <Icon name="edit" className="text-[18px]" />
           </button>
-          <button
+          <button type="button"
             onClick={() => onDelete(item.id)}
             className="bg-surface/90 backdrop-blur-md p-2 rounded-full hover:bg-error hover:text-white transition-colors"
             title="刪除單品"

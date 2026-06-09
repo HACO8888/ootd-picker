@@ -81,10 +81,10 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
             <Icon name="favorite" /> 我的風格收藏
           </h2>
           <div className="flex items-center gap-1">
-            <button onClick={exportFavorites} className="text-on-surface-variant hover:text-primary p-1" title="匯出 JSON" aria-label="匯出收藏">
+            <button type="button" onClick={exportFavorites} className="text-on-surface-variant hover:text-primary p-1" title="匯出 JSON" aria-label="匯出收藏">
               <Icon name="download" className="text-[20px]" />
             </button>
-            <button onClick={() => fileRef.current?.click()} className="text-on-surface-variant hover:text-primary p-1" title="匯入 JSON" aria-label="匯入收藏">
+            <button type="button" onClick={() => fileRef.current?.click()} className="text-on-surface-variant hover:text-primary p-1" title="匯入 JSON" aria-label="匯入收藏">
               <Icon name="upload" className="text-[20px]" />
             </button>
             <input
@@ -98,7 +98,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                 e.target.value = "";
               }}
             />
-            <button className="text-on-surface-variant hover:text-primary p-1" onClick={onClose} aria-label="關閉收藏">
+            <button type="button" className="text-on-surface-variant hover:text-primary p-1" onClick={onClose} aria-label="關閉收藏">
               <Icon name="close" />
             </button>
           </div>
@@ -126,7 +126,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                   key={fav.id}
                   className="p-5 rounded-xl border border-outline-variant/30 bg-white/50 space-y-4 relative group"
                 >
-                  <button
+                  <button type="button"
                     onClick={(e) => handleDelete(e, fav.id)}
                     className="absolute top-4 right-4 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
                     title="刪除收藏"
@@ -140,6 +140,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                     <div className="flex items-center gap-2">
                       <input
                         autoFocus
+                        aria-label="收藏名稱"
                         value={draftName}
                         onChange={(e) => setDraftName(e.target.value)}
                         onKeyDown={(e) => {
@@ -149,12 +150,12 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                         placeholder="為這組造型命名…"
                         className="flex-1 bg-surface-container border-none rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                       />
-                      <button onClick={() => commitRename(fav.id)} className="text-primary" aria-label="儲存名稱">
+                      <button type="button" onClick={() => commitRename(fav.id)} className="text-primary" aria-label="儲存名稱">
                         <Icon name="check" className="text-[20px]" />
                       </button>
                     </div>
                   ) : (
-                    <button onClick={() => startRename(fav)} className="flex items-center gap-1.5 text-left group/name" title="點擊命名">
+                    <button type="button" onClick={() => startRename(fav)} className="flex items-center gap-1.5 text-left group/name" title="點擊命名">
                       <span className="font-headline-md text-headline-md text-[17px] text-on-surface">
                         {fav.name || "未命名造型"}
                       </span>
@@ -182,7 +183,7 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                       </p>
                     )}
                   </div>
-                  <button
+                  <button type="button"
                     onClick={() => onApply(fav)}
                     className="w-full bg-primary-container/20 text-on-primary-container py-2 rounded font-label-md text-label-md text-xs hover:bg-primary-container/40 transition-colors"
                   >

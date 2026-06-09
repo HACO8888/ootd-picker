@@ -113,14 +113,17 @@ export default function PickerPage() {
   const detectWeather = async () => {
     if (detecting) return;
     setDetecting(true);
-    try {
-      const d = await detectTodayWeather();
-      showToast(`已偵測到目前天氣：${d.label}`);
-      selectWeather(d.weather);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "無法偵測天氣，請手動選擇");
-    } finally {
-      setDetecting(false);
+    // Avoid try/finally so the React Compiler can optimize this component.
+    const result = await detectTodayWeather().then(
+      (d) => ({ ok: true as const, d }),
+      (err: unknown) => ({ ok: false as const, err }),
+    );
+    setDetecting(false);
+    if (result.ok) {
+      showToast(`已偵測到目前天氣：${result.d.label}`);
+      selectWeather(result.d.weather);
+    } else {
+      showToast(result.err instanceof Error ? result.err.message : "無法偵測天氣，請手動選擇");
     }
   };
   const selectMood = (m: string) => {
@@ -244,7 +247,7 @@ export default function PickerPage() {
           <div className="step-slide w-full flex flex-col gap-8">
             <StepHeading step="Step 2 / 4" title="今天出門，外面的天氣如何？" />
             <div className="flex justify-center -mt-2">
-              <button
+              <button type="button"
                 onClick={detectWeather}
                 disabled={detecting}
                 className="flex items-center gap-2 border border-primary text-primary px-5 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary/5 transition-all disabled:opacity-60"
@@ -322,13 +325,13 @@ export default function PickerPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button
+                <button type="button"
                   onClick={regenerate}
                   className="flex items-center gap-2 bg-surface border border-outline-variant hover:bg-surface-container px-6 py-3 rounded-full font-label-md text-label-md transition-all"
                 >
                   <Icon name="refresh" className="text-[20px]" /> 重新生成穿搭
                 </button>
-                <button
+                <button type="button"
                   onClick={saveCombination}
                   disabled={saved}
                   className={
@@ -358,7 +361,7 @@ export default function PickerPage() {
             <PerfumeCard perfume={rec.perfume} onSwap={swapPerfume} />
 
             <div className="flex justify-center mt-6">
-              <button
+              <button type="button"
                 onClick={resetWizard}
                 className="flex items-center gap-2 text-on-surface-variant hover:text-primary font-medium hover:underline text-sm py-2"
               >
@@ -384,7 +387,7 @@ function StepHeading({ step, title, hint }: { step: string; title: string; hint?
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="mt-8 mx-auto flex items-center gap-2 text-primary font-medium hover:underline text-sm">
+    <button type="button" onClick={onClick} className="mt-8 mx-auto flex items-center gap-2 text-primary font-medium hover:underline text-sm">
       <Icon name="arrow_back" className="text-sm" /> 返回上一步
     </button>
   );

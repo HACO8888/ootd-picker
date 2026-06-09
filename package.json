@@ -34,11 +34,5 @@
   },
   "trustedDependencies": [
     "unrs-resolver"
-  ],
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp",
-      "unrs-resolver"
-    ]
-  }
+  ]
 }

@@ -32,3 +32,4 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 public/images/catalog/gen/
+scripts/.images-urls.csv

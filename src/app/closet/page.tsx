@@ -159,7 +159,7 @@ export default function ClosetPage() {
     <>
       <main className="max-w-[1200px] mx-auto px-container-padding-mobile md:px-container-padding-desktop py-8 md:py-12 flex flex-col md:flex-row gap-6 md:gap-12">
         {/* Mobile filter toggle */}
-        <button
+        <button type="button"
           onClick={() => setFiltersOpen((v) => !v)}
           className="md:hidden flex items-center justify-between w-full px-5 py-3 rounded-full border border-outline-variant/40 bg-surface-container-low font-label-md text-label-md"
           aria-expanded={filtersOpen}
@@ -177,7 +177,7 @@ export default function ClosetPage() {
         <aside className={`w-full md:w-64 flex-shrink-0 space-y-8 md:space-y-10 ${filtersOpen ? "block" : "hidden"} md:block`}>
           <div className="flex items-center justify-between">
             <h2 className="hidden md:block font-headline-md text-headline-md text-primary">篩選</h2>
-            <button onClick={clearAll} className="text-xs text-secondary hover:underline ml-auto">
+            <button type="button" onClick={clearAll} className="text-xs text-secondary hover:underline ml-auto">
               清除篩選
             </button>
           </div>
@@ -186,7 +186,7 @@ export default function ClosetPage() {
             <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">類別</h3>
             <div className="flex flex-col gap-2">
               {CATEGORIES.map((c) => (
-                <button
+                <button type="button"
                   key={c.value}
                   onClick={() => setCategory(c.value)}
                   className={`flex items-center justify-between w-full p-3 rounded-xl transition-colors group ${
@@ -209,7 +209,7 @@ export default function ClosetPage() {
             <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">季節</h3>
             <div className="flex flex-wrap gap-2">
               {SEASONS.map((s) => (
-                <button
+                <button type="button"
                   key={s.value}
                   onClick={() => toggle(setSeasons, s.value)}
                   className={
@@ -228,7 +228,7 @@ export default function ClosetPage() {
             <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">品牌</h3>
             <div className="flex flex-col gap-2">
               {BRANDS.map((b) => (
-                <button
+                <button type="button"
                   key={b.value}
                   onClick={() => toggle(setBrands, b.value)}
                   className={`flex items-center justify-between w-full px-4 py-2.5 rounded-xl text-label-sm font-label-sm transition-all ${
@@ -267,7 +267,7 @@ export default function ClosetPage() {
             <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">配色方案</h3>
             <div className="flex flex-wrap gap-3">
               {COLORS.map((c) => (
-                <button
+                <button type="button"
                   key={c.value}
                   onClick={() => toggle(setColors, c.value)}
                   title={c.value}
@@ -296,12 +296,13 @@ export default function ClosetPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  aria-label="搜尋單品或風格"
                   className="bg-surface-container-low border-none rounded-full pl-12 pr-6 py-3 font-body-md text-body-md w-full sm:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none"
                   placeholder="搜尋單品或風格..."
                   type="text"
                 />
               </div>
-              <button
+              <button type="button"
                 className="bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full font-label-md text-label-md flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-md group"
                 onClick={openAdd}
               >
@@ -315,7 +316,7 @@ export default function ClosetPage() {
             <div className="text-center py-20 text-on-surface-variant space-y-4">
               <Icon name="checkroom" className="text-6xl text-outline-variant" />
               <p className="font-headline-md text-headline-md">沒有找到符合條件的衣物</p>
-              <button onClick={clearAll} className="text-primary underline">
+              <button type="button" onClick={clearAll} className="text-primary underline">
                 重設所有篩選
               </button>
             </div>
@@ -332,7 +333,7 @@ export default function ClosetPage() {
               </div>
               {visible < filtered.length && (
                 <div className="flex justify-center pt-4">
-                  <button
+                  <button type="button"
                     onClick={() => setVisible((v) => v + PAGE)}
                     className="flex items-center gap-2 bg-primary text-on-primary px-8 py-3 rounded-full font-label-md text-label-md hover:scale-105 active:scale-95 transition-all shadow-md"
                   >

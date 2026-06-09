@@ -17,7 +17,7 @@ interface Props {
 
 export function ChoiceCard({ onClick, title, subtitle, icon, iconClass = "", emoji, active, compact }: Props) {
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={`${compact ? "p-6 gap-3" : "p-8 gap-4"} rounded-xl border bg-white shadow-[0px_10px_35px_rgba(135,152,106,0.04)] hover:shadow-lg hover:border-primary/50 transition-all duration-300 flex flex-col items-center group ${
         active ? "gender-card-active border-2" : "border-outline-variant/30"

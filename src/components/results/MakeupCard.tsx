@@ -22,7 +22,7 @@ export function MakeupCard({ makeup, onSwap }: { makeup: Makeup; onSwap: () => v
         </div>
 
         <div className="bg-white/80 backdrop-blur p-5 rounded-xl border border-outline-variant/20 space-y-4 relative group">
-          <button
+          <button type="button"
             onClick={onSwap}
             className="absolute top-4 right-4 p-2 rounded-full border border-outline-variant/30 hover:bg-primary-container/20 hover:border-primary/30 transition-all opacity-0 group-hover:opacity-100"
             title="換一個妝容"

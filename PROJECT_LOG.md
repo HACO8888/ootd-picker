@@ -117,9 +117,7 @@
 | 工程品質 | ✅ | `pnpm lint` exit 0；`pnpm build` 成功（TypeScript 通過、全部路由靜態預渲染含 `/insights`·`/journal`·`/share`·`/opengraph-image`·`/twitter-image`） |
 | 路由可達 | ✅ | dev 實測 `/insights`·`/journal`·`/share`（含帶參數解碼 `?w=…&m=…&p=…`）皆 **200 text/html**；`/opengraph-image`·`/twitter-image`·`/icon`·`/apple-icon` 皆 **200 image/png** |
 | 推薦優化 | ✅ | 既有嚮導 e2e（走完 4 步驟生成造型可收藏）通過；`scoreItem` 評分／下限／加權隨機／綜合排序見 `recommend.ts` |
-| 洞察/日誌/分享 | ✅（程式/型別 + 路由 200） | 行為依程式碼審查與路由實測；**互動式 e2e 尚未涵蓋這三個功能**（現有 `e2e/` 僅嚮導/衣櫥分頁/篩選/新增） |
-| e2e | ✅ | `pnpm test:e2e` → **4 passed**（重構後過時選擇器已修正） |
+| 洞察/日誌/分享 | ✅（互動 e2e 實測） | 新增 `e2e/insights·journal·share.spec.ts`：洞察組成/季節/品牌/色彩面板＋使用頻率空狀態；結果頁「標記為今天穿」→ `/journal` 月曆出現「1 筆紀錄」→ 點當日開啟詳情抽屜；分享連結解碼還原單品/妝容並可收藏、無效連結空狀態、結果頁開啟 ShareSheet |
+| e2e | ✅ | `pnpm test:e2e` → **9 passed**（原 4 + 新增 5；重構後過時選擇器已修正） |
 
-> 待辦：補上 insights/journal/share 的 Playwright 互動 e2e（記錄穿搭→月曆顯示→分享卡片產生/連結還原），以取代目前以程式碼審查為主的功能驗收。
-
-**第 4 輪結論：推薦演算法優化與三項新功能通過 build / lint / 型別 / 路由實測，已 push 至 `main`；互動式 e2e 待補。**
+**第 4 輪結論：推薦演算法優化與三項新功能（衣櫥洞察／穿搭日誌／造型分享）通過 build / lint / 型別 / 互動 e2e（9 passed），已 push 至 `main`。**

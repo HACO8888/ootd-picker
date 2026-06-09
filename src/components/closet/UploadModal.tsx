@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useReducer, useRef } from "react";
 import type { Category, Season } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 
@@ -31,6 +31,57 @@ const COLORS: { value: string; label: string; swatch: string; border?: boolean }
 
 const TAGS = ["放鬆", "工作", "專業", "約會", "優雅", "活力", "舒適"];
 
+/* ─── Form state (useReducer) ────────────────────────────────────────────── */
+interface FormState {
+  name: string;
+  category: Category;
+  brand: string;
+  seasons: Season[];
+  color: string;
+  tags: string[];
+  image: string;
+  dragging: boolean;
+}
+
+type FormAction =
+  | { type: "set"; patch: Partial<FormState> }
+  | { type: "toggleSeason"; value: Season }
+  | { type: "toggleTag"; value: string };
+
+function formReducer(state: FormState, action: FormAction): FormState {
+  switch (action.type) {
+    case "set":
+      return { ...state, ...action.patch };
+    case "toggleSeason":
+      return {
+        ...state,
+        seasons: state.seasons.includes(action.value)
+          ? state.seasons.filter((x) => x !== action.value)
+          : [...state.seasons, action.value],
+      };
+    case "toggleTag":
+      return {
+        ...state,
+        tags: state.tags.includes(action.value)
+          ? state.tags.filter((x) => x !== action.value)
+          : [...state.tags, action.value],
+      };
+  }
+}
+
+function initState(initial?: UploadPayload): FormState {
+  return {
+    name: initial?.name ?? "",
+    category: initial?.category ?? "tops",
+    brand: initial?.brand ?? "自訂",
+    seasons: initial?.seasons ?? [],
+    color: initial?.colors?.[0] ?? "",
+    tags: initial?.tags ?? [],
+    image: initial?.imageUrl ?? "",
+    dragging: false,
+  };
+}
+
 export function UploadModal({
   onClose,
   onSubmit,
@@ -42,20 +93,9 @@ export function UploadModal({
   initial?: UploadPayload;
 }) {
   const isEdit = Boolean(initial);
-  const [name, setName] = useState(initial?.name ?? "");
-  const [category, setCategory] = useState<Category>(initial?.category ?? "tops");
-  const [brand, setBrand] = useState(initial?.brand ?? "自訂");
-  const [seasons, setSeasons] = useState<Season[]>(initial?.seasons ?? []);
-  const [color, setColor] = useState(initial?.colors?.[0] ?? "");
-  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [image, setImage] = useState(initial?.imageUrl ?? "");
-  const [dragging, setDragging] = useState(false);
+  const [state, dispatch] = useReducer(formReducer, initial, initState);
+  const { name, category, brand, seasons, color, tags, image, dragging } = state;
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const toggleSeason = (s: Season) =>
-    setSeasons((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-  const toggleTag = (t: string) =>
-    setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -63,7 +103,7 @@ export function UploadModal({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setImage(reader.result as string);
+    reader.onload = () => dispatch({ type: "set", patch: { image: reader.result as string } });
     reader.readAsDataURL(file);
   };
 
@@ -99,19 +139,19 @@ export function UploadModal({
             onClick={() => fileRef.current?.click()}
             onDragEnter={(e) => {
               e.preventDefault();
-              setDragging(true);
+              dispatch({ type: "set", patch: { dragging: true } });
             }}
             onDragOver={(e) => {
               e.preventDefault();
-              setDragging(true);
+              dispatch({ type: "set", patch: { dragging: true } });
             }}
             onDragLeave={(e) => {
               e.preventDefault();
-              setDragging(false);
+              dispatch({ type: "set", patch: { dragging: false } });
             }}
             onDrop={(e) => {
               e.preventDefault();
-              setDragging(false);
+              dispatch({ type: "set", patch: { dragging: false } });
               const file = e.dataTransfer.files[0];
               if (file) handleFile(file);
             }}
@@ -148,7 +188,7 @@ export function UploadModal({
               <input
                 id="up-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => dispatch({ type: "set", patch: { name: e.target.value } })}
                 className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
                 placeholder="例如：經典卡其色短外套"
                 type="text"
@@ -159,7 +199,7 @@ export function UploadModal({
               <select
                 id="up-cat"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
+                onChange={(e) => dispatch({ type: "set", patch: { category: e.target.value as Category } })}
                 className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
               >
                 <option value="tops">上衣</option>
@@ -175,7 +215,7 @@ export function UploadModal({
             <select
               id="up-brand"
               value={brand}
-              onChange={(e) => setBrand(e.target.value)}
+              onChange={(e) => dispatch({ type: "set", patch: { brand: e.target.value } })}
               className="w-full bg-surface-container border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none font-body-md text-on-surface"
             >
               <option value="自訂">自訂單品</option>
@@ -190,9 +230,10 @@ export function UploadModal({
             <span className="block font-label-md text-label-md text-on-surface-variant uppercase">適合季節</span>
             <div className="flex flex-wrap gap-2">
               {SEASONS.map((s) => (
-                <button type="button"
+                <button
+                  type="button"
                   key={s.value}
-                  onClick={() => toggleSeason(s.value)}
+                  onClick={() => dispatch({ type: "toggleSeason", value: s.value })}
                   className={
                     seasons.includes(s.value)
                       ? "px-4 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-label-sm"
@@ -209,9 +250,10 @@ export function UploadModal({
             <span className="block font-label-md text-label-md text-on-surface-variant uppercase">主色調</span>
             <div className="flex flex-wrap gap-3">
               {COLORS.map((c) => (
-                <button type="button"
+                <button
+                  type="button"
                   key={c.value}
-                  onClick={() => setColor(c.value)}
+                  onClick={() => dispatch({ type: "set", patch: { color: c.value } })}
                   title={c.label}
                   aria-label={c.label}
                   className={`w-8 h-8 rounded-full ${c.swatch} ${c.border ? "border border-outline-variant" : ""} ring-offset-2 transition-transform ${
@@ -226,9 +268,10 @@ export function UploadModal({
             <span className="block font-label-md text-label-md text-on-surface-variant uppercase">風格標籤 (可複選)</span>
             <div className="flex flex-wrap gap-2">
               {TAGS.map((t) => (
-                <button type="button"
+                <button
+                  type="button"
                   key={t}
-                  onClick={() => toggleTag(t)}
+                  onClick={() => dispatch({ type: "toggleTag", value: t })}
                   className={
                     tags.includes(t)
                       ? "px-3 py-1 rounded bg-secondary-container text-on-secondary-container border border-secondary text-xs"
@@ -243,13 +286,15 @@ export function UploadModal({
         </div>
 
         <div className="p-8 bg-surface-container-low border-t border-outline-variant/20 flex justify-end gap-4">
-          <button type="button"
+          <button
+            type="button"
             className="px-8 py-2.5 rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-variant transition-colors"
             onClick={onClose}
           >
             取消
           </button>
-          <button type="button"
+          <button
+            type="button"
             className="px-8 py-2.5 rounded-full font-label-md text-label-md bg-primary text-on-primary shadow-md hover:scale-105 active:scale-95 transition-all"
             onClick={submit}
           >

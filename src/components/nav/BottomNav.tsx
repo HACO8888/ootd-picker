@@ -8,6 +8,7 @@ const ITEMS = [
   { href: "/", icon: "home", label: "首頁" },
   { href: "/picker", icon: "auto_awesome", label: "搭配" },
   { href: "/closet", icon: "dresser", label: "衣櫥" },
+  { href: "/journal", icon: "calendar_month", label: "日誌" },
   { href: "/about", icon: "info", label: "關於" },
 ];
 

@@ -56,6 +56,26 @@ export interface OOTDContext {
   gender: Gender;
 }
 
+/** Why a particular outfit was recommended (shown in the results view). */
+export interface Reason {
+  kind: "weather" | "mood" | "destination" | "season" | "color" | "outerwear";
+  slot?: "top" | "bottom" | "outerwear" | "accessory" | "makeup" | "perfume";
+  /** A complete, ready-to-display Chinese sentence. */
+  text: string;
+}
+
+export type HarmonyVerdict = "harmonious" | "clash" | "caution";
+
+/** Colour-harmony assessment of an outfit's garment colours. */
+export interface HarmonyResult {
+  verdict: HarmonyVerdict;
+  /** 0–100, higher is more harmonious. */
+  score: number;
+  /** Short Chinese label: 協調 / 需注意 / 撞色. */
+  label: string;
+  notes: string[];
+}
+
 /** A complete recommendation produced by generateOOTD. */
 export interface Outfit {
   top: Item | null;
@@ -64,6 +84,15 @@ export interface Outfit {
   accessory: Item | null;
   makeup: Makeup;
   perfume: Perfume;
+  context: OOTDContext;
+  /** Optional — present on freshly generated outfits, absent on old saved ones. */
+  reasons?: Reason[];
+  harmony?: HarmonyResult;
+}
+
+/** Several distinct outfits generated for the same context (A/B comparison). */
+export interface OOTDSet {
+  outfits: Outfit[];
   context: OOTDContext;
 }
 
@@ -74,4 +103,17 @@ export interface Favorite {
   /** Optional user-given name for the combination. */
   name?: string;
   outfit: Outfit;
+}
+
+/** A record of an outfit actually worn on a given day. */
+export interface WearLog {
+  id: string;
+  /** Local ISO date "YYYY-MM-DD" — the day the outfit was worn. */
+  date: string;
+  outfit: Outfit;
+  /** Optional short note for the day. */
+  note?: string;
+  /** Source favorite id, if logged from a saved combination (reference only). */
+  favoriteId?: string;
+  createdAt: number;
 }

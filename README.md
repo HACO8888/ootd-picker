@@ -8,8 +8,8 @@
 
 - **Next.js 16.2**（App Router、Turbopack、React Compiler）
 - **React 19** · **TypeScript**（strict）· 套件管理 **pnpm**
-- **Tailwind CSS v4**（CSS-first `@theme`，Material Design 3 配色）
-- `next/font`（Playfair Display + DM Sans 自託管）、`next/image`（AVIF/WebP）
+- **Tailwind CSS v4**（CSS-first `@theme`，編輯感 / VOGUE 風配色：黑白 + 朱砂紅 accent）
+- `next/font`（Fraunces serif + Inter 自託管）、`next/image`（AVIF/WebP）
 - **~3000 款目錄**，圖源為 MIT 授權的 Fashion Product Images 資料集（白底商品照＋顏色/品類標籤，文字與圖對應）⊕ 使用者自訂單品
 - 即時天氣偵測（Open-Meteo）、收藏命名/匯出匯入、單品編輯
 - 資料持久化：瀏覽器 `localStorage`（透過 `useSyncExternalStore` 共享）

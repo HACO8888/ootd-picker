@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
@@ -31,21 +31,43 @@ export const metadata: Metadata = {
   description:
     "根據您的心情、天氣及目的地，提供個人化的每日穿搭、妝容與香水策展建議。",
   keywords: ["OOTD", "穿搭", "妝容", "香水", "膠囊衣櫥", "風格推薦"],
+  applicationName: "OOTD PICKER",
+  authors: [{ name: "OOTD PICKER" }],
+  formatDetection: { telephone: false, address: false, email: false },
   openGraph: {
     title: "OOTD PICKER | 風格與妝容嚮導",
     description: "根據您的心情、天氣及目的地，量身打造今日穿搭與妝容。",
+    siteName: "OOTD PICKER",
     type: "website",
     locale: "zh_TW",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "OOTD PICKER | 風格與妝容嚮導",
+    description: "根據您的心情、天氣及目的地，量身打造今日穿搭與妝容。",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#fafaf8",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-Hant" className={`${fraunces.variable} ${inter.variable}`}>
       <body className="bg-background text-on-surface font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed-variant overflow-x-hidden pb-16 md:pb-0">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-primary focus:text-on-primary focus:px-4 focus:py-2 focus:kicker"
+        >
+          跳至主要內容
+        </a>
         <ChromeProvider>
           <TopNav />
-          {children}
+          <main id="main-content">{children}</main>
           <BottomNav />
         </ChromeProvider>
       </body>

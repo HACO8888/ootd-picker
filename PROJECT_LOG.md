@@ -63,3 +63,29 @@
 | 單品編輯 | ✅ | e2e 新增 + 卡片編輯鈕（aria-label「編輯 …」） |
 
 **第 2 輪結論：全部追加需求完成並通過 build / lint / e2e。**
+
+---
+
+## 第 3 輪 loop（全面視覺重構）
+
+**範圍**：全站 UI / 版面 / IA 重構，邏輯與資料層不動。
+**設計方向**：由 Material Design 3（Sage Green / Warm Brown）→ **現代雜誌編輯感（VOGUE 風）**：黑白基底 + 朱砂紅 accent（`#d6453d`）、Fraunces serif + Inter、直角 + 細墨線、大量留白與不對稱排版。
+
+### 產出
+1. **設計系統**：改寫 `globals.css` `@theme`（色彩 / 字級 / 圓角 / 間距），策略為「只改 token **值**、保留 token **名**」，~95% 元件 class 零改動；`layout.tsx` 換 Fraunces/Inter（沿用 `--font-playfair` / `--font-dm-sans` 變數名）；新增 `src/components/ui/Editorial.tsx`（Kicker / IndexNumber / SectionRule / EditorialHeading）與 `.kicker` / `.editorial-rule` 工具。
+2. **全域 chrome**：TopNav 三段式報頭 + 行動全螢幕選單；BottomNav 細邊框 bar；Footer 編輯式刊尾（移除社群圖示）；Toast 直角近黑底。
+3. **首頁**：full-bleed 雜誌封面、Contents 目錄索引、大序號運作流程、不對稱 Featured 卡片。
+4. **Picker**：沉浸式全螢幕單步問答 + 極簡進度；結果頁 TODAY'S EDIT / THE LOOK / THE FACE / THE SCENT。
+5. **Closet / About**：編輯式標題 + 網格、細線篩選側欄、方角 UploadModal；About Manifesto 式。
+6. **收藏抽屜**：編輯式細線卡片。
+
+### 驗收結果
+
+| 項目 | 結果 | 證據 |
+|---|---|---|
+| 工程品質 | ✅ | `pnpm lint` exit 0、`pnpm build` 成功（5 路由靜態、TypeScript 通過） |
+| 介面保留 | ✅ | wizard 狀態機 / `useChrome` context / filter·form reducer / `SmartImage` 分支 / pendingFavorite 回灌皆未破壞 |
+| 視覺驗證 | ✅ | Playwright 桌機 + 行動截圖巡檢四頁；完整使用者旅程（四問→生成→換件/換妝/換香水→收藏→抽屜載入預覽）正常 |
+| 響應式 | ✅ | 行動全螢幕選單、`100svh` wizard、行動 2 欄 closet、底部導覽 bar |
+
+**第 3 輪結論：全面重構完成並通過 build / lint，已合併至 `main` 並 push。**

@@ -9,6 +9,8 @@ import { Icon } from "@/components/ui/Icon";
 const LINKS = [
   { href: "/", label: "首頁" },
   { href: "/closet", label: "我的衣櫥" },
+  { href: "/journal", label: "穿搭日誌" },
+  { href: "/insights", label: "衣櫥洞察" },
   { href: "/about", label: "關於" },
 ];
 

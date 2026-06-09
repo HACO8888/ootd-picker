@@ -25,10 +25,10 @@
 
 ### FR-1 風格嚮導（/picker）
 - FR-1.1 四步驟收集 `gender / weather / mood / destination`，含進度條、返回、載入過場。
-- FR-1.2 呼叫推薦引擎 `generateOOTD(closet, weather, mood, destination, gender)` 產生 `Outfit`。
-- FR-1.3 規則：季節由天氣映射；單品依「目的地 +5、心情 +3」加權，取前 3 名隨機；寒冷/雨天必出外套，多雲 60% 機率出外套。
+- FR-1.2 呼叫推薦引擎 `generateOOTDSet(closet, weather, mood, destination, gender)` 產生數套可比較的 `Outfit`（A/B 切換；亦保留單套 `generateOOTD`）。
+- FR-1.3 規則（評分集中於 `scoreItem`）：單品依「目的地 +5、天氣/季節 +4（軟加權，非硬篩）、心情 +3」加權；**設匹配下限**（score>0 才入選——可選的配件/外套無符合者留空，核心的上衣/下著才退而取最接近）；以**加權隨機（機率 ∝ 分數²）**從前幾名挑選，兼顧貼合與變化；寒冷/雨天必出外套，多雲機率出外套。多套候選依「**貼合度優先、色彩和諧度次之**」排序並去重。
 - FR-1.4 妝容/香水依 `gender` 過濾，並以 天氣/心情/目的地 加權選最高分。
-- FR-1.5 換一個（單品/妝容/香水）、重新生成；換單品優先同季節同類，排除目前項。
+- FR-1.5 換一個（單品/妝容/香水）、重新生成；換單品沿用同一套匹配（`swapClosetItem`：加權隨機＋匹配下限），排除目前項。
 - FR-1.6 結果可「收藏此組合」。
 
 ### FR-2 膠囊衣櫥（/closet）
@@ -57,7 +57,7 @@
 | 可及性 | 互動元素具 `aria-label`、語意標籤、鍵盤可操作。 |
 | 相容性 | localStorage key 沿用 `ootd_picker_*_v10`，與舊版資料相容。 |
 | SEO | 每頁 `metadata`（title/description/OG）。 |
-| 一致性 | 全站採 Material Design 3 sage/brown 設計 token（見 DESIGN.md）。 |
+| 一致性 | 全站採編輯感 / VOGUE 風設計 token（黑白 + 朱砂紅 accent，見 DESIGN.md）。 |
 
 ## 6. 資料模型（摘要，詳見 `src/lib/types.ts`）
 

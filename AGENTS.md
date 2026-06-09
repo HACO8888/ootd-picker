@@ -31,11 +31,12 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 
 ## 慣例（重點）
 
+- 設計系統：全站採**編輯感 / VOGUE 風**（黑白基底 + 朱砂紅 accent、Fraunces serif + Inter、直角 + 細墨線；見 DESIGN.md）。改色／字體一律改 `globals.css` `@theme` token 的**值**、**勿改 token 名**（元件全用語義 class）；換字體沿用 `--font-playfair` / `--font-dm-sans` 變數名。共用編輯式元件在 `src/components/ui/Editorial.tsx`（Kicker / IndexNumber / SectionRule / EditorialHeading）。
 - 資料與 UI 分離：推薦/儲存邏輯放 `src/lib`，畫面只組裝。
 - localStorage 一律走 `src/lib/store.ts`（`useSyncExternalStore`）以跨元件同步；**勿**用 effect 直接 `setState` 讀取（會觸發 `react-hooks/set-state-in-effect`）。
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
-- 推薦演算法（`generateOOTD`）為核心契約，調整前先確認對 USER_STORY 的影響。
+- 推薦演算法為核心契約（引擎 `generateOOTDSet`／單套 `generateOOTD`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，含匹配下限與加權隨機），調整前先確認對 USER_STORY 的影響。
 
 ## 專案文件（progressive disclosure）
 
@@ -72,8 +73,8 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 > 由 **PM＋軟體** 共同精修；對應 USER_STORY 的 ✅ 條件。每輪 loop 結束逐項勾稽。
 
 ### A. 工程品質（硬性門檻）
-- [ ] `bun run build` 成功，5 條路由皆靜態預渲染、無型別錯誤。
-- [ ] `bun run lint` exit 0（零錯誤、零警告）。
+- [ ] `pnpm build` 成功，5 條路由皆靜態預渲染、無型別錯誤。
+- [ ] `pnpm lint` exit 0（零錯誤、零警告）。
 - [ ] dev server 啟動後 `/`、`/picker`、`/closet`、`/about` 皆回 200，**無 hydration/console 錯誤**。
 - [ ] 所有圖片資源（`/images/*`、`/looks/*`）皆可正常載入（200）。
 

@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useWearLog } from "@/hooks/useWearLog";
 import { TRANSLATE } from "@/lib/data";
 import { parseFavoritesJSON } from "@/lib/storage";
+import { todayISO } from "@/lib/wearlog";
 import type { Favorite } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -12,16 +14,31 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onApply: (fav: Favorite) => void;
+  onShare: (fav: Favorite) => void;
   onToast: (msg: string) => void;
 }
 
-export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
+export function FavoritesDrawer({ open, onClose, onApply, onShare, onToast }: Props) {
   const { favorites, deleteFav, renameFav, replaceAll } = useFavorites();
+  const { logWear } = useWearLog();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
+  const [loggingId, setLoggingId] = useState<string | null>(null);
+  const [logDate, setLogDate] = useState(todayISO());
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
+
+  const startLogWear = (fav: Favorite) => {
+    setLoggingId(fav.id);
+    setLogDate(todayISO());
+  };
+
+  const commitLogWear = (fav: Favorite) => {
+    logWear(fav.outfit, logDate, { favoriteId: fav.id });
+    setLoggingId(null);
+    onToast("已記錄至穿搭日誌！");
+  };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -128,14 +145,24 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                   key={fav.id}
                   className="p-5 border border-outline-variant bg-surface-bright space-y-4 relative group hover:border-on-surface transition-colors"
                 >
-                  <button type="button"
-                    onClick={(e) => handleDelete(e, fav.id)}
-                    className="absolute top-4 right-4 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="刪除收藏"
-                    aria-label="刪除收藏"
-                  >
-                    <Icon name="delete" className="text-[18px]" />
-                  </button>
+                  <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button"
+                      onClick={(e) => { e.stopPropagation(); onShare(fav); }}
+                      className="text-on-surface-variant hover:text-primary"
+                      title="分享"
+                      aria-label="分享收藏"
+                    >
+                      <Icon name="ios_share" className="text-[18px]" />
+                    </button>
+                    <button type="button"
+                      onClick={(e) => handleDelete(e, fav.id)}
+                      className="text-on-surface-variant hover:text-error"
+                      title="刪除收藏"
+                      aria-label="刪除收藏"
+                    >
+                      <Icon name="delete" className="text-[18px]" />
+                    </button>
+                  </div>
 
                   {/* Name (editable) */}
                   {editingId === fav.id ? (
@@ -185,12 +212,39 @@ export function FavoritesDrawer({ open, onClose, onApply, onToast }: Props) {
                       </p>
                     )}
                   </div>
-                  <button type="button"
-                    onClick={() => onApply(fav)}
-                    className="w-full border border-on-surface text-on-surface py-2.5 kicker hover:bg-on-surface hover:text-background transition-colors"
-                  >
-                    載入至畫布預覽
-                  </button>
+                  {loggingId === fav.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        aria-label="穿著日期"
+                        value={logDate}
+                        max={todayISO()}
+                        onChange={(e) => setLogDate(e.target.value)}
+                        className="flex-1 bg-surface-container-low border border-outline-variant rounded-none px-3 py-1.5 text-sm focus:ring-0 focus:border-on-surface outline-none"
+                      />
+                      <button type="button" onClick={() => commitLogWear(fav)} className="text-primary" aria-label="確認記錄">
+                        <Icon name="check" className="text-[20px]" />
+                      </button>
+                      <button type="button" onClick={() => setLoggingId(null)} className="text-on-surface-variant" aria-label="取消">
+                        <Icon name="close" className="text-[20px]" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button"
+                        onClick={() => onApply(fav)}
+                        className="border border-on-surface text-on-surface py-2.5 kicker hover:bg-on-surface hover:text-background transition-colors"
+                      >
+                        載入預覽
+                      </button>
+                      <button type="button"
+                        onClick={() => startLogWear(fav)}
+                        className="border border-outline-variant text-on-surface-variant py-2.5 kicker hover:border-on-surface hover:text-on-surface transition-colors inline-flex items-center justify-center gap-1.5"
+                      >
+                        <Icon name="event_available" className="text-[16px]" /> 標記為穿過
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })

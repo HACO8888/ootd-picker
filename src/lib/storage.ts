@@ -4,13 +4,15 @@
 // user's deltas are stored in localStorage, so the catalog never bloats it.
 import { getAutoImage } from "./recommend";
 import { getCatalog } from "./catalog";
-import type { Item, Favorite, Outfit, Category, Season } from "./types";
+import { buildCloset } from "./data";
+import type { Item, Favorite, Outfit, Category, Season, WearLog } from "./types";
 
 const LEGACY_CLOSET_KEY = "ootd_picker_closet_v10";
 const USER_KEY = "ootd_picker_user_items_v11";
 const HIDDEN_KEY = "ootd_picker_hidden_v11";
 const OVERRIDE_KEY = "ootd_picker_overrides_v11";
 const FAVORITES_KEY = "ootd_picker_favorites_v10";
+const WEAR_LOG_KEY = "ootd_picker_wear_log_v1";
 
 const hasWindow = () => typeof window !== "undefined";
 
@@ -64,6 +66,23 @@ export function getCloset(): Item[] {
   if (!hasWindow()) return getCatalog();
   migrate();
   return compose();
+}
+
+/**
+ * The user's *own* wardrobe — the curated defaults (buildCloset) plus the user's
+ * uploads, with overrides applied and hidden ids removed. Excludes the large
+ * shared catalog, so wardrobe statistics describe the user, not the dataset.
+ */
+export function getUserCloset(): Item[] {
+  if (!hasWindow()) return buildCloset();
+  migrate();
+  const user = readUser();
+  const hidden = new Set(readHidden());
+  const overrides = readOverrides();
+  const defaults = buildCloset().flatMap((i) =>
+    hidden.has(i.id) ? [] : [overrides[i.id] ? { ...i, ...overrides[i.id] } : i],
+  );
+  return [...user, ...defaults];
 }
 
 export function addClosetItem(
@@ -167,4 +186,67 @@ export function parseFavoritesJSON(raw: string): Favorite[] {
     }
   }
   return data as Favorite[];
+}
+
+/* ─── Wear log (outfits actually worn, keyed by local ISO date) ──────────────── */
+export function getWearLogs(): WearLog[] {
+  if (!hasWindow()) return [];
+  const raw = localStorage.getItem(WEAR_LOG_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as WearLog[];
+  } catch {
+    return [];
+  }
+}
+
+function persistWearLogs(list: WearLog[]): WearLog[] {
+  if (hasWindow()) localStorage.setItem(WEAR_LOG_KEY, JSON.stringify(list));
+  return list;
+}
+
+export function addWearLog(
+  outfit: Outfit,
+  date: string,
+  opts?: { note?: string; favoriteId?: string },
+): WearLog[] {
+  const now = Date.now();
+  const log: WearLog = {
+    id: "w_" + now + "_" + Math.random().toString(36).slice(2, 7),
+    date,
+    outfit,
+    note: opts?.note?.trim() || undefined,
+    favoriteId: opts?.favoriteId,
+    createdAt: now,
+  };
+  // Newest first; the journal regroups by date anyway.
+  return persistWearLogs([log, ...getWearLogs()]);
+}
+
+export function deleteWearLog(id: string): WearLog[] {
+  return persistWearLogs(getWearLogs().filter((l) => l.id !== id));
+}
+
+export function updateWearLogNote(id: string, note: string): WearLog[] {
+  const trimmed = note.trim();
+  return persistWearLogs(
+    getWearLogs().map((l) => (l.id === id ? { ...l, note: trimmed || undefined } : l)),
+  );
+}
+
+/** Replace the whole wear-log list (used by import). */
+export function setWearLogs(list: WearLog[]): WearLog[] {
+  return persistWearLogs(list);
+}
+
+/** Parse + validate an exported wear-log JSON string. Throws on bad shape. */
+export function parseWearLogsJSON(raw: string): WearLog[] {
+  const data = JSON.parse(raw);
+  if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
+  for (const l of data) {
+    if (!l || typeof l.id !== "string" || typeof l.date !== "string" || !l.outfit) {
+      throw new Error("格式錯誤：缺少必要欄位");
+    }
+  }
+  return data as WearLog[];
 }

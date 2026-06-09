@@ -111,7 +111,7 @@ export default function ClosetPage() {
 
   return (
     <>
-      <main className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-10 md:py-14">
+      <div className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-10 md:py-14">
         {/* Editorial page header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 border-b border-outline">
           <div className="space-y-3">
@@ -196,7 +196,7 @@ export default function ClosetPage() {
             )}
           </section>
         </div>
-      </main>
+      </div>
 
       <Footer />
 

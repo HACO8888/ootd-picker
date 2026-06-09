@@ -1,6 +1,6 @@
 // Static catalog data — ported verbatim from the legacy app.js (v10).
 // 17 curated items (UNIQLO 6 · NET 6 · GU 5), 13 makeup looks, 10 perfumes.
-import type { Item, Makeup, Perfume, Category, Gender } from "./types";
+import type { Item, Makeup, Perfume, Category, Gender, Season } from "./types";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LOCAL IMAGE PATHS — AI-generated, 100% matched to item descriptions
@@ -99,8 +99,29 @@ export const PERFUME_LOOKBOOK: Perfume[] = [
    ═══════════════════════════════════════════════════════════════════════════ */
 export const TRANSLATE = {
   category: { tops: "上衣", bottoms: "下著", outerwear: "外套", accessories: "配件" } as Record<Category, string>,
+  season: { spring: "春", summer: "夏", autumn: "秋", winter: "冬" } as Record<Season, string>,
   weather: { sunny: "晴天 ☀️", cloudy: "多雲 ☁️", rainy: "雨天 🌧️", cold: "寒冷 ❄️" } as Record<string, string>,
   mood: { 活力: "活力 ⚡", 放鬆: "放鬆 ☕", 專業: "專業 💼", 優雅: "優雅 🌹", 舒適: "舒適 🧸" } as Record<string, string>,
   destination: { 工作: "工作 💻", 約會: "約會 💕", 休閒漫步: "休閒漫步 🚶", 社交聚會: "社交聚會 🎉", 居家: "居家 🏡" } as Record<string, string>,
   gender: { female: "女生 👩", male: "男生 👨", unisex: "不分性別 🌈" } as Record<Gender, string>,
+};
+
+/**
+ * Chinese colour name → representative hex, for swatches in the insights view.
+ * Covers every colour used by the catalog (37) plus the curated defaults.
+ * Unknown names should fall back to a neutral grey at the call site.
+ */
+export const COLOR_HEX: Record<string, string> = {
+  黑色: "#1a1a1a", 白色: "#f4f4f2", 灰色: "#9ca3af", 碳灰: "#36393f", 麻灰: "#b6b1a8",
+  藍色: "#2f5fb0", 淡藍色: "#a9c7e8", 藏青: "#1f2d50", 藍綠: "#1f8a8a", 土耳其藍: "#1ca9c9",
+  紅色: "#c0392b", 紅格紋: "#b23a3a", 酒紅: "#6e1f2a", 勃根地紅: "#5c1a2b", 鏽紅: "#9c4a2f", 洋紅: "#c2186a",
+  粉色: "#f4b6c2", 蜜桃色: "#ffc2a3",
+  綠色: "#3a9d5d", 墨綠: "#14532d", 海綠: "#2e8b76",
+  紫色: "#7d4fa0", 淺紫: "#c9b6e4", 薰衣草紫: "#b39ddb",
+  黃色: "#f2c744", 芥末黃: "#c9a227",
+  橘色: "#e8853a", 焦糖色: "#b5712b",
+  咖啡色: "#6f4e37", 棕褐: "#8a6d52", 古銅: "#7a5230",
+  米色: "#e6d8bf", 米白色: "#f0ebe0", 奶油色: "#f5ecd2", 卡其色: "#b8a172", 裸色: "#e3c4ad",
+  金色: "#c8a24a", 銀色: "#c8ccce", 銅色: "#b06b3a",
+  多色: "#a8a29e",
 };

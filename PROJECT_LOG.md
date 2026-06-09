@@ -89,3 +89,37 @@
 | 響應式 | ✅ | 行動全螢幕選單、`100svh` wizard、行動 2 欄 closet、底部導覽 bar |
 
 **第 3 輪結論：全面重構完成並通過 build / lint，已合併至 `main` 並 push。**
+
+---
+
+## 第 4 輪 loop（推薦升級 + 衣櫥洞察 / 穿搭日誌 / 分享）
+
+**範圍**：推薦演算法優化，外加三個新功能（衣櫥洞察、穿搭日誌、造型分享）與其支援的儲存/導覽/結果頁強化。
+
+### 產出
+
+1. **推薦演算法優化**（`src/lib/recommend.ts`、`src/app/picker/page.tsx`）：
+   - 評分集中於 `scoreItem`（目的地 +5、**天氣/季節 +4 軟加權**、心情 +3）；季節由硬篩改軟加權。
+   - **匹配下限**（score>0 才入選）：可選的配件/外套無符合者留空，核心的上衣/下著才退而取最接近。
+   - **加權隨機**（機率 ∝ 分數²）保留變化；共用 `rankCategory`/`weightedPick`/`swapClosetItem`。
+   - 引擎改用 `generateOOTDSet`（A/B 多套），候選依「**貼合度優先、色彩和諧度次之**」排序並去重。
+   - 結果頁推薦理由（`buildReasons`/`ReasonsPanel`）與色彩和諧度（`evaluateHarmony`/`HarmonyBadge`）。
+2. **衣櫥洞察 `/insights`**（`lib/insights.ts` + `components/insights/*` + `useUserCloset`）：分類/季節/品牌/色彩組成、使用頻率（收藏＋日誌）、缺口分析（季節外套、上下著數量、核心場合覆蓋、分類平衡），含空狀態。
+3. **穿搭日誌 `/journal`**（`lib/wearlog.ts` + `useWearLog` + `CalendarGrid`/`DayDetailDrawer`，localStorage `ootd_picker_wear_log_v1`）：自結果頁「標記為今天穿」記錄；月曆檢視＋當日詳情（分享/套用/刪除/編輯備註）；JSON 匯出/匯入（去重合併）；7 天內重複穿搭提示。
+4. **造型分享 `/share`**（`lib/shareLink.ts`/`shareCard.ts` + `ShareSheet` + `og-image.tsx`）：結果頁/收藏/日誌「分享」→ `openShare`；`renderOutfitCard` 產生 1080×1350 PNG（下載 / `navigator.share` / 複製連結）；`encodeShareParams` 以單品 ID 編碼、`decodeShareParams` 還原（私人衣櫥單品缺失時標記 `missing`）；動態 OG/Twitter 圖與 app icons。
+5. **導覽**：TopNav 新增「穿搭日誌」「衣櫥洞察」；BottomNav 新增「日誌」。
+6. **文件**：PRD FR-1.x、AGENTS §慣例 同步更新為新推薦規則。
+
+### 驗收結果
+
+| 項目 | 結果 | 證據 |
+|---|---|---|
+| 工程品質 | ✅ | `pnpm lint` exit 0；`pnpm build` 成功（TypeScript 通過、全部路由靜態預渲染含 `/insights`·`/journal`·`/share`·`/opengraph-image`·`/twitter-image`） |
+| 路由可達 | ✅ | dev 實測 `/insights`·`/journal`·`/share`（含帶參數解碼 `?w=…&m=…&p=…`）皆 **200 text/html**；`/opengraph-image`·`/twitter-image`·`/icon`·`/apple-icon` 皆 **200 image/png** |
+| 推薦優化 | ✅ | 既有嚮導 e2e（走完 4 步驟生成造型可收藏）通過；`scoreItem` 評分／下限／加權隨機／綜合排序見 `recommend.ts` |
+| 洞察/日誌/分享 | ✅（程式/型別 + 路由 200） | 行為依程式碼審查與路由實測；**互動式 e2e 尚未涵蓋這三個功能**（現有 `e2e/` 僅嚮導/衣櫥分頁/篩選/新增） |
+| e2e | ✅ | `pnpm test:e2e` → **4 passed**（重構後過時選擇器已修正） |
+
+> 待辦：補上 insights/journal/share 的 Playwright 互動 e2e（記錄穿搭→月曆顯示→分享卡片產生/連結還原），以取代目前以程式碼審查為主的功能驗收。
+
+**第 4 輪結論：推薦演算法優化與三項新功能通過 build / lint / 型別 / 路由實測，已 push 至 `main`；互動式 e2e 待補。**

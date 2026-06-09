@@ -10,7 +10,7 @@
 - **React 19** · **TypeScript**（strict）· 套件管理 **pnpm**
 - **Tailwind CSS v4**（CSS-first `@theme`，Material Design 3 配色）
 - `next/font`（Playfair Display + DM Sans 自託管）、`next/image`（AVIF/WebP）
-- 程序化 **1 萬+ 款式目錄**（`src/lib/catalog.ts`）⊕ 使用者自訂單品
+- **~3000 款目錄**，圖源為 MIT 授權的 Fashion Product Images 資料集（白底商品照＋顏色/品類標籤，文字與圖對應）⊕ 使用者自訂單品
 - 即時天氣偵測（Open-Meteo）、收藏命名/匯出匯入、單品編輯
 - 資料持久化：瀏覽器 `localStorage`（透過 `useSyncExternalStore` 共享）
 
@@ -25,10 +25,14 @@ pnpm build       # production build
 pnpm lint
 ```
 
+## 圖片資料來源
+
+目錄圖片來自 [Fashion Product Images（MIT 授權）](https://www.kaggle.com/datasets/paramaggarwal/fashion-product-images-small)，
+透過 Hugging Face 鏡像下載（`pnpm fetch:fashion`），每張附顏色／品類標籤，款式名稱即由此產生。
+
 ## 為每件款式生成專屬 AI 圖片（選用）
 
-目錄預設用 17 張乾淨商品照衍生（~340 款）。若要讓 **每件各自生成一張乾淨商品圖**
-（像原本那 17 張的風格），用內建管線（需自備 OpenAI key，費用自付）：
+若要把目錄圖換成 **每件各自 AI 生成的高解析商品圖**，用內建管線（需自備 OpenAI key，費用自付）：
 
 ```bash
 OPENAI_API_KEY=sk-... pnpm gen:images --limit 20  # 先小量試

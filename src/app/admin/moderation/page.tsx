@@ -26,8 +26,16 @@ export default function ModerationPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    void (async () => {
+      const res = await fetch("/api/admin/moderation");
+      if (active && res.ok) setRows(await res.json());
+      if (active) setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function act(id: string, action: "approved" | "rejected") {
     let reason: string | undefined;

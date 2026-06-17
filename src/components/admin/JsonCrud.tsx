@@ -33,8 +33,16 @@ export function JsonCrud({
   }, [endpoint]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    void (async () => {
+      const res = await fetch(endpoint);
+      if (active && res.ok) setItems(await res.json());
+      if (active) setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [endpoint]);
 
   function startEdit(item: Entity) {
     setEditing(item.id);

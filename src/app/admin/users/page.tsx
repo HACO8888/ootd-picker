@@ -30,8 +30,16 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    void (async () => {
+      const res = await fetch("/api/admin/users");
+      if (active && res.ok) setRows(await res.json());
+      if (active) setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function patch(id: string, body: Partial<Pick<UserRow, "role" | "status">>) {
     setBusy(id);

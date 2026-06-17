@@ -34,8 +34,16 @@ export default function AdminCatalogPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // 掛載時抓取：setState 在 await 之後（非同步），避免 set-state-in-effect。
+    let active = true;
+    void (async () => {
+      const res = await fetch("/api/admin/catalog");
+      if (active && res.ok) setData(await res.json());
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function saveExtra() {
     setError("");

@@ -4,6 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Icon } from "@/components/ui/Icon";
+import { LOGIN_PENDING_KEY } from "@/lib/sync";
+
+/** 標記為主動登入後再導向 Google，讓同步完成時才提示（重整不提示）。 */
+function loginWithGoogle() {
+  try {
+    sessionStorage.setItem(LOGIN_PENDING_KEY, "1");
+  } catch {}
+  signIn("google");
+}
 
 // 頂部導覽右側的帳號入口：未登入顯示「登入」，已登入顯示頭像 + 下拉選單。
 export function UserMenu() {
@@ -18,7 +27,7 @@ export function UserMenu() {
     return (
       <button
         type="button"
-        onClick={() => signIn("google")}
+        onClick={loginWithGoogle}
         className="kicker text-on-surface hover:text-primary transition-colors flex items-center gap-1.5"
         aria-label="使用 Google 登入"
       >

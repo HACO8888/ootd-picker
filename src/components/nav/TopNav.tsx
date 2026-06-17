@@ -7,6 +7,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { useChrome } from "@/components/chrome/ChromeProvider";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Icon } from "@/components/ui/Icon";
+import { LOGIN_PENDING_KEY } from "@/lib/sync";
 
 const LINKS = [
   { href: "/", label: "首頁" },
@@ -152,6 +153,9 @@ export function TopNav() {
                 type="button"
                 onClick={() => {
                   setDrawerOpen(false);
+                  try {
+                    sessionStorage.setItem(LOGIN_PENDING_KEY, "1");
+                  } catch {}
                   signIn("google");
                 }}
                 className="font-headline-lg text-headline-lg text-on-surface py-3 border-b border-outline-variant text-left flex items-center gap-3"

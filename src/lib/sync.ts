@@ -28,11 +28,20 @@ const DEBOUNCE_MS = 1500;
 
 let currentUserId: string | null = null;
 let storeRefresh: (() => void) | null = null;
+let toast: ((msg: string) => void) | null = null;
 const timers: Partial<Record<Collection, ReturnType<typeof setTimeout>>> = {};
+
+/** 使用者按下登入鈕時設此旗標，讓合併完成後只在「真正登入」時提示（重整不提示）。 */
+export const LOGIN_PENDING_KEY = "ootd_login_pending";
 
 /** store.ts 啟動時注入「重整所有 store」回呼，避免 import 循環。 */
 export function registerStoreRefresh(fn: () => void): void {
   storeRefresh = fn;
+}
+
+/** ChromeProvider 內的元件注入 showToast，用於同步完成提示。 */
+export function registerToast(fn: (msg: string) => void): void {
+  toast = fn;
 }
 
 /** 由 AuthProvider 在 session 變化時呼叫。null=登出。 */
@@ -150,6 +159,15 @@ export async function mergeOnLogin(): Promise<void> {
         body: JSON.stringify(mergedLogs),
       }),
     ]);
+
+    // 只在使用者主動登入時提示（重整不提示）。
+    if (
+      typeof sessionStorage !== "undefined" &&
+      sessionStorage.getItem(LOGIN_PENDING_KEY)
+    ) {
+      sessionStorage.removeItem(LOGIN_PENDING_KEY);
+      toast?.("已登入，雲端資料已同步");
+    }
   } catch {
     // 合併失敗不阻塞使用；下次 mutation 仍會嘗試 push。
   }

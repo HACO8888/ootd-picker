@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { SyncToast } from "@/components/auth/SyncToast";
 import { RuntimeDataLoader } from "@/components/RuntimeDataLoader";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
 import { TopNav } from "@/components/nav/TopNav";
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <RuntimeDataLoader />
           <ChromeProvider>
+            <SyncToast />
             <TopNav />
             <main id="main-content">{children}</main>
             <BottomNav />

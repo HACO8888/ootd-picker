@@ -76,9 +76,9 @@ export function TopNav() {
             type="button"
             onClick={openFavorites}
             aria-label="我的收藏"
-            className="text-on-surface hover:text-primary transition-colors"
+            className="inline-flex items-center justify-center h-7 w-7 text-on-surface hover:text-primary transition-colors"
           >
-            <Icon name="favorite" className="text-[22px]" />
+            <Icon name="favorite" className="text-[22px] leading-none" />
           </button>
           <UserMenu />
           <Link

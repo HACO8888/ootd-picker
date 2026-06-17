@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Icon } from "@/components/ui/Icon";
@@ -18,9 +18,28 @@ function loginWithGoogle() {
 export function UserMenu() {
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // 點擊外部或按 Esc 關閉（用 document 監聽，避免 sticky header stacking context 讓覆蓋層失效）。
+  // 點導覽連結屬於「外部點擊」，亦會一併關閉。
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   if (status === "loading") {
-    return <span className="w-8 h-8 rounded-[9999px] bg-outline-variant animate-pulse" />;
+    return <span className="w-7 h-7 rounded-[9999px] bg-outline-variant animate-pulse" />;
   }
 
   if (!session?.user) {
@@ -40,22 +59,21 @@ export function UserMenu() {
   const { name, email, image, role } = session.user;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="帳號選單"
         aria-expanded={open}
-        className="group flex items-center"
+        className="flex items-center justify-center h-7 w-7 hover:opacity-80 transition-opacity"
       >
         {image ? (
-          // 預設灰階融入黑白編輯風，hover 才上色（避免彩色頭像在報頭突兀）。
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image}
             alt={name ?? "帳號"}
             referrerPolicy="no-referrer"
-            className="w-7 h-7 rounded-[9999px] object-cover grayscale group-hover:grayscale-0 transition-[filter] duration-300"
+            className="w-7 h-7 rounded-[9999px] object-cover"
           />
         ) : (
           <span className="w-7 h-7 rounded-[9999px] bg-primary text-on-primary grid place-items-center kicker text-[12px]">
@@ -65,16 +83,7 @@ export function UserMenu() {
       </button>
 
       {open && (
-        <>
-          {/* 點外側關閉 */}
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            className="fixed inset-0 z-[80] cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[90] w-64 bg-background border border-outline shadow-lg animate-fade-in">
+        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[90] w-64 bg-background border border-outline shadow-lg animate-fade-in">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant">
               {image ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -117,8 +126,7 @@ export function UserMenu() {
               <Icon name="logout" className="text-[20px]" />
               <span className="kicker">登出</span>
             </button>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

@@ -63,6 +63,8 @@
 | S7 | 衣櫥洞察 | `/insights` | StatBar、ColorSwatchRow、GapCard、UsageList |
 | S8 | 穿搭日誌 | `/journal` | CalendarGrid、DayDetailDrawer、穿搭套用/分享/備註 |
 | S9 | 造型分享 | `/share` + 全站浮層 | ShareSheet、分享卡片 PNG、分享連結還原 |
+| S10 | 帳號入口 | 全站頂部 | UserMenu（Google 登入鈕 / 頭像 + 下拉：後台入口、登出）|
+| S11 | 管理員後台 | `/admin/*` | 左側細線側欄導覽；總覽統計卡、用戶表格、稽核卡片、目錄/妝容/香水的 JSON 編輯器（沿用編輯感 token、直角細墨線）|
 
 ## 4. 響應式斷點
 

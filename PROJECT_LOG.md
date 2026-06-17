@@ -146,3 +146,40 @@
 | 工程品質 | ✅ | `pnpm lint` exit 0；`pnpm build` 成功（Next.js 16.2.7，13 個 app route/static image routes 皆靜態預渲染） |
 
 **第 5 輪結論：推薦演算法 v2 已完成，通過 typecheck / lint / build，並同步更新全部 Markdown 專案文件。**
+
+---
+
+## 第 6 輪 loop（帳號系統 + 雲端同步 + 管理員後台）
+
+**範圍**：USER_STORY US-15～US-19。為原本純前端、localStorage-only 的應用加上 Google 登入、跨裝置雲端同步與全功能管理員後台，接上 PostgreSQL。
+**技術新增**：Auth.js v5（next-auth beta）+ Google OAuth + JWT、Drizzle ORM + PostgreSQL（`postgres.js`）、drizzle-kit migration、`zod`。
+
+### 產出（M1～M6 里程碑）
+
+1. **M1 DB + Auth 基礎**：`src/db/schema.ts`（13 表）+ `client.ts`（單例）；`auth.ts` / `auth.config.ts`（edge-safe 拆分）/ `proxy.ts`（Next 16 middleware 守 `/admin`、`/api/admin`）；`AuthProvider` + `UserMenu`；`ADMIN_EMAILS` 白名單登入時 bootstrap admin；`.env` / `.env.example`。
+2. **M2 雲端同步**：`/api/sync/{closet,favorites,wearlogs}` + `src/lib/sync.ts`；`store.ts` mutator 末端掛 `enqueueSync`（訪客 no-op，登入 debounce 整包 PUT）；`storage.ts` 補 `updatedAt`、`getClosetDeltas/setClosetDeltas`。
+3. **M3 登入合併**：`mergeOnLogin` — union by id + last-write-wins（`updatedAt`）+ 被拒項目剔除；本地與雲端雙向收斂。
+4. **M4 用戶管理 + 統計**：`/admin/users`（升降權/停權/刪除/查看資料，不可操作自己）、`/admin` 總覽（總用戶/活躍/管理員/停權、各類資料量、熱門標籤）；`admin-repo.ts`。
+5. **M5 目錄管理**：`catalog_override`/`catalog_extra` + `makeup`/`perfume` CRUD（首次自 `data.ts` seed）；前台以 **ES module live-binding**（`setMakeupLookbook`/`setPerfumeLookbook`/`setCatalogOverlay`，由 `RuntimeDataLoader` 載入）即時套用，**不動推薦引擎**；`/admin/{catalog,makeup,perfume}`。
+6. **M6 內容稽核**：`closet_item.moderation_status`（pending/approved/rejected）；`/admin/moderation` 通過/拒絕（可附原因）；`saveCloset` 跨同步保留審核狀態；`loadCloset` 排除被拒並回 `rejectedIds`，client 合併時剔除。
+
+### 關鍵決策與取捨
+
+- **catalog（>10000）不入庫**，續由 `catalog-data.json` 提供；DB 僅存使用者 delta 與管理員 override。
+- **JWT session**（不建 session 表查詢路徑）；`proxy.ts` 直接讀 `token.role` 擋後台。
+- **可選登入**：前台維持 SSG，session 僅 client 取得；只有 `/admin`、`/api/*` 動態。
+- **同步** push=整包取代 + 登入時 union 合併；單機穩定，多裝置同時編輯可能覆蓋（個人衣櫥場景可接受）。
+- pnpm 嚴格 node_modules 下無法 augment `@auth/core/jwt`，故 callback 內以 `auth.types.ts` 轉型。
+
+### 驗收結果
+
+| 項目 | 結果 | 證據 |
+|---|---|---|
+| 型別 | ✅ | `pnpm exec tsc --noEmit` 乾淨 |
+| 工程品質 | ✅ | `pnpm build` 成功（前台 7 頁維持靜態 ○、admin/API 動態 ƒ、Proxy middleware 編譯正常、無 edge bundling 錯誤） |
+| 回歸 | ✅ | `pnpm test:e2e` → **9 passed**（訪客模式零回歸） |
+| DB 整合 | ✅ | tsx 整合測試：schema jsonb/enum/bigint/transaction/cascade、sync-repo round-trip、admin-repo（groupBy 計數/filter/union/jsonb 熱門標籤）、稽核狀態保留、catalog overlay、live-binding 全通過 |
+| HTTP | ✅ | `/api/looks` 首次 seed makeup=13/perfume=10 並回傳；`/api/catalog/global` 200；全部 `/api/admin/*` 未登入 403；`/admin/*` 未登入 307 導離 |
+| 互動登入 | ⏳ 手動 | Google OAuth 需瀏覽器；需先在 Google Console 加 `<AUTH_URL>/api/auth/callback/google` |
+
+**第 6 輪結論：帳號系統、雲端同步與管理員後台（M1～M6）完成，通過 typecheck / build / e2e / DB 整合 / HTTP 驗證，已合併並 push 至 `main`；互動式 Google 登入待手動驗證。**

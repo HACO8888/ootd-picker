@@ -18,8 +18,8 @@
 
 ## 3. 範圍
 
-**In scope（目前產品）**：US-01～US-14（嚮導、衣櫥、收藏、首頁/關於、RWD、localStorage 持久化），並已擴充天氣偵測、衣櫥洞察、穿搭日誌與分享。
-**Out of scope**：帳號/雲端同步、電商導購、跨裝置會員資料同步（見 USER_STORY §5）。
+**In scope（目前產品）**：US-01～US-14（嚮導、衣櫥、收藏、首頁/關於、RWD、localStorage 持久化），並已擴充天氣偵測、衣櫥洞察、穿搭日誌與分享；**第 6 輪新增** US-15～US-19（Google 登入、雲端同步、管理員後台、內容稽核）。
+**Out of scope**：電商導購、Email/密碼註冊、推播通知、多人協作衣櫥。
 
 ## 4. 功能需求（FR）
 
@@ -49,6 +49,25 @@
 - FR-4.2 關於頁：理念四原則。
 - FR-4.3 RWD：桌機頂部導覽、行動底部導覽 + 漢堡抽屜。
 
+### FR-5 帳號與認證（/api/auth）
+- FR-5.1 **可選登入**：訪客不登入即可完整使用；頂部 `UserMenu` 以 Google OAuth 登入/登出。
+- FR-5.2 採 Auth.js v5 + JWT session + Drizzle adapter；session 帶 `id / role / status`。
+- FR-5.3 **管理員 bootstrap**：登入 email ∈ `ADMIN_EMAILS` 者自動將 DB `role` 升為 `admin`。
+- FR-5.4 停權（`status=suspended`）使用者無法寫入同步與後台 API。
+
+### FR-6 雲端同步（/api/sync）
+- FR-6.1 **本地真相**：localStorage 維持訪客資料；登入後成為跨裝置同步來源。
+- FR-6.2 **登入合併** `mergeOnLogin`：拉雲端各 collection，與本地 **union by id + last-write-wins（`updatedAt`）** 合併，寫回本地並整包回推；被管理員拒絕的項目剔除。
+- FR-6.3 **持續同步**：每次 store mutation 末端 `enqueueSync`，debounce ~1.5s 整包 PUT（push=replace 語意）。collections：`closet`(user_items+hidden+overrides)、`favorites`、`wearlogs`。
+- FR-6.4 同步收斂於既有 `src/lib/store.ts` mutator；訪客為 no-op，不影響原行為。
+
+### FR-7 管理員後台（/admin，role=admin）
+- FR-7.1 守門：`proxy.ts`（邊緣讀 JWT role）＋ admin layout（server 二次驗證）。
+- FR-7.2 **用戶管理**：列表＋衣/收/誌計數、升降權、停權/復權、刪除（cascade）、檢視個別資料；不可對自己降權/停權/刪除。
+- FR-7.3 **數據統計**：總用戶/活躍/管理員/停權數、各類資料量、熱門標籤。
+- FR-7.4 **目錄管理**：全域服裝 extras CRUD、覆蓋既有 catalog 項 overrides；妝容/香水 CRUD（首次自 `data.ts` seed，前台以 ES live-binding 套用）。
+- FR-7.5 **內容稽核**：使用者上傳衣物的 `moderation_status`（pending/approved/rejected）；通過/拒絕（可附原因）；審核狀態跨同步保留，被拒不回流前台。
+
 ## 5. 非功能需求（NFR）
 
 | 類別 | 需求 |
@@ -56,23 +75,35 @@
 | 效能 | 圖片走 `next/image`（AVIF/WebP、lazy）；字體 `next/font` 自託管；首頁 hero `priority`。 |
 | 可維護性 | TypeScript strict；共用元件（nav/layout）零重複；資料層與 UI 分離。 |
 | 可及性 | 互動元素具 `aria-label`、語意標籤、鍵盤可操作。 |
-| 相容性 | localStorage key 沿用 `ootd_picker_*_v10`，與舊版資料相容。 |
+| 相容性 | localStorage key 沿用 `ootd_picker_*_v10/v11`，與舊版資料相容。 |
 | SEO | 每頁 `metadata`（title/description/OG）。 |
 | 一致性 | 全站採編輯感 / VOGUE 風設計 token（黑白 + 朱砂紅 accent，見 DESIGN.md）。 |
+| 安全 | admin 路由雙重守門（proxy + server）；機密只放 env；session 用簽章 JWT；停權即時阻擋寫入。 |
+| 認證 | Auth.js v5 + Google OAuth；edge-safe 設定拆分（`auth.config.ts` 不含 db）以相容 `proxy.ts`。 |
+| 資料庫 | PostgreSQL + Drizzle ORM；migration 納版控；server-only repo 隔離 db 存取。 |
+| 前台渲染 | 前台維持 SSG，session 僅 client 取得，不破壞既有靜態預渲染；只有 `/admin`、`/api/*` 動態。 |
 
 ## 6. 資料模型（摘要，詳見 `src/lib/types.ts`）
 
 - `Item { id, brand, name, category, seasons[], colors[], tags[], imageUrl }`
 - `Makeup` / `Perfume`（含 gender[]、tags[]、weather[]、描述欄位、圖片）
 - `Outfit { top, bottom, outerwear, accessory, makeup, perfume, context, reasons?, harmony? }`
-- `Favorite { id, date, name?, outfit }`
-- `WearLog { id, date, outfit, note?, favoriteId?, createdAt }`
-- 持久化：衣櫥 deltas（user_items/hidden/overrides）、favorites、wear_log 皆透過 `src/lib/store.ts` 對外同步。
+- `Favorite { id, date, name?, outfit, updatedAt? }`
+- `WearLog { id, date, outfit, note?, favoriteId?, createdAt, updatedAt? }`
+- 持久化（本地）：衣櫥 deltas（user_items/hidden/overrides）、favorites、wear_log 皆透過 `src/lib/store.ts` 對外同步。
+- **持久化（雲端，Drizzle schema `src/db/schema.ts`）**：
+  - Auth.js 四表 `user`(+`role`/`status`)、`account`、`session`、`verificationToken`。
+  - 使用者資料：`closet_item`(+`moderation_status`)、`hidden_catalog_item`、`override`、`favorite`、`wear_log`（皆帶 `updated_at` / `deleted_at` 供 LWW）。
+  - 目錄管理：`catalog_override`、`catalog_extra`、`makeup`、`perfume`。
+  - catalog（>10000 件）**不入庫**，續由 `catalog-data.json` 提供；DB 僅存 delta / override。
 
 ## 7. 相依與技術決策
 
 - Next.js 16（App Router/Turbopack/React Compiler）、React 19、TypeScript、Tailwind v4、**pnpm** 為套件管理。
 - 狀態：`useSyncExternalStore` 共享 closet/favorites，跨元件即時同步。
+- 認證：**Auth.js v5（next-auth beta）**＋ Google ＋ JWT；ORM：**Drizzle**；DB：**PostgreSQL**（`postgres.js` driver）。
+- Next 16 將 `middleware.ts` 更名 `proxy.ts`；Auth.js 採 edge-safe 拆分以相容（`auth.config.ts` 不含 db）。
+- 同步取捨：push=整包取代、登入時 union 合併；單機穩定，**多裝置同時編輯**可能覆蓋（個人衣櫥場景可接受）。
 
 ## 8. 待確認事項（決策記錄）
 
@@ -87,3 +118,4 @@
 | M1 收斂 | USER_STORY、PRD、DFD、設計稿規格 |
 | M2 建置 | 資料層、嚮導、衣櫥、收藏、首頁/關於 |
 | M3 驗收 | build/lint 綠燈、第 1 輪 loop 驗收清單全過 |
+| 第 6 輪 | 帳號系統 + 雲端同步 + 管理員後台（FR-5～7），見 PROJECT_LOG 第 6 輪 |

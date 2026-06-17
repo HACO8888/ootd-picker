@@ -7,24 +7,35 @@
 - **套件管理器：pnpm**（勿用 npm/yarn/bun）。
 - 指令：
   - `pnpm install`
+  - `cp .env.example .env` → 填入 `DATABASE_URL` / `AUTH_*` / Google / `ADMIN_EMAILS`
+  - `pnpm db:migrate`　套用 Drizzle migration（首次或 schema 變更後）
   - `pnpm dev`　開發伺服器（http://localhost:3000，可用 `PORT=4400 pnpm dev` 換埠）
   - `pnpm build`　production build（含 TypeScript 型別檢查）
   - `pnpm lint`　ESLint（flat config）
+  - `pnpm db:generate` / `db:studio`　產生 migration / Drizzle Studio
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
-- **技術棧**：Next.js 16（App Router / Turbopack / React Compiler）、React 19、TypeScript strict、Tailwind CSS v4。
+- **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
+- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
 - **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
 
 ## 目錄速覽
 
 ```
-src/app/        路由：/ · /picker · /closet · /insights · /journal · /share · /about
-src/components/  nav · picker · results · closet · favorites · insights · journal · share · ui · chrome · home
+src/app/        前台：/ · /picker · /closet · /insights · /journal · /share · /about
+                admin/  後台：總覽 · users · catalog · makeup · perfume · moderation（proxy + layout 雙重守門）
+                api/    auth · sync/{closet,favorites,wearlogs} · looks · catalog/global · admin/*
+src/auth.ts · auth.config.ts   Auth.js v5（完整 / edge-safe 拆分；proxy.ts 用後者解碼 JWT）
+src/proxy.ts    Next 16 middleware：守 /admin 與 /api/admin（JWT role=admin）
+src/db/         schema.ts（Drizzle）· client.ts（postgres.js 單例，"server-only"）
+src/components/  nav · picker · results · closet · favorites · insights · journal · share · ui · chrome · home · auth · admin
 src/hooks/       useCloset · useFavorites · useUserCloset · useWearLog（皆包 useSyncExternalStore）
-src/lib/         types · data · catalog · catalog-data.json · recommend · storage · store · weather
+src/lib/         types · data · catalog · catalog-data.json · recommend · storage · store · weather · sync · auth.types
+                 server/  server-only repo：sync-repo · admin-repo · catalog-repo · session
                  catalog = Fashion Product Images 資料集(MIT)~3000 件，每件一張白底商品照，
                  名稱由資料集的顏色＋品類標籤產生（文字與圖對應、不重複）。
                  重新抓取：pnpm fetch:fashion；可選 pnpm gen:images 改用 AI 生圖
                  衣櫥 = 靜態 catalog ⊕ 使用者自訂(localStorage：user_items/hidden/overrides v11)
+drizzle/        產生的 SQL migration（納版控）
 public/images/   服裝圖 + 首頁圖    public/looks/  妝容/香水圖
 legacy/          重建前舊版（僅供對照，勿在此開發）
 ```
@@ -37,6 +48,10 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
 - 推薦演算法為核心契約（引擎 `generateOOTDSet`／單套 `generateOOTD`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加語意相近標籤、天氣實穿性、性別脈絡補正；整套再以 `totalOutfitScore` 比對上下身/配件/外套相容性、色彩和諧、近似去重）。調整前先確認對 USER_STORY 的影響。
+- **雲端同步**：唯一切入點是 `src/lib/store.ts` mutator 末端的 `enqueueSync`（訪客 no-op）；登入合併在 `src/lib/sync.ts` `mergeOnLogin`。新增使用者資料表時，需同步 `sync-repo.ts` 的 load/save 與型別的 `updatedAt?`。push=整包取代，故 `saveCloset` 要保留既有 `moderation_status`。
+- **認證**：session 帶 `id/role/status`。`auth.config.ts` 必須 edge-safe（不可 import db / `server-only`），`proxy.ts` 只用它解碼 JWT；完整流程（adapter/bootstrap）在 `auth.ts`。JWT 型別因 pnpm 無法 augment `@auth/core/jwt`，callback 內以 `auth.types.ts` 的 `Role/AccountStatus` 轉型。
+- **後台**：所有 `/api/admin/*` handler 內**再驗證一次** `getAdminUser()`（proxy 之外的縱深防禦）；db 存取一律走 `src/lib/server/*`（`server-only`）。
+- **妝容/香水/目錄**：前台用 ES module live-binding 套用 DB 版本（`data.ts` 的 `setMakeupLookbook`/`setPerfumeLookbook`、`catalog.ts` 的 `setCatalogOverlay`），由 `RuntimeDataLoader` 於啟動載入；catalog（>10000）不入庫。
 
 ## 專案文件（progressive disclosure）
 
@@ -106,6 +121,13 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - [ ] 每頁具 `metadata`（title/description/OG）。
 - [ ] 互動元素具 `aria-label`／語意標籤。
 - [ ]（建議）Lighthouse 行動裝置 效能/SEO/可及性 ≥ 90。
+
+### G. 帳號 / 雲端同步 / 後台（US-15～19，第 6 輪）
+- [ ] 訪客不登入可完整使用，前台維持 SSG；`pnpm test:e2e` 在訪客模式全綠（零回歸）。
+- [ ] Google 登入/登出可用；`user` 表落帳；`ADMIN_EMAILS` 命中者 `role=admin`。
+- [ ] 登入後衣櫥/收藏/日誌寫入落 DB、重整與換裝置可見；訪客既有資料登入後完整合併（不重複/不遺失）。
+- [ ] 非 admin 進 `/admin` 被導離、`/api/admin/*` 回 403；admin 可操作用戶/統計/目錄/稽核。
+- [ ] 妝容/香水/目錄後台變更即時反映前台；上傳衣物 pending→通過/拒絕，被拒不回流前台。
 
 ## 第 1 輪 loop — 驗收結果
 

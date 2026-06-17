@@ -5,9 +5,9 @@
 
 ## 圖例
 
-- **外部實體**：使用者、瀏覽器 localStorage、靜態資源（圖片/字體）。
+- **外部實體**：使用者、瀏覽器 localStorage、靜態資源（圖片/字體）、Google OAuth、管理員。
 - **處理（Process）**：應用中的邏輯模組。
-- **資料儲存（Data Store）**：D1 衣櫥、D2 收藏、D3 穿搭日誌。
+- **資料儲存（Data Store）**：D1 衣櫥、D2 收藏、D3 穿搭日誌（本地 localStorage）；**D4 PostgreSQL（雲端，登入後）**。
 
 ---
 
@@ -19,6 +19,10 @@ flowchart LR
     SYS -->|完整造型：穿搭+妝容+香水| U
     U -->|新增/刪除單品、收藏| SYS
     SYS <-->|讀寫衣櫥/收藏 JSON| LS[(瀏覽器 localStorage)]
+    U -->|Google 登入| G[[Google OAuth]]
+    G -->|id token| SYS
+    SYS <-->|登入後同步 衣櫥/收藏/日誌| DB[(PostgreSQL · Drizzle)]
+    ADM([管理員]) <-->|/admin 用戶/目錄/稽核/統計| SYS
     SYS -->|請求最佳化圖片/字體| AS[[靜態資源 next/image · next/font]]
     AS -->|AVIF/WebP, woff2| SYS
 ```
@@ -92,5 +96,30 @@ flowchart TD
 | **D1 衣櫥** | catalog + `ootd_picker_user_items_v11` / `ootd_picker_hidden_v11` / `ootd_picker_overrides_v11` | `Item[]` composed from catalog + deltas | 新增、編輯、刪除/隱藏、覆寫 catalog 單品 |
 | **D2 收藏** | `ootd_picker_favorites_v10` | `Favorite[]` | 收藏、命名、刪除、匯入 |
 | **D3 穿搭日誌** | `ootd_picker_wear_log_v1` | `WearLog[]` | 標記今天穿、編輯備註、刪除、匯入 |
+| **D4 PostgreSQL** | `user`/`account`/`session`/`verificationToken` + `closet_item`/`hidden_catalog_item`/`override`/`favorite`/`wear_log` + `catalog_override`/`catalog_extra`/`makeup`/`perfume` | Drizzle schema（`src/db/schema.ts`） | 登入合併、同步 push、後台 CRUD、稽核 |
 
 > Store 於前端透過 `src/lib/store.ts`（`useSyncExternalStore`）對所有元件廣播變更，確保 P3/P4/P5/P6 即時一致。
+
+---
+
+## Level 1 細化 — P7 認證 / 同步 / 後台（第 6 輪）
+
+```mermaid
+flowchart TD
+    U([使用者]) -->|登入| A1[P7a 認證 Auth.js<br/>Google + JWT + admin bootstrap]
+    A1 <-->|user/account| DB[(D4 PostgreSQL)]
+    A1 -->|session: id/role/status| BR[P7b AuthProvider<br/>setAuthState]
+    BR -->|登入瞬間| MG[P7c mergeOnLogin<br/>union by id + LWW + 剔除被拒]
+    LS[(D1/D2/D3 localStorage)] <--> MG
+    MG <-->|pull/PUT| SY[/api/sync/*]
+    SY <--> DB
+    ST[store.ts mutator] -->|enqueueSync debounce| SY
+
+    ADM([管理員]) -->|/admin| PX[proxy.ts 守門<br/>JWT role=admin]
+    PX --> AD[P7d 後台<br/>users · stats · catalog · makeup/perfume · moderation]
+    AD <-->|server-only repo| DB
+    AD -->|妝容/香水/目錄| PUB[/api/looks · /api/catalog/global]
+    PUB -->|live-binding overlay| P2[P2 推薦引擎 / 衣櫥]
+```
+
+> 訪客（未登入）時 P7b/P7c 為 no-op，同步停用，行為與第 5 輪完全相同。catalog（>10000）不入庫，D4 僅存 delta / override。

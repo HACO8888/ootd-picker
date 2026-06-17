@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 
 interface Row {
   id: string;
@@ -14,16 +15,10 @@ interface Row {
 }
 
 export default function ModerationPage() {
+  const { showToast } = useChrome();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/moderation");
-    if (res.ok) setRows(await res.json());
-    setLoading(false);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +45,7 @@ export default function ModerationPage() {
     });
     setRows((rs) => rs.filter((r) => r.id !== id));
     setBusy(null);
+    showToast(action === "approved" ? "已通過" : "已拒絕");
   }
 
   return (
@@ -58,9 +54,22 @@ export default function ModerationPage() {
       <p className="text-on-surface-variant text-body-sm mb-6">使用者上傳、待審的衣物。</p>
 
       {loading ? (
-        <p className="text-on-surface-variant">載入中…</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="border border-outline-variant p-3 flex gap-3">
+              <div className="w-20 h-24 shrink-0 bg-outline-variant/40 animate-pulse" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-3.5 w-24 bg-outline-variant/50 animate-pulse" />
+                <div className="h-2.5 w-32 bg-outline-variant/30 animate-pulse" />
+                <div className="h-2.5 w-20 bg-outline-variant/30 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : rows.length === 0 ? (
-        <p className="text-on-surface-variant">目前沒有待審項目。</p>
+        <div className="border border-dashed border-outline-variant py-16 text-center">
+          <p className="text-on-surface-variant">目前沒有待審項目 🎉</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {rows.map((r) => (

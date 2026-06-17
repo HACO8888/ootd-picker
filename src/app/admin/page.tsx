@@ -3,11 +3,15 @@ import { getStats } from "@/lib/server/admin-repo";
 
 export const dynamic = "force-dynamic";
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div className="border border-outline-variant p-4">
+    <div className="border border-outline-variant p-4 hover:border-outline transition-colors">
       <p className="kicker text-on-surface-variant mb-1">{label}</p>
-      <p className="font-headline-lg text-headline-lg text-on-surface">{value}</p>
+      <p
+        className={`font-headline-lg text-headline-lg ${accent && value > 0 ? "text-primary" : "text-on-surface"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -22,7 +26,7 @@ export default async function AdminHome() {
         <Stat label="總用戶數" value={s.totalUsers} />
         <Stat label="活躍用戶" value={s.activeUsers} />
         <Stat label="管理員" value={s.admins} />
-        <Stat label="已停權" value={s.suspended} />
+        <Stat label="已停權" value={s.suspended} accent />
         <Stat label="自訂衣物" value={s.totalClosetItems} />
         <Stat label="收藏組合" value={s.totalFavorites} />
         <Stat label="穿搭日誌" value={s.totalWearLogs} />

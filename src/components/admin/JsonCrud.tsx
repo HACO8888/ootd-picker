@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 
 interface Entity {
   id: string;
@@ -19,6 +20,7 @@ export function JsonCrud({
   endpoint: string;
   template: Record<string, unknown>;
 }) {
+  const { showToast } = useChrome();
   const [items, setItems] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
@@ -77,8 +79,10 @@ export function JsonCrud({
       setError((await res.json()).error ?? "儲存失敗");
       return;
     }
+    const wasNew = editing === "__new__";
     setEditing(null);
     await load();
+    showToast(wasNew ? "已新增" : "已儲存");
   }
 
   async function remove(id: string) {
@@ -89,6 +93,7 @@ export function JsonCrud({
       body: JSON.stringify({ id }),
     });
     await load();
+    showToast("已刪除");
   }
 
   return (
@@ -128,7 +133,17 @@ export function JsonCrud({
       )}
 
       {loading ? (
-        <p className="text-on-surface-variant">載入中…</p>
+        <ul className="divide-y divide-outline-variant">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="flex items-center justify-between py-3">
+              <div className="space-y-2">
+                <div className="h-3.5 w-32 bg-outline-variant/60 animate-pulse" />
+                <div className="h-2.5 w-12 bg-outline-variant/40 animate-pulse" />
+              </div>
+              <div className="h-3 w-16 bg-outline-variant/40 animate-pulse" />
+            </li>
+          ))}
+        </ul>
       ) : (
         <ul className="divide-y divide-outline-variant">
           {items.map((it) => (

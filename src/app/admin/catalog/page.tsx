@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 import type { Item } from "@/lib/types";
 
 interface GlobalCatalog {
@@ -21,6 +22,7 @@ const EXTRA_TEMPLATE: Item = {
 };
 
 export default function AdminCatalogPage() {
+  const { showToast } = useChrome();
   const [data, setData] = useState<GlobalCatalog | null>(null);
   const [extraDraft, setExtraDraft] = useState("");
   const [extraOpen, setExtraOpen] = useState(false);
@@ -65,6 +67,7 @@ export default function AdminCatalogPage() {
     }
     setExtraOpen(false);
     await load();
+    showToast("已儲存服裝");
   }
 
   async function deleteExtra(id: string) {
@@ -75,6 +78,7 @@ export default function AdminCatalogPage() {
       body: JSON.stringify({ id }),
     });
     await load();
+    showToast("已刪除");
   }
 
   async function saveOverride() {
@@ -97,6 +101,7 @@ export default function AdminCatalogPage() {
     });
     setOvrId("");
     await load();
+    showToast("已套用覆蓋");
   }
 
   async function removeOverride(catalogId: string) {
@@ -106,9 +111,16 @@ export default function AdminCatalogPage() {
       body: JSON.stringify({ catalogId, patch: null }),
     });
     await load();
+    showToast("已移除覆蓋");
   }
 
-  if (!data) return <p className="text-on-surface-variant">載入中…</p>;
+  if (!data)
+    return (
+      <div className="space-y-3">
+        <div className="h-7 w-32 bg-outline-variant/60 animate-pulse" />
+        <div className="h-24 w-full bg-outline-variant/30 animate-pulse" />
+      </div>
+    );
 
   return (
     <div className="space-y-10">

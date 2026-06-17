@@ -37,7 +37,7 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label="帳號選單"
         aria-expanded={open}
-        className="flex items-center rounded-[9999px] ring-1 ring-outline-variant hover:ring-primary transition-shadow"
+        className="flex items-center hover:opacity-75 transition-opacity"
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -45,10 +45,10 @@ export function UserMenu() {
             src={image}
             alt={name ?? "帳號"}
             referrerPolicy="no-referrer"
-            className="w-8 h-8 rounded-[9999px] object-cover"
+            className="w-7 h-7 rounded-[9999px] object-cover border border-outline-variant"
           />
         ) : (
-          <span className="w-8 h-8 rounded-[9999px] bg-primary text-on-primary grid place-items-center kicker text-[13px]">
+          <span className="w-7 h-7 rounded-[9999px] bg-primary text-on-primary grid place-items-center kicker text-[12px]">
             {(name ?? email ?? "?").slice(0, 1).toUpperCase()}
           </span>
         )}

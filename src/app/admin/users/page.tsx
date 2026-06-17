@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 
 interface UserRow {
   id: string;
@@ -16,6 +17,7 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
+  const { showToast } = useChrome();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export default function AdminUsersPage() {
       body: JSON.stringify({ id, ...body }),
     });
     if (!res.ok) setError((await res.json()).error ?? "操作失敗");
+    else showToast("已更新");
     await load();
     setBusy(null);
   }
@@ -64,6 +67,7 @@ export default function AdminUsersPage() {
       body: JSON.stringify({ id }),
     });
     if (!res.ok) setError((await res.json()).error ?? "刪除失敗");
+    else showToast("已刪除");
     await load();
     setBusy(null);
   }
@@ -73,7 +77,15 @@ export default function AdminUsersPage() {
       <h1 className="font-headline-lg text-headline-lg text-on-surface mb-6">用戶管理</h1>
       {error && <p className="text-primary mb-4 text-body-sm">{error}</p>}
       {loading ? (
-        <p className="text-on-surface-variant">載入中…</p>
+        <ul className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <li key={i} className="border border-outline-variant p-4 space-y-3">
+              <div className="h-4 w-40 bg-outline-variant/60 animate-pulse" />
+              <div className="h-3 w-24 bg-outline-variant/40 animate-pulse" />
+              <div className="h-3 w-full bg-outline-variant/30 animate-pulse mt-3" />
+            </li>
+          ))}
+        </ul>
       ) : rows.length === 0 ? (
         <p className="text-on-surface-variant">尚無用戶。</p>
       ) : (

@@ -77,78 +77,73 @@ export default function AdminUsersPage() {
       ) : rows.length === 0 ? (
         <p className="text-on-surface-variant">尚無用戶。</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-body-sm border-collapse">
-            <thead>
-              <tr className="border-b border-outline text-left kicker text-on-surface-variant">
-                <th className="py-2 pr-3">用戶</th>
-                <th className="py-2 px-2">角色</th>
-                <th className="py-2 px-2">狀態</th>
-                <th className="py-2 px-2 whitespace-nowrap">衣/收/誌</th>
-                <th className="py-2 pl-2">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((u) => (
-                <tr key={u.id} className="border-b border-outline-variant align-top">
-                  <td className="py-3 pr-3">
-                    <p className="text-on-surface">{u.name ?? "—"}</p>
-                    <p className="text-on-surface-variant text-[12px]">{u.email}</p>
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className={u.role === "admin" ? "text-primary" : "text-on-surface-variant"}>
-                      {u.role === "admin" ? "管理員" : "用戶"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2">
-                    <span className={u.status === "suspended" ? "text-primary" : "text-on-surface-variant"}>
-                      {u.status === "suspended" ? "已停權" : "正常"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-2 text-on-surface-variant whitespace-nowrap">
-                    {u.closetCount}/{u.favoriteCount}/{u.wearLogCount}
-                  </td>
-                  <td className="py-3 pl-2">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={busy === u.id}
-                        onClick={() => setViewing(u.id)}
-                        className="kicker text-on-surface hover:text-primary disabled:opacity-40"
-                      >
-                        查看
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === u.id}
-                        onClick={() => patch(u.id, { role: u.role === "admin" ? "user" : "admin" })}
-                        className="kicker text-on-surface hover:text-primary disabled:opacity-40"
-                      >
-                        {u.role === "admin" ? "取消管理員" : "設為管理員"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === u.id}
-                        onClick={() => patch(u.id, { status: u.status === "suspended" ? "active" : "suspended" })}
-                        className="kicker text-on-surface hover:text-primary disabled:opacity-40"
-                      >
-                        {u.status === "suspended" ? "復權" : "停權"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy === u.id}
-                        onClick={() => remove(u.id)}
-                        className="kicker text-primary hover:opacity-70 disabled:opacity-40"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="space-y-3">
+          {rows.map((u) => (
+            <li key={u.id} className="border border-outline-variant p-4">
+              {/* 身分 + 角色/狀態徽章 */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-on-surface truncate">{u.name ?? "—"}</p>
+                  <p className="text-on-surface-variant text-[12px] truncate">{u.email}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`kicker whitespace-nowrap ${u.role === "admin" ? "text-primary" : "text-on-surface-variant"}`}
+                  >
+                    {u.role === "admin" ? "管理員" : "用戶"}
+                  </span>
+                  <span className="text-outline-variant">·</span>
+                  <span
+                    className={`kicker whitespace-nowrap ${u.status === "suspended" ? "text-primary" : "text-on-surface-variant"}`}
+                  >
+                    {u.status === "suspended" ? "已停權" : "正常"}
+                  </span>
+                </div>
+              </div>
+
+              {/* 計數 */}
+              <p className="text-on-surface-variant text-[12px] mt-2">
+                衣 {u.closetCount} · 收 {u.favoriteCount} · 誌 {u.wearLogCount}
+              </p>
+
+              {/* 操作 */}
+              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 pt-3 border-t border-outline-variant">
+                <button
+                  type="button"
+                  disabled={busy === u.id}
+                  onClick={() => setViewing(u.id)}
+                  className="kicker text-on-surface hover:text-primary disabled:opacity-40"
+                >
+                  查看
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === u.id}
+                  onClick={() => patch(u.id, { role: u.role === "admin" ? "user" : "admin" })}
+                  className="kicker text-on-surface hover:text-primary disabled:opacity-40"
+                >
+                  {u.role === "admin" ? "取消管理員" : "設為管理員"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === u.id}
+                  onClick={() => patch(u.id, { status: u.status === "suspended" ? "active" : "suspended" })}
+                  className="kicker text-on-surface hover:text-primary disabled:opacity-40"
+                >
+                  {u.status === "suspended" ? "復權" : "停權"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === u.id}
+                  onClick={() => remove(u.id)}
+                  className="kicker text-primary hover:opacity-70 disabled:opacity-40 ml-auto"
+                >
+                  刪除
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       {viewing && <UserDataDrawer id={viewing} onClose={() => setViewing(null)} />}

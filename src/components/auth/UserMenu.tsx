@@ -46,15 +46,16 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label="帳號選單"
         aria-expanded={open}
-        className="flex items-center hover:opacity-75 transition-opacity"
+        className="group flex items-center"
       >
         {image ? (
+          // 預設灰階融入黑白編輯風，hover 才上色（避免彩色頭像在報頭突兀）。
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image}
             alt={name ?? "帳號"}
             referrerPolicy="no-referrer"
-            className="w-7 h-7 rounded-[9999px] object-cover border border-outline-variant"
+            className="w-7 h-7 rounded-[9999px] object-cover grayscale group-hover:grayscale-0 transition-[filter] duration-300"
           />
         ) : (
           <span className="w-7 h-7 rounded-[9999px] bg-primary text-on-primary grid place-items-center kicker text-[12px]">

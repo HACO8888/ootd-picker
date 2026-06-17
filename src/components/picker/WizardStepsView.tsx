@@ -7,10 +7,10 @@ import { ChoiceCard } from "@/components/picker/ChoiceCard";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
 
-const GENDERS: { value: Gender; emoji: string; title: string; subtitle: string }[] = [
-  { value: "female", emoji: "👩", title: "女生", subtitle: "花香、甜香、優雅香調" },
-  { value: "male", emoji: "👨", title: "男生", subtitle: "木質、海洋、清新香調" },
-  { value: "unisex", emoji: "🌈", title: "不分性別", subtitle: "中性、多元、無界香調" },
+const GENDERS: { value: Gender; icon: string; iconClass: string; title: string; subtitle: string }[] = [
+  { value: "female", icon: "woman", iconClass: "text-rose-400", title: "女生", subtitle: "花香、甜香、優雅香調" },
+  { value: "male", icon: "man", iconClass: "text-sky-500", title: "男生", subtitle: "木質、海洋、清新香調" },
+  { value: "unisex", icon: "diversity_3", iconClass: "text-on-surface", title: "不分性別", subtitle: "中性、多元、無界香調" },
 ];
 
 const WEATHERS: { value: Weather; icon: string; iconClass: string; title: string; subtitle: string }[] = [
@@ -89,7 +89,7 @@ export function WizardStepsView({
             />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {GENDERS.map((g) => (
-                <ChoiceCard key={g.value} onClick={() => onSelectGender(g.value)} emoji={g.emoji} title={g.title} subtitle={g.subtitle} active={gender === g.value} />
+                <ChoiceCard key={g.value} onClick={() => onSelectGender(g.value)} icon={g.icon} iconClass={g.iconClass} title={g.title} subtitle={g.subtitle} active={gender === g.value} />
               ))}
             </div>
           </>

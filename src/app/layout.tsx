@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { RuntimeDataLoader } from "@/components/RuntimeDataLoader";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
 import { TopNav } from "@/components/nav/TopNav";
 import { BottomNav } from "@/components/nav/BottomNav";
@@ -65,11 +67,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           跳至主要內容
         </a>
-        <ChromeProvider>
-          <TopNav />
-          <main id="main-content">{children}</main>
-          <BottomNav />
-        </ChromeProvider>
+        <AuthProvider>
+          <RuntimeDataLoader />
+          <ChromeProvider>
+            <TopNav />
+            <main id="main-content">{children}</main>
+            <BottomNav />
+          </ChromeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -42,6 +42,28 @@ function readOverrides(): Record<string, Partial<Item>> {
   return read<Record<string, Partial<Item>>>(OVERRIDE_KEY, {});
 }
 
+/* ─── Closet delta snapshot (for cloud sync) ─────────────────────────────── */
+export interface ClosetDeltas {
+  userItems: Item[];
+  hidden: string[];
+  overrides: Record<string, Partial<Item>>;
+}
+
+/** The user's closet deltas — the three localStorage keys as one snapshot. */
+export function getClosetDeltas(): ClosetDeltas {
+  if (!hasWindow()) return { userItems: [], hidden: [], overrides: {} };
+  migrate();
+  return { userItems: readUser(), hidden: readHidden(), overrides: readOverrides() };
+}
+
+/** Replace all closet deltas (used by sync merge). Returns the composed closet. */
+export function setClosetDeltas(d: ClosetDeltas): Item[] {
+  write(USER_KEY, d.userItems);
+  write(HIDDEN_KEY, d.hidden);
+  write(OVERRIDE_KEY, d.overrides);
+  return compose();
+}
+
 /** One-time migration: lift v10 user-added items (id `c_…`) into the v11 store. */
 function migrate(): void {
   if (!hasWindow()) return;
@@ -104,6 +126,7 @@ export function addClosetItem(
     colors: colorsArr,
     tags: Array.isArray(tags) ? tags : [tags],
     imageUrl: imageUrl || getAutoImage(name, category, colorsArr),
+    updatedAt: Date.now(),
   };
   write(USER_KEY, [item, ...readUser()]);
   return compose();
@@ -124,7 +147,7 @@ export function deleteClosetItem(id: string): Item[] {
 export function updateClosetItem(id: string, patch: Partial<Omit<Item, "id">>): Item[] {
   const user = readUser();
   if (user.some((i) => i.id === id)) {
-    write(USER_KEY, user.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    write(USER_KEY, user.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: Date.now() } : i)));
   } else {
     const overrides = readOverrides();
     overrides[id] = { ...overrides[id], ...patch };
@@ -156,6 +179,7 @@ export function addFavorite(outfit: Outfit, name?: string): Favorite[] {
     date: new Date().toLocaleDateString("zh-Hant"),
     name: name?.trim() || undefined,
     outfit,
+    updatedAt: Date.now(),
   };
   return persistFavorites([fav, ...getFavorites()]);
 }
@@ -167,7 +191,9 @@ export function deleteFavorite(id: string): Favorite[] {
 export function renameFavorite(id: string, name: string): Favorite[] {
   const trimmed = name.trim();
   return persistFavorites(
-    getFavorites().map((f) => (f.id === id ? { ...f, name: trimmed || undefined } : f)),
+    getFavorites().map((f) =>
+      f.id === id ? { ...f, name: trimmed || undefined, updatedAt: Date.now() } : f,
+    ),
   );
 }
 
@@ -218,6 +244,7 @@ export function addWearLog(
     note: opts?.note?.trim() || undefined,
     favoriteId: opts?.favoriteId,
     createdAt: now,
+    updatedAt: now,
   };
   // Newest first; the journal regroups by date anyway.
   return persistWearLogs([log, ...getWearLogs()]);
@@ -230,7 +257,9 @@ export function deleteWearLog(id: string): WearLog[] {
 export function updateWearLogNote(id: string, note: string): WearLog[] {
   const trimmed = note.trim();
   return persistWearLogs(
-    getWearLogs().map((l) => (l.id === id ? { ...l, note: trimmed || undefined } : l)),
+    getWearLogs().map((l) =>
+      l.id === id ? { ...l, note: trimmed || undefined, updatedAt: Date.now() } : l,
+    ),
   );
 }
 

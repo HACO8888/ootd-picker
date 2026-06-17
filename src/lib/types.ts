@@ -15,6 +15,8 @@ export interface Item {
   colors: string[];
   tags: string[];
   imageUrl: string;
+  /** 雲端同步用：使用者單品的最後修改時間(ms)。catalog 項不帶此欄位。 */
+  updatedAt?: number;
 }
 
 /** A curated makeup look. */
@@ -103,6 +105,8 @@ export interface Favorite {
   /** Optional user-given name for the combination. */
   name?: string;
   outfit: Outfit;
+  /** 雲端同步用：最後修改時間(ms)。 */
+  updatedAt?: number;
 }
 
 /** A record of an outfit actually worn on a given day. */
@@ -116,4 +120,6 @@ export interface WearLog {
   /** Source favorite id, if logged from a saved combination (reference only). */
   favoriteId?: string;
   createdAt: number;
+  /** 雲端同步用：最後修改時間(ms)。 */
+  updatedAt?: number;
 }

@@ -62,7 +62,9 @@ export function buildCloset(): Item[] {
 /* ═══════════════════════════════════════════════════════════════════════════
    MAKEUP LOOKBOOK — 13 looks
    ═══════════════════════════════════════════════════════════════════════════ */
-export const MAKEUP_LOOKBOOK: Makeup[] = [
+// 可被管理員後台覆寫：客戶端載入 DB 版本後以 setMakeupLookbook 重新賦值。
+// 因 ES module live binding，recommend.ts 內的引用會自動反映新值（seed 來源）。
+export let MAKEUP_LOOKBOOK: Makeup[] = [
   { id: "m1", name: "日系清透白開水妝", gender: ["female", "unisex"], tags: ["放鬆", "舒適", "休閒漫步", "居家"], weather: ["sunny", "cloudy"], focus: "清透水潤底妝，強調無粉感與原生好膚質", eye: "啞光大地裸色，自然臥蠶，根根分明睫毛", lip: "蜜桃粉水光唇蜜", blush: "膨脹色淡櫻花粉腮紅", highlight: "玻璃光打亮", colors: ["#ffe3e3", "#ffd1d1", "#f5b5b5"], makeupImageUrl: "/looks/makeup-japanese-clear.jpg" },
   { id: "m2", name: "都會洗鍊知性妝", gender: ["female"], tags: ["專業", "工作"], weather: ["sunny", "cloudy", "rainy", "cold"], focus: "微霧面高級底妝，著重輪廓線條感", eye: "漸層消腫冷大地色，深棕色內眼線", lip: "啞光煙燻玫瑰色唇膏", blush: "收縮色肉桂茶色腮紅", highlight: "微啞光米色提亮", colors: ["#cfa89a", "#9c7769", "#63473f"], makeupImageUrl: "/looks/makeup-urban-intellectual.jpg" },
   { id: "m3", name: "微醺法式優雅妝", gender: ["female"], tags: ["優雅", "約會", "休閒漫步"], weather: ["cloudy", "cold", "rainy"], focus: "絲絨奶油底妝，微醺慵懶復古氛圍", eye: "楓葉橘棕暖調眼影，香檳金閃片", lip: "絲絨啞光焦糖栗子色", blush: "暖杏色大面積橫向掃面中", highlight: "暖香檳金高光", colors: ["#e3a07b", "#bd754e", "#944b25"], makeupImageUrl: "/looks/makeup-french-elegant.jpg" },
@@ -81,7 +83,7 @@ export const MAKEUP_LOOKBOOK: Makeup[] = [
 /* ═══════════════════════════════════════════════════════════════════════════
    PERFUME LOOKBOOK — 10 scents
    ═══════════════════════════════════════════════════════════════════════════ */
-export const PERFUME_LOOKBOOK: Perfume[] = [
+export let PERFUME_LOOKBOOK: Perfume[] = [
   { id: "p1", name: "白茶禪意清透香", gender: ["female", "male", "unisex"], tags: ["放鬆", "舒適", "居家", "休閒漫步"], weather: ["sunny", "cloudy"], topNote: "白茶、清檸、薄荷葉", heartNote: "茉莉、鈴蘭、白玫瑰", baseNote: "白麝香、雪松木、琥珀", style: "清透淡雅，若有似無的禪意", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-white-tea.jpg" },
   { id: "p2", name: "玫瑰絲絨女人香", gender: ["female"], tags: ["優雅", "約會", "社交聚會"], weather: ["sunny", "cloudy", "cold"], topNote: "大馬士革玫瑰、荔枝、覆盆子", heartNote: "牡丹、紫羅蘭、桂花", baseNote: "麝香、廣藿香、檀香", style: "飽滿玫瑰花心，浪漫而成熟", intensity: "香水 (EDP)", perfumeImageUrl: "/looks/perfume-rose-velvet.jpg" },
   { id: "p3", name: "海洋深藍男士香", gender: ["male"], tags: ["活力", "工作", "休閒漫步"], weather: ["sunny", "cloudy"], topNote: "海洋元素、佛手柑、薄荷", heartNote: "紫羅蘭葉、鼠尾草、薰衣草", baseNote: "雪松、琥珀、廣藿香", style: "清新海洋調，展現男性自信", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-ocean-blue.jpg" },
@@ -93,6 +95,18 @@ export const PERFUME_LOOKBOOK: Perfume[] = [
   { id: "p9", name: "廣藿大地森林香", gender: ["male", "unisex"], tags: ["活力", "放鬆", "休閒漫步"], weather: ["rainy", "cold", "cloudy"], topNote: "尤加利、羅勒、薄荷", heartNote: "廣藿香、雪松、絲柏", baseNote: "苔蘚、橡木、龍涎香", style: "雨後森林的泥土芬芳", intensity: "淡香精 (EDP)", perfumeImageUrl: "/looks/perfume-ocean-blue.jpg" },
   { id: "p10", name: "薰衣草香草晚安香", gender: ["female", "male", "unisex"], tags: ["舒適", "居家", "放鬆"], weather: ["cloudy", "cold", "rainy"], topNote: "薰衣草、迷迭香、香檸檬", heartNote: "玫瑰、鳶尾根、香草蘭", baseNote: "香草、零陵香豆、白麝香", style: "溫柔舒眠的薰衣草香草調", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-lavender.jpg" },
 ];
+
+/** 以 DB 版本覆寫妝容/香水 lookbook（管理員後台編輯後，客戶端載入時呼叫）。 */
+export function setMakeupLookbook(list: Makeup[]): void {
+  if (list.length) MAKEUP_LOOKBOOK = list;
+}
+export function setPerfumeLookbook(list: Perfume[]): void {
+  if (list.length) PERFUME_LOOKBOOK = list;
+}
+
+/** Seed 來源（給後台首次匯入 DB 用，不受覆寫影響）。 */
+export const SEED_MAKEUP: Makeup[] = [...MAKEUP_LOOKBOOK];
+export const SEED_PERFUME: Perfume[] = [...PERFUME_LOOKBOOK];
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TRANSLATION DICTIONARIES

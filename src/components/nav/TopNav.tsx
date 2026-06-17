@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useChrome } from "@/components/chrome/ChromeProvider";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { Icon } from "@/components/ui/Icon";
 
 const LINKS = [
@@ -76,6 +77,7 @@ export function TopNav() {
           >
             <Icon name="favorite" className="text-[22px]" />
           </button>
+          <UserMenu />
           <Link
             href="/picker"
             className="hidden md:inline-flex bg-primary text-on-primary px-6 py-2.5 kicker hover:bg-surface-tint transition-colors"

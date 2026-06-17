@@ -20,6 +20,7 @@ import {
   updateWearLogNote as persistUpdateWearLogNote,
   setWearLogs as persistSetWearLogs,
 } from "./storage";
+import { enqueueSync, registerStoreRefresh } from "./sync";
 import type { Item, Favorite, Outfit, Category, Season, WearLog } from "./types";
 
 /* ─── generic tiny store ─────────────────────────────────────────────────── */
@@ -62,6 +63,15 @@ function syncUserCloset() {
   userClosetStore.set(getUserCloset());
 }
 
+/** Re-read every store from localStorage — called by sync after a login merge. */
+export function refreshAllStores() {
+  closetStore.set(getCloset());
+  userClosetStore.set(getUserCloset());
+  favoritesStore.set(getFavorites());
+  wearLogStore.set(getWearLogs());
+}
+registerStoreRefresh(refreshAllStores);
+
 /* ─── closet mutators ────────────────────────────────────────────────────── */
 export function addClosetItemToStore(
   name: string,
@@ -74,33 +84,40 @@ export function addClosetItemToStore(
 ) {
   closetStore.set(persistAdd(name, category, seasons, colors, tags, imageUrl, brand));
   syncUserCloset();
+  enqueueSync("closet");
 }
 
 export function deleteClosetItemFromStore(id: string) {
   closetStore.set(persistDelete(id));
   syncUserCloset();
+  enqueueSync("closet");
 }
 
 export function updateClosetItemInStore(id: string, patch: Partial<Omit<Item, "id">>) {
   closetStore.set(persistUpdate(id, patch));
   syncUserCloset();
+  enqueueSync("closet");
 }
 
 /* ─── favorites mutators ─────────────────────────────────────────────────── */
 export function addFavoriteToStore(outfit: Outfit, name?: string) {
   favoritesStore.set(persistAddFav(outfit, name));
+  enqueueSync("favorites");
 }
 
 export function deleteFavoriteFromStore(id: string) {
   favoritesStore.set(persistDeleteFav(id));
+  enqueueSync("favorites");
 }
 
 export function renameFavoriteInStore(id: string, name: string) {
   favoritesStore.set(persistRenameFav(id, name));
+  enqueueSync("favorites");
 }
 
 export function setFavoritesInStore(list: Favorite[]) {
   favoritesStore.set(persistSetFavs(list));
+  enqueueSync("favorites");
 }
 
 /* ─── wear-log mutators ──────────────────────────────────────────────────── */
@@ -110,16 +127,20 @@ export function addWearLogToStore(
   opts?: { note?: string; favoriteId?: string },
 ) {
   wearLogStore.set(persistAddWearLog(outfit, date, opts));
+  enqueueSync("wearlogs");
 }
 
 export function deleteWearLogFromStore(id: string) {
   wearLogStore.set(persistDeleteWearLog(id));
+  enqueueSync("wearlogs");
 }
 
 export function updateWearLogNoteInStore(id: string, note: string) {
   wearLogStore.set(persistUpdateWearLogNote(id, note));
+  enqueueSync("wearlogs");
 }
 
 export function setWearLogsInStore(list: WearLog[]) {
   wearLogStore.set(persistSetWearLogs(list));
+  enqueueSync("wearlogs");
 }

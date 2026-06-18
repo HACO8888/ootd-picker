@@ -15,7 +15,7 @@ interface Row {
 }
 
 export default function ModerationPage() {
-  const { showToast } = useChrome();
+  const { showToast, promptText } = useChrome();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -35,7 +35,15 @@ export default function ModerationPage() {
   async function act(id: string, action: "approved" | "rejected") {
     let reason: string | undefined;
     if (action === "rejected") {
-      reason = prompt("拒絕原因（選填）") ?? undefined;
+      const r = await promptText({
+        title: "拒絕原因",
+        message: "請輸入拒絕原因（選填），確認後將拒絕此單品。",
+        inputPlaceholder: "例如：圖片不清楚",
+        confirmLabel: "拒絕",
+        danger: true,
+      });
+      if (r === null) return; // 取消 → 中止拒絕
+      reason = r || undefined;
     }
     setBusy(id);
     try {

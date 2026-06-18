@@ -19,7 +19,14 @@ export function Stepper({ current, progress }: { current: number; progress: numb
         </span>
         <span className="kicker text-on-surface-variant">{active?.label}</span>
       </div>
-      <div className="relative h-px w-full bg-outline-variant">
+      <div
+        className="relative h-px w-full bg-outline-variant"
+        role="progressbar"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`步驟進度 ${current} / 4`}
+      >
         <div
           className="absolute left-0 top-0 h-px bg-primary transition-all duration-500"
           style={{ width: `${Math.max(progress, 4)}%` }}

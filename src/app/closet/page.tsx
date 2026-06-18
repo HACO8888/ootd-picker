@@ -23,7 +23,7 @@ const PAGE = 48;
 
 export default function ClosetPage() {
   const { closet, addItem, deleteItem, updateItem } = useCloset();
-  const { showToast } = useChrome();
+  const { showToast, confirm: confirmDialog } = useChrome();
 
   const [filters, dispatch] = useReducer(filterReducer, initialFilters);
   const [modalOpen, setModalOpen] = useState(false);
@@ -52,7 +52,9 @@ export default function ClosetPage() {
       if (category !== "all" && item.category !== category) return false;
       if (brands.length > 0 && !brands.includes(item.brand || "自訂")) return false;
       if (seasons.length > 0 && !item.seasons.some((s) => seasons.includes(s))) return false;
-      if (tags.length > 0 && !tags.every((t) => item.tags.includes(t))) return false;
+      // OR within the tag facet, consistent with seasons/colors (selecting two
+      // occasion tags shows items matching either, not the intersection).
+      if (tags.length > 0 && !tags.some((t) => item.tags.includes(t))) return false;
       if (colors.length > 0 && !item.colors.some((c) => colors.includes(c))) return false;
       if (q) {
         const hit =
@@ -76,8 +78,14 @@ export default function ClosetPage() {
   }
   const shown = filtered.slice(0, visible);
 
-  const handleDelete = (id: string) => {
-    if (confirm("確定要從衣櫥中刪除此單品嗎？")) deleteItem(id);
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "刪除單品",
+      message: "確定要從衣櫥中刪除此單品嗎？",
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (ok) deleteItem(id);
   };
 
   const openAdd = () => {

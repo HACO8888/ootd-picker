@@ -18,6 +18,7 @@ export function ChoiceCard({ onClick, title, subtitle, icon, iconClass = "", act
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`${compact ? "p-5 gap-2" : "p-7 gap-3"} border bg-surface-bright hover:border-on-surface transition-colors duration-300 flex flex-col items-start text-left group ${
         active ? "gender-card-active border-2" : "border-outline-variant"
       }`}

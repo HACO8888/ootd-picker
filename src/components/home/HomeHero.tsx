@@ -10,13 +10,17 @@ export function HomeHero() {
   const bgRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Respect reduced-motion: skip the parallax/zoom entirely (keep static framing).
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     const onScroll = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const y = window.scrollY;
         if (bgRef.current) {
-          bgRef.current.style.transform = `translateY(${y * 0.3}px) scale(${1 + y * 0.0002})`;
+          // Fold the base 1.05 (scale-105) into the JS transform to avoid a jump
+          // from the static scale on the first scroll frame.
+          bgRef.current.style.transform = `translateY(${y * 0.3}px) scale(${1.05 + y * 0.0002})`;
         }
       });
     };

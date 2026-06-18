@@ -6,7 +6,7 @@ export function Toast({ message }: { message: string }) {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-24 md:bottom-10 left-1/2 -translate-x-1/2 bg-on-surface text-background px-6 py-3 kicker shadow-lg transition-opacity duration-300 pointer-events-none z-[120] text-center whitespace-nowrap ${
+      className={`fixed bottom-24 md:bottom-10 left-1/2 -translate-x-1/2 bg-on-surface text-background px-6 py-3 kicker shadow-lg transition-opacity duration-300 pointer-events-none z-[120] text-center max-w-[90vw] md:max-w-md ${
         message ? "opacity-100" : "opacity-0"
       }`}
     >

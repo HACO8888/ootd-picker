@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TRANSLATE } from "@/lib/data";
 import type { Outfit, WearLog } from "@/lib/types";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
 import { SmartImage } from "@/components/ui/SmartImage";
@@ -33,6 +35,9 @@ interface Props {
 export function DayDetailDrawer({ dateISO, logs, onClose, onDelete, onUpdateNote, onApply, onShare }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftNote, setDraftNote] = useState("");
+  const { confirm: confirmDialog } = useChrome();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(panelRef, dateISO != null, onClose);
 
   if (!dateISO) return null;
 
@@ -46,18 +51,30 @@ export function DayDetailDrawer({ dateISO, logs, onClose, onDelete, onUpdateNote
     setEditingId(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("確定要刪除這筆穿搭紀錄嗎？")) onDelete(id);
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "刪除穿搭紀錄",
+      message: "確定要刪除這筆穿搭紀錄嗎？",
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (ok) onDelete(id);
   };
 
   return (
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface-bright border-l border-outline shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="day-detail-title"
+        className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface-bright border-l border-outline shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto"
+      >
         <div className="flex justify-between items-end border-b border-outline pb-4">
           <div>
             <Kicker className="text-primary">STYLE DIARY</Kicker>
-            <h2 className="font-headline-md text-headline-md text-on-surface mt-1">{formatHeading(dateISO)}</h2>
+            <h2 id="day-detail-title" className="font-headline-md text-headline-md text-on-surface mt-1">{formatHeading(dateISO)}</h2>
           </div>
           <button type="button" className="text-on-surface-variant hover:text-primary p-1" onClick={onClose} aria-label="關閉">
             <Icon name="close" />

@@ -17,7 +17,7 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
-  const { showToast } = useChrome();
+  const { showToast, confirm: confirmDialog } = useChrome();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -58,7 +58,13 @@ export default function AdminUsersPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm("確定刪除此用戶？其衣櫥、收藏、日誌將一併移除，無法復原。")) return;
+    const ok = await confirmDialog({
+      title: "刪除用戶",
+      message: "確定刪除此用戶？其衣櫥、收藏、日誌將一併移除，無法復原。",
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(id);
     setError("");
     const res = await fetch("/api/admin/users", {

@@ -2,6 +2,7 @@
 
 import type { Dispatch } from "react";
 import type { Category, Season } from "@/lib/types";
+import { STYLE_TAGS } from "@/lib/tags";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
 
@@ -90,12 +91,8 @@ const BRANDS: { value: string; label: string; dot: string }[] = [
   { value: "自訂", label: "自訂單品", dot: "bg-[#16140f]" },
 ];
 
-const TAGS: { value: string; label: string }[] = [
-  { value: "放鬆", label: "放鬆" },
-  { value: "工作", label: "工作/專業" },
-  { value: "約會", label: "浪漫約會" },
-  { value: "舒適", label: "溫暖舒適" },
-];
+// Filter by the same tag set users can assign (keep both in sync via STYLE_TAGS).
+const TAGS: { value: string; label: string }[] = STYLE_TAGS.map((t) => ({ value: t, label: t }));
 
 const COLORS: { value: string; swatch: string; border?: boolean }[] = [
   { value: "白色", swatch: "bg-white", border: true },

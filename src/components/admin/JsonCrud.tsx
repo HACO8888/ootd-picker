@@ -20,7 +20,7 @@ export function JsonCrud({
   endpoint: string;
   template: Record<string, unknown>;
 }) {
-  const { showToast } = useChrome();
+  const { showToast, confirm: confirmDialog } = useChrome();
   const [items, setItems] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
@@ -86,7 +86,13 @@ export function JsonCrud({
   }
 
   async function remove(id: string) {
-    if (!confirm(`刪除 ${id}？`)) return;
+    const ok = await confirmDialog({
+      title: "刪除項目",
+      message: `確定刪除 ${id}？`,
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(endpoint, {
       method: "DELETE",
       headers: { "content-type": "application/json" },

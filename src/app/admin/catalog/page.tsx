@@ -22,7 +22,7 @@ const EXTRA_TEMPLATE: Item = {
 };
 
 export default function AdminCatalogPage() {
-  const { showToast } = useChrome();
+  const { showToast, confirm: confirmDialog } = useChrome();
   const [data, setData] = useState<GlobalCatalog | null>(null);
   const [extraDraft, setExtraDraft] = useState("");
   const [extraOpen, setExtraOpen] = useState(false);
@@ -71,7 +71,13 @@ export default function AdminCatalogPage() {
   }
 
   async function deleteExtra(id: string) {
-    if (!confirm(`刪除全域服裝 ${id}？`)) return;
+    const ok = await confirmDialog({
+      title: "刪除全域服裝",
+      message: `確定刪除全域服裝 ${id}？`,
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch("/api/admin/catalog", {
       method: "DELETE",
       headers: { "content-type": "application/json" },

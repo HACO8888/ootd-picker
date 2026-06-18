@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useChrome } from "@/components/chrome/ChromeProvider";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Icon } from "@/components/ui/Icon";
 import { LOGIN_PENDING_KEY } from "@/lib/sync";
@@ -22,6 +23,8 @@ export function TopNav() {
   const { openFavorites } = useChrome();
   const { data: session } = useSession();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(drawerRef, drawerOpen, () => setDrawerOpen(false));
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
@@ -56,7 +59,7 @@ export function TopNav() {
           type="button"
           className="lg:hidden text-on-surface justify-self-start"
           onClick={() => setDrawerOpen((v) => !v)}
-          aria-label="開啟選單"
+          aria-label={drawerOpen ? "關閉選單" : "開啟選單"}
           aria-expanded={drawerOpen}
         >
           <Icon name={drawerOpen ? "close" : "menu"} />
@@ -92,7 +95,13 @@ export function TopNav() {
 
       {/* Mobile / tablet full-screen overlay menu */}
       {drawerOpen && (
-        <div className="lg:hidden fixed inset-0 z-[70] bg-background flex flex-col h-[100dvh] animate-fade-in">
+        <div
+          ref={drawerRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="主選單"
+          className="lg:hidden fixed inset-0 z-[70] bg-background flex flex-col h-[100dvh] animate-fade-in"
+        >
           <div className="flex justify-between items-center px-container-padding-mobile py-5 border-b border-outline">
             <span className="font-headline-md text-headline-md text-primary tracking-tight">OOTD PICKER</span>
             <button type="button" onClick={() => setDrawerOpen(false)} aria-label="關閉選單" className="text-on-surface">

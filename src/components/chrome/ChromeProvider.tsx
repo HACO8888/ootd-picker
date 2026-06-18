@@ -6,6 +6,10 @@ import type { Favorite, Outfit } from "@/lib/types";
 import { FavoritesDrawer } from "@/components/favorites/FavoritesDrawer";
 import { ShareSheet } from "@/components/share/ShareSheet";
 import { Toast } from "@/components/ui/Toast";
+import { ConfirmDialog, type ConfirmRequest, type ConfirmResult } from "@/components/ui/ConfirmDialog";
+
+/** Options for the in-app confirm/prompt dialog (replaces native confirm/prompt). */
+export type ConfirmOptions = Omit<ConfirmRequest, "id">;
 
 interface ChromeContextValue {
   showToast: (message: string) => void;
@@ -17,6 +21,10 @@ interface ChromeContextValue {
   /** A favorite awaiting the picker to consume it, or null. */
   pendingFavorite: Favorite | null;
   consumePendingFavorite: () => void;
+  /** In-app confirmation dialog. Resolves true if confirmed. */
+  confirm: (opts: ConfirmOptions | string) => Promise<boolean>;
+  /** In-app text prompt. Resolves the entered string, or null if cancelled. */
+  promptText: (opts: ConfirmOptions) => Promise<string | null>;
 }
 
 const ChromeContext = createContext<ChromeContextValue | null>(null);
@@ -33,7 +41,10 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [pendingFavorite, setPendingFavorite] = useState<Favorite | null>(null);
   const [shareOutfit, setShareOutfit] = useState<Outfit | null>(null);
+  const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmId = useRef(0);
+  const confirmResolver = useRef<((r: ConfirmResult) => void) | null>(null);
 
   // The React Compiler memoizes these handlers and the context value.
   const showToast = (message: string) => {
@@ -53,6 +64,28 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
 
   const consumePendingFavorite = () => setPendingFavorite(null);
 
+  const openConfirm = (opts: ConfirmOptions): Promise<ConfirmResult> => {
+    confirmId.current += 1;
+    setConfirmReq({ ...opts, id: confirmId.current });
+    return new Promise<ConfirmResult>((resolve) => {
+      confirmResolver.current = resolve;
+    });
+  };
+  const resolveConfirm = (result: ConfirmResult) => {
+    setConfirmReq(null);
+    const fn = confirmResolver.current;
+    confirmResolver.current = null;
+    fn?.(result);
+  };
+  const confirm = async (opts: ConfirmOptions | string): Promise<boolean> => {
+    const o = typeof opts === "string" ? { message: opts, danger: true } : opts;
+    return (await openConfirm(o)).ok;
+  };
+  const promptText = async (opts: ConfirmOptions): Promise<string | null> => {
+    const r = await openConfirm({ ...opts, withInput: true });
+    return r.ok ? (r.value ?? "") : null;
+  };
+
   const value: ChromeContextValue = {
     showToast,
     openFavorites,
@@ -60,6 +93,8 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
     applyFavorite,
     pendingFavorite,
     consumePendingFavorite,
+    confirm,
+    promptText,
   };
 
   return (
@@ -73,6 +108,9 @@ export function ChromeProvider({ children }: { children: ReactNode }) {
         onToast={showToast}
       />
       {shareOutfit && <ShareSheet outfit={shareOutfit} onClose={() => setShareOutfit(null)} onToast={showToast} />}
+      {confirmReq && (
+        <ConfirmDialog key={confirmReq.id} request={confirmReq} onResolve={resolveConfirm} />
+      )}
       <Toast message={toast} />
     </ChromeContext.Provider>
   );

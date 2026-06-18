@@ -1,7 +1,9 @@
 "use client";
 
-import { useReducer, useRef } from "react";
+import { useReducer, useRef, useState } from "react";
 import type { Category, Season } from "@/lib/types";
+import { STYLE_TAGS } from "@/lib/tags";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
 
@@ -30,7 +32,7 @@ const COLORS: { value: string; label: string; swatch: string; border?: boolean }
   { value: "靛藍", label: "靛藍", swatch: "bg-[#1b1c19]" },
 ];
 
-const TAGS = ["放鬆", "工作", "專業", "約會", "優雅", "活力", "舒適"];
+const TAGS = STYLE_TAGS;
 
 /** 上傳原圖大小上限與降階後最長邊（px）。 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -101,14 +103,18 @@ export function UploadModal({
   const [state, dispatch] = useReducer(formReducer, initial, initState);
   const { name, category, brand, seasons, color, tags, image, dragging } = state;
   const fileRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+  useDialogA11y(panelRef, true, onClose);
 
   const handleFile = (file: File) => {
+    setError("");
     if (!file.type.startsWith("image/")) {
-      alert("請上傳圖片檔案！");
+      setError("請上傳圖片檔案！");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      alert("圖片檔案過大（上限 15MB），請改用較小的圖片。");
+      setError("圖片檔案過大（上限 15MB），請改用較小的圖片。");
       return;
     }
     // 透過 canvas 降階到最長邊 ~800px 並重編碼，避免巨大 data URL 撐爆
@@ -138,15 +144,16 @@ export function UploadModal({
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      alert("圖片讀取失敗，請換一張圖片。");
+      setError("圖片讀取失敗，請換一張圖片。");
     };
     img.src = url;
   };
 
   const submit = () => {
-    if (!name.trim()) return alert("請輸入衣物名稱！");
-    if (seasons.length === 0) return alert("請選擇至少一個適合季節！");
-    if (!color) return alert("請選擇主色調！");
+    if (!name.trim()) return setError("請輸入衣物名稱！");
+    if (seasons.length === 0) return setError("請選擇至少一個適合季節！");
+    if (!color) return setError("請選擇主色調！");
+    setError("");
     onSubmit({
       name: name.trim(),
       category,
@@ -161,11 +168,17 @@ export function UploadModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
       <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-surface-bright border border-outline shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="upload-modal-title"
+        className="relative w-full max-w-2xl bg-surface-bright border border-outline shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up"
+      >
         <div className="px-8 py-6 border-b border-outline flex justify-between items-center">
           <div>
             <Kicker className="text-primary">{isEdit ? "EDIT ITEM" : "NEW ITEM"}</Kicker>
-            <h2 className="font-headline-md text-headline-md text-on-surface mt-1">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
+            <h2 id="upload-modal-title" className="font-headline-md text-headline-md text-on-surface mt-1">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
           </div>
           <button type="button" className="text-on-surface-variant hover:text-primary transition-colors" onClick={onClose} aria-label="關閉">
             <Icon name="close" />
@@ -324,7 +337,12 @@ export function UploadModal({
           </div>
         </div>
 
-        <div className="px-8 py-6 bg-surface-container-low border-t border-outline flex justify-end gap-3">
+        <div className="px-8 py-6 bg-surface-container-low border-t border-outline flex items-center justify-end gap-3">
+          {error && (
+            <p role="alert" className="mr-auto font-body-md text-body-md text-[13px] text-primary">
+              {error}
+            </p>
+          )}
           <button
             type="button"
             className="px-8 py-3 kicker text-on-surface-variant border border-outline-variant hover:border-on-surface hover:text-on-surface transition-colors"

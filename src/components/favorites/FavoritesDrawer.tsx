@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useWearLog } from "@/hooks/useWearLog";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 import { TRANSLATE } from "@/lib/data";
 import { parseFavoritesJSON } from "@/lib/storage";
 import { todayISO } from "@/lib/wearlog";
@@ -21,11 +23,14 @@ interface Props {
 export function FavoritesDrawer({ open, onClose, onApply, onShare, onToast }: Props) {
   const { favorites, deleteFav, renameFav, replaceAll } = useFavorites();
   const { logWear } = useWearLog();
+  const { confirm: confirmDialog } = useChrome();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [logDate, setLogDate] = useState(todayISO());
   const fileRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(panelRef, open, onClose);
 
   if (!open) return null;
 
@@ -40,9 +45,15 @@ export function FavoritesDrawer({ open, onClose, onApply, onShare, onToast }: Pr
     onToast("已記錄至穿搭日誌！");
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm("確定要刪除此收藏組合嗎？")) {
+    const ok = await confirmDialog({
+      title: "刪除收藏",
+      message: "確定要刪除此收藏組合嗎？",
+      confirmLabel: "刪除",
+      danger: true,
+    });
+    if (ok) {
       deleteFav(id);
       onToast("已刪除收藏！");
     }
@@ -93,11 +104,17 @@ export function FavoritesDrawer({ open, onClose, onApply, onShare, onToast }: Pr
   return (
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface-bright border-l border-outline shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="favorites-drawer-title"
+        className="absolute right-0 top-0 h-full w-[450px] max-w-full bg-surface-bright border-l border-outline shadow-2xl p-8 flex flex-col gap-6 animate-slide-left overflow-y-auto"
+      >
         <div className="flex justify-between items-end border-b border-outline pb-4">
           <div>
             <Kicker className="text-primary">MY EDIT</Kicker>
-            <h2 className="font-headline-md text-headline-md text-on-surface mt-1">我的風格收藏</h2>
+            <h2 id="favorites-drawer-title" className="font-headline-md text-headline-md text-on-surface mt-1">我的風格收藏</h2>
           </div>
           <div className="flex items-center gap-1">
             <button type="button" onClick={exportFavorites} className="text-on-surface-variant hover:text-primary p-1" title="匯出 JSON" aria-label="匯出收藏">

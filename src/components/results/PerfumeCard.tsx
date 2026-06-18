@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { TRANSLATE } from "@/lib/data";
 import type { Perfume } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Kicker } from "@/components/ui/Editorial";
 
 export function PerfumeCard({ perfume, onSwap }: { perfume: Perfume; onSwap: () => void }) {
@@ -27,7 +27,9 @@ export function PerfumeCard({ perfume, onSwap }: { perfume: Perfume; onSwap: () 
 
       <div className="grid grid-cols-1 md:grid-cols-2">
         <div className="aspect-[4/3] md:aspect-auto md:min-h-[320px] overflow-hidden bg-surface-container relative border-b md:border-b-0 md:border-r border-outline-variant">
-          <Image src={perfume.perfumeImageUrl} alt={perfume.name} fill sizes="(max-width: 768px) 100vw, 45vw" className="object-cover" />
+          {perfume.perfumeImageUrl ? (
+            <SmartImage src={perfume.perfumeImageUrl} alt={perfume.name} sizes="(max-width: 768px) 100vw, 45vw" className="object-cover" />
+          ) : null}
         </div>
 
         <div className="p-6 md:p-8 flex flex-col gap-5">

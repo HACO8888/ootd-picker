@@ -78,7 +78,7 @@ export interface HarmonyResult {
   notes: string[];
 }
 
-/** A complete recommendation produced by generateOOTD. */
+/** A complete recommendation produced by generateOOTDSet. */
 export interface Outfit {
   top: Item | null;
   bottom: Item | null;

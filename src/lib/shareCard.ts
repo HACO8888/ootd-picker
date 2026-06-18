@@ -23,6 +23,27 @@ function clean(label: string): string {
   return label.split(" ")[0];
 }
 
+/** Resolve `null` if `p` doesn't settle within `ms` (prevents a hung font/image
+ *  load from leaving the share sheet stuck on "產生卡片中…" forever). */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(t);
+        resolve(null);
+      },
+    );
+  });
+}
+
+const IMAGE_TIMEOUT_MS = 4000;
+const FONTS_TIMEOUT_MS = 3000;
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -63,8 +84,9 @@ export async function renderOutfitCard(outfit: Outfit): Promise<Blob | null> {
   const root = getComputedStyle(document.documentElement);
   const serif = root.getPropertyValue("--font-playfair").trim() || "Georgia, serif";
   const sans = root.getPropertyValue("--font-dm-sans").trim() || "system-ui, sans-serif";
+  // Race fonts.ready against a deadline — a stalled webfont must not hang the card.
   try {
-    await document.fonts.ready;
+    await withTimeout(Promise.resolve(document.fonts.ready), FONTS_TIMEOUT_MS);
   } catch {
     /* fonts API unavailable — fall back to whatever is loaded */
   }
@@ -115,7 +137,9 @@ export async function renderOutfitCard(outfit: Outfit): Promise<Blob | null> {
   const imgH = 300;
   const cellH = imgH + 64;
 
-  const images = await Promise.all(slots.map((s) => loadImage(s.item!.imageUrl)));
+  const images = await Promise.all(
+    slots.map((s) => withTimeout(loadImage(s.item!.imageUrl), IMAGE_TIMEOUT_MS)),
+  );
 
   slots.forEach((s, i) => {
     const col = i % 2;

@@ -74,6 +74,9 @@ export default function InsightsPage() {
         <h1 className="font-headline-xl text-headline-xl text-[44px] md:text-[56px] text-on-surface">衣櫥洞察</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant max-w-[560px]">
           你的 {stats.total} 件單品組成分析、使用頻率，以及值得補齊的缺口。
+          <span className="block text-body-md text-[13px] mt-1 text-outline">
+            僅統計你的精選衣櫥與上傳單品，不含共用目錄商品。
+          </span>
         </p>
       </div>
 

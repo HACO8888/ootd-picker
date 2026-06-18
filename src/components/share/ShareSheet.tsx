@@ -13,10 +13,16 @@ interface Props {
   onToast: (msg: string) => void;
 }
 
+/** Practical upper bound on a shareable URL across clients. */
+const MAX_SHARE_URL = 1800;
+
 export function ShareSheet({ outfit, onClose, onToast }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const [manualLink, setManualLink] = useState<string | null>(null);
 
   // Safe to derive during render: this branch only renders client-side, after
   // the user opens the sheet (outfit is null during SSR/first paint).
@@ -26,22 +32,30 @@ export function ShareSheet({ outfit, onClose, onToast }: Props) {
     if (!outfit) return;
     let active = true;
     let objUrl: string | null = null;
-    renderOutfitCard(outfit).then((b) => {
-      if (!active) return;
-      setLoading(false);
-      if (!b) {
+    renderOutfitCard(outfit)
+      .then((b) => {
+        if (!active) return;
+        setLoading(false);
+        if (!b) {
+          setFailed(true);
+          onToast("產生分享卡片失敗");
+          return;
+        }
+        setBlob(b);
+        objUrl = URL.createObjectURL(b);
+        setUrl(objUrl);
+      })
+      .catch(() => {
+        if (!active) return;
+        setLoading(false);
+        setFailed(true);
         onToast("產生分享卡片失敗");
-        return;
-      }
-      setBlob(b);
-      objUrl = URL.createObjectURL(b);
-      setUrl(objUrl);
-    });
+      });
     return () => {
       active = false;
       if (objUrl) URL.revokeObjectURL(objUrl);
     };
-  }, [outfit, onToast]);
+  }, [outfit, onToast, retryKey]);
 
   if (!outfit) return null;
 
@@ -58,11 +72,21 @@ export function ShareSheet({ outfit, onClose, onToast }: Props) {
 
   const copyLink = async () => {
     const link = `${location.origin}/share?${encodeShareParams(outfit)}`;
+    if (link.length > MAX_SHARE_URL) {
+      onToast("分享連結過長，請改用下載圖片分享");
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(link);
-      onToast("已複製分享連結！");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+        onToast("已複製分享連結！");
+        return;
+      }
+      throw new Error("clipboard unavailable");
     } catch {
-      onToast("複製失敗，請手動複製網址");
+      // 非安全脈絡 / 舊瀏覽器無 clipboard：顯示可手動選取複製的網址。
+      setManualLink(link);
+      onToast("無法自動複製，請手動複製下方網址");
     }
   };
 
@@ -96,8 +120,26 @@ export function ShareSheet({ outfit, onClose, onToast }: Props) {
 
         {/* Preview */}
         <div className="bg-surface-container border border-outline-variant aspect-[1080/1350] flex items-center justify-center overflow-hidden">
-          {loading || !url ? (
+          {loading ? (
             <span className="kicker text-on-surface-variant">產生卡片中…</span>
+          ) : failed || !url ? (
+            <div className="flex flex-col items-center gap-3 p-6 text-center">
+              <Icon name="broken_image" className="text-4xl text-outline" />
+              <span className="kicker text-on-surface-variant">卡片產生失敗</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl(null);
+                  setBlob(null);
+                  setLoading(true);
+                  setFailed(false);
+                  setRetryKey((k) => k + 1);
+                }}
+                className="inline-flex items-center gap-2 border border-on-surface text-on-surface px-5 py-2.5 kicker hover:bg-on-surface hover:text-background transition-colors"
+              >
+                <Icon name="refresh" className="text-[16px]" /> 重試
+              </button>
+            </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt="穿搭分享卡片預覽" className="w-full h-full object-contain" />
@@ -132,6 +174,16 @@ export function ShareSheet({ outfit, onClose, onToast }: Props) {
         >
           <Icon name="link" className="text-[16px]" /> 複製分享連結
         </button>
+
+        {manualLink && (
+          <input
+            readOnly
+            value={manualLink}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="分享連結（請手動複製）"
+            className="w-full bg-surface-container-low border border-outline-variant px-3 py-2 text-[12px] text-on-surface font-mono outline-none focus:border-on-surface"
+          />
+        )}
       </div>
     </div>
   );

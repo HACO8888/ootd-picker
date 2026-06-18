@@ -90,6 +90,8 @@ export async function getGlobalCatalog(): Promise<GlobalCatalog> {
       tags: r.tags,
       imageUrl: r.imageUrl,
     })),
+    // 預留：全域隱藏目錄項的能力（前台 overlay 已支援過濾），但尚無對應資料表
+    // 與 admin 介面，故目前一律回傳空陣列＝不隱藏任何項目。
     hidden: [],
   };
 }

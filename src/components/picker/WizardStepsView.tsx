@@ -46,6 +46,7 @@ interface Props {
   onSelectMood: (m: string) => void;
   onSelectDestination: (d: string) => void;
   onDetectWeather: () => void;
+  onCancelLoading: () => void;
   onBack: (step: Step) => void;
 }
 
@@ -59,6 +60,7 @@ export function WizardStepsView({
   onSelectMood,
   onSelectDestination,
   onDetectWeather,
+  onCancelLoading,
   onBack,
 }: Props) {
   const progress = step === 1 ? 8 : step === 2 ? 33 : step === 3 ? 66 : 100;
@@ -71,6 +73,13 @@ export function WizardStepsView({
           <p className="font-headline-md text-headline-md text-on-surface loading-pulse">{loadingText.primary}</p>
           <p className="font-body-md text-body-md text-on-surface-variant">{loadingText.secondary}</p>
         </div>
+        <button
+          type="button"
+          onClick={onCancelLoading}
+          className="inline-flex items-center gap-2 kicker text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <Icon name="arrow_back" className="text-[16px]" /> 取消並返回
+        </button>
       </div>
     );
   }

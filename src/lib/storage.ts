@@ -229,16 +229,40 @@ export function setFavorites(list: Favorite[]): Favorite[] {
   return persistFavorites(list);
 }
 
-/** Parse + validate an exported favorites JSON string. Throws on bad shape. */
+/** A garment slot must be null/absent or a minimally Item-shaped object. */
+function isItemLike(s: unknown): boolean {
+  if (s == null) return true;
+  if (typeof s !== "object") return false;
+  const o = s as Record<string, unknown>;
+  return typeof o.id === "string" && typeof o.name === "string" && typeof o.category === "string";
+}
+
+/** Validate an imported outfit so consumers (drawers/calendar) never crash
+ *  dereferencing a missing context/makeup/perfume or a malformed garment. */
+function isValidOutfit(outfit: unknown): boolean {
+  if (!outfit || typeof outfit !== "object") return false;
+  const o = outfit as Record<string, unknown>;
+  const ctx = o.context as Record<string, unknown> | undefined;
+  if (!ctx || typeof ctx.weather !== "string") return false;
+  const mk = o.makeup as Record<string, unknown> | undefined;
+  if (!mk || typeof mk.name !== "string") return false;
+  const pf = o.perfume as Record<string, unknown> | undefined;
+  if (!pf || typeof pf.name !== "string") return false;
+  return (["top", "bottom", "outerwear", "accessory"] as const).every((k) => isItemLike(o[k]));
+}
+
+/** Parse + validate an exported favorites JSON string. Throws on bad shape.
+ *  Stamps updatedAt so imported records reliably win the login last-write-wins. */
 export function parseFavoritesJSON(raw: string): Favorite[] {
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
   for (const f of data) {
-    if (!f || typeof f.id !== "string" || !f.outfit || !f.outfit.context) {
-      throw new Error("格式錯誤：缺少必要欄位");
+    if (!f || typeof f.id !== "string" || !isValidOutfit(f.outfit)) {
+      throw new Error("格式錯誤：缺少或不正確的必要欄位");
     }
   }
-  return data as Favorite[];
+  const now = Date.now();
+  return (data as Favorite[]).map((f) => ({ ...f, updatedAt: now }));
 }
 
 /* ─── Wear log (outfits actually worn, keyed by local ISO date) ──────────────── */
@@ -295,14 +319,21 @@ export function setWearLogs(list: WearLog[]): WearLog[] {
   return persistWearLogs(list);
 }
 
-/** Parse + validate an exported wear-log JSON string. Throws on bad shape. */
+/** Parse + validate an exported wear-log JSON string. Throws on bad shape.
+ *  Validates outfit.context/makeup (DayDetailDrawer dereferences them) and
+ *  stamps updatedAt/createdAt so imported records win the login merge. */
 export function parseWearLogsJSON(raw: string): WearLog[] {
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
   for (const l of data) {
-    if (!l || typeof l.id !== "string" || typeof l.date !== "string" || !l.outfit) {
-      throw new Error("格式錯誤：缺少必要欄位");
+    if (!l || typeof l.id !== "string" || typeof l.date !== "string" || !isValidOutfit(l.outfit)) {
+      throw new Error("格式錯誤：缺少或不正確的必要欄位");
     }
   }
-  return data as WearLog[];
+  const now = Date.now();
+  return (data as WearLog[]).map((l) => ({
+    ...l,
+    createdAt: typeof l.createdAt === "number" ? l.createdAt : now,
+    updatedAt: now,
+  }));
 }

@@ -28,6 +28,16 @@ export default function PickerPage() {
   const [state, dispatch] = useReducer(wizardReducer, initialWizard);
   const { step, gender, weather, mood, destination, rec, candidates, activeIdx, saved, loadingText, appliedFavId, detecting } = state;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Generation token: bumped whenever we abandon a pending generation (apply a
+  // favorite, reset, cancel loading), so an in-flight loading timer can't fire
+  // setResultSet over the new state (fixes the apply-favorite race).
+  const genRef = useRef(0);
+
+  const clearTimers = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    genRef.current++;
+  };
 
   const activeCloset = () => (closet.length ? closet : buildCloset());
 
@@ -46,6 +56,8 @@ export default function PickerPage() {
 
   useEffect(() => {
     if (pendingFavorite && pendingFavorite.id === appliedFavId) {
+      // Cancel any in-flight generation so its timer can't clobber the favorite.
+      clearTimers();
       consumePendingFavorite();
       showToast("已將收藏組合載入預覽！");
     }
@@ -74,19 +86,28 @@ export default function PickerPage() {
   };
 
   const selectDestination = (d: string) => {
+    clearTimers();
+    const gen = genRef.current;
     dispatch({ type: "startDestination", value: d });
     timers.current.push(
-      setTimeout(
-        () => dispatch({ type: "setLoadingText", value: { primary: "正在為您調配適合的妝容色彩...", secondary: "根據您的心情挑選今日香水..." } }),
-        1200,
-      ),
+      setTimeout(() => {
+        if (genRef.current !== gen) return;
+        dispatch({ type: "setLoadingText", value: { primary: "正在為您調配適合的妝容色彩...", secondary: "根據您的心情挑選今日香水..." } });
+      }, 1200),
     );
     timers.current.push(
       setTimeout(() => {
+        // Abandoned mid-generation (favorite applied / cancelled / reset)? Skip.
+        if (genRef.current !== gen) return;
         const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender);
         dispatch({ type: "setResultSet", outfits: set.outfits });
       }, 2500),
     );
+  };
+
+  const cancelLoading = () => {
+    clearTimers();
+    dispatch({ type: "setStep", value: 4 });
   };
 
   const regenerate = () => {
@@ -151,7 +172,10 @@ export default function PickerPage() {
             onSwapMakeup={swapMakeup}
             onSwapPerfume={swapPerfume}
             onSave={saveCombination}
-            onReset={() => dispatch({ type: "reset" })}
+            onReset={() => {
+              clearTimers();
+              dispatch({ type: "reset" });
+            }}
             onLogWear={logWearToday}
             onShare={() => rec && openShare(rec)}
             recentlyWornIds={recentlyWornIds}
@@ -168,6 +192,7 @@ export default function PickerPage() {
           onSelectMood={selectMood}
           onSelectDestination={selectDestination}
           onDetectWeather={detectWeather}
+          onCancelLoading={cancelLoading}
           onBack={(s: Step) => dispatch({ type: "setStep", value: s })}
         />
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useReducer, useState } from "react";
+import { useDeferredValue, useMemo, useReducer, useState } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { useChrome } from "@/components/chrome/ChromeProvider";
 import { TRANSLATE } from "@/lib/data";
@@ -31,6 +31,9 @@ export default function ClosetPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { category, seasons, tags, colors, brands, search } = filters;
+  // Defer the typed search term so keystrokes stay responsive while the
+  // full-catalog (~3000 item) filter recomputes at lower priority.
+  const deferredSearch = useDeferredValue(search);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: closet.length };
@@ -44,7 +47,7 @@ export default function ClosetPage() {
   }, [closet]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
+    const q = deferredSearch.toLowerCase().trim();
     return closet.filter((item) => {
       if (category !== "all" && item.category !== category) return false;
       if (brands.length > 0 && !brands.includes(item.brand || "自訂")) return false;
@@ -61,10 +64,10 @@ export default function ClosetPage() {
       }
       return true;
     });
-  }, [closet, category, brands, seasons, tags, colors, search]);
+  }, [closet, category, brands, seasons, tags, colors, deferredSearch]);
 
   // Pagination — reset the visible count while rendering when filters change.
-  const filterKey = `${category}|${seasons.join()}|${tags.join()}|${colors.join()}|${brands.join()}|${search}`;
+  const filterKey = `${category}|${seasons.join()}|${tags.join()}|${colors.join()}|${brands.join()}|${deferredSearch}`;
   const [shownKey, setShownKey] = useState(filterKey);
   const [visible, setVisible] = useState(PAGE);
   if (filterKey !== shownKey) {

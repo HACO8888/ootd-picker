@@ -163,8 +163,16 @@ function itemText(i: Item | null | undefined): string {
   return `${i.name} ${i.tags.join(" ")} ${i.colors.join(" ")}`;
 }
 
+// Memoize per Item object — scoreItem calls profileFor ~3x per item and a
+// single generate scores thousands of items, each running ~12 regexes. Items
+// are immutable (overrides clone), so caching by identity is safe. Returned
+// profiles are never mutated by callers (sumProfiles/score* only read them).
+const profileCache = new WeakMap<Item, StyleProfile>();
+
 function profileFor(i: Item | null | undefined): StyleProfile {
   if (!i) return ZERO_PROFILE;
+  const cached = profileCache.get(i);
+  if (cached) return cached;
   const text = itemText(i);
   const p: StyleProfile = { ...ZERO_PROFILE };
 
@@ -189,6 +197,7 @@ function profileFor(i: Item | null | undefined): StyleProfile {
   if (/風雨衣|風衣|尼龍|外套|後背包|電腦包/.test(text)) p.rainReady += 1;
   if (/短褲|短袖|七分褲|背心|亞麻/.test(text)) p.coldRisk += 1.5;
 
+  profileCache.set(i, p);
   return p;
 }
 
@@ -563,16 +572,6 @@ export function bestPerfume(weather: Weather, mood: string, destination: string,
   return PERFUME_LOOKBOOK.reduce((best, p) => (pScore(p) > pScore(best) ? p : best));
 }
 
-export function generateOOTD(
-  closet: Item[],
-  weather: Weather,
-  mood: string,
-  destination: string,
-  gender: Gender = "unisex",
-): Outfit {
-  return generateOOTDSet(closet, weather, mood, destination, gender, 1).outfits[0];
-}
-
 /**
  * Human-readable reasons for an outfit. Pure + idempotent, so it can be called
  * again after a swap or when loading an old favorite that lacks reasons.
@@ -633,9 +632,11 @@ export function generateOOTDSet(
   const perfume = bestPerfume(weather, mood, destination, gender);
 
   const wantOuter = weather === "cold" || weather === "rainy";
-  const topPool = rankedTops.length ? uniqueRankedItems(rankedTops, 12) : bestEffortCategory(closet, "tops", ctx);
-  const botPool = rankedBottoms.length ? uniqueRankedItems(rankedBottoms, 12) : bestEffortCategory(closet, "bottoms", ctx);
-  const accPool = uniqueRankedItems(accs, 8);
+  // Pool sizes bound the combo space (top × bottom × accessory × outer); 8×8 is
+  // ample for picking `count` diverse outfits while keeping the work modest.
+  const topPool = rankedTops.length ? uniqueRankedItems(rankedTops, 8) : bestEffortCategory(closet, "tops", ctx);
+  const botPool = rankedBottoms.length ? uniqueRankedItems(rankedBottoms, 8) : bestEffortCategory(closet, "bottoms", ctx);
+  const accPool = uniqueRankedItems(accs, 6);
   const outerPool = outers.length
     ? uniqueRankedItems(outers, 5)
     : wantOuter
@@ -650,10 +651,12 @@ export function generateOOTDSet(
       ? [null, ...outerPool.slice(0, 3)]
       : [null];
 
+  // Build candidates WITHOUT reasons (harmony is needed for scoring; reasons are
+  // only attached to the few chosen outfits below — buildReasons on all ~thousands
+  // of discarded combos was pure waste).
   const assemble = (top: Item | null, bottom: Item | null, accessory: Item | null, outerwear: Item | null): Outfit => {
     const o: Outfit = { top, bottom, outerwear, accessory, makeup, perfume, context };
     o.harmony = evaluateHarmony(o);
-    o.reasons = buildReasons(o);
     return o;
   };
 
@@ -719,7 +722,12 @@ export function generateOOTDSet(
     accPool[0] ?? null,
     wantOuter ? (outerPool[0] ?? null) : null,
   );
-  return { outfits: chosen.length ? chosen : [fallback], context };
+  // Attach reasons only to the returned outfits.
+  const outfits = (chosen.length ? chosen : [fallback]).map((o) => {
+    o.reasons = buildReasons(o);
+    return o;
+  });
+  return { outfits, context };
 }
 
 /**

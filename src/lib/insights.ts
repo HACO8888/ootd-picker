@@ -76,11 +76,14 @@ export function computeUsage(
     bump(f.outfit.outerwear?.id, 1);
     bump(f.outfit.accessory?.id, 1);
   }
+  // Actually-worn outfits are a stronger usage signal than merely saved ones
+  // (matches the doc comment) — weight wear-log entries higher than favorites.
+  const WEAR_WEIGHT = 2;
   for (const w of wearLog) {
-    bump(w.outfit.top?.id, 1);
-    bump(w.outfit.bottom?.id, 1);
-    bump(w.outfit.outerwear?.id, 1);
-    bump(w.outfit.accessory?.id, 1);
+    bump(w.outfit.top?.id, WEAR_WEIGHT);
+    bump(w.outfit.bottom?.id, WEAR_WEIGHT);
+    bump(w.outfit.outerwear?.id, WEAR_WEIGHT);
+    bump(w.outfit.accessory?.id, WEAR_WEIGHT);
   }
 
   const ranked: UsageStat[] = closet

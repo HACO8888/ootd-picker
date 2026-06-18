@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import type { Makeup } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
+import { SmartImage } from "@/components/ui/SmartImage";
 import { Kicker } from "@/components/ui/Editorial";
 
 export function MakeupCard({ makeup, onSwap }: { makeup: Makeup; onSwap: () => void }) {
@@ -29,7 +29,9 @@ export function MakeupCard({ makeup, onSwap }: { makeup: Makeup; onSwap: () => v
       </div>
 
       <div className="aspect-[4/3] w-full overflow-hidden bg-surface-container relative">
-        <Image src={makeup.makeupImageUrl} alt={makeup.name} fill sizes="(max-width: 1024px) 100vw, 40vw" className="object-cover" />
+        {makeup.makeupImageUrl ? (
+          <SmartImage src={makeup.makeupImageUrl} alt={makeup.name} sizes="(max-width: 1024px) 100vw, 40vw" className="object-cover" />
+        ) : null}
       </div>
 
       <div className="p-6 flex flex-col gap-5 flex-1">
@@ -41,7 +43,10 @@ export function MakeupCard({ makeup, onSwap }: { makeup: Makeup; onSwap: () => v
         <div className="space-y-4 border-t border-outline-variant pt-5">
           <Detail label="眼妝設計" text={makeup.eye} />
           <Detail label="唇彩推薦" text={makeup.lip} />
-          <Detail label="頰彩 & 打亮" text={makeup.blush} />
+          <Detail
+            label="頰彩 & 打亮"
+            text={[makeup.blush, makeup.highlight].filter(Boolean).join("・")}
+          />
         </div>
 
         <div className="border-t border-outline-variant pt-5 mt-auto">

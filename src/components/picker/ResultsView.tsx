@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { TRANSLATE } from "@/lib/data";
 import type { Outfit, Item } from "@/lib/types";
 import { OutfitStack } from "@/components/results/OutfitStack";
@@ -36,6 +37,38 @@ export function ResultsView({ rec, candidates, activeIdx, onSelectCandidate, sav
   const repeats = SLOTS.map((s) => rec[s]).filter(
     (i): i is Item => !!i && recentlyWornIds.has(i.id),
   );
+
+  // Empty/over-filtered closet: the engine returns an all-null fallback outfit.
+  // Show a clear empty state instead of a blank "THE LOOK" card.
+  const hasGarments = SLOTS.some((s) => rec[s]);
+  if (!hasGarments) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center gap-6 py-20 text-center animate-fade-in">
+        <Icon name="checkroom" className="text-5xl text-outline" />
+        <div className="space-y-2 max-w-md">
+          <h2 className="font-headline-md text-headline-md text-on-surface">衣櫥裡沒有合適的單品</h2>
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            目前找不到符合此情境的上衣或下著。請先到衣櫥新增單品，或重新挑選條件後再試一次。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link
+            href="/closet"
+            className="inline-flex items-center gap-2 bg-primary text-on-primary px-6 py-3 kicker hover:bg-surface-tint transition-colors"
+          >
+            <Icon name="checkroom" className="text-[18px]" /> 前往衣櫥新增單品
+          </Link>
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-flex items-center gap-2 border border-on-surface text-on-surface px-6 py-3 kicker hover:bg-on-surface hover:text-background transition-colors"
+          >
+            <Icon name="settings_backup_restore" className="text-[18px]" /> 重新挑選條件
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col gap-10 animate-fade-in">

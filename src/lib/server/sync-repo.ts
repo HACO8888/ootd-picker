@@ -1,7 +1,7 @@
 // 同步資料存取層（server-only）。每個 collection 提供 load(讀快照) 與
 // save(整包取代) — push=replace 語意，登入合併在 client 端先 union 後再整包推上來。
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   closetItems,
@@ -14,7 +14,15 @@ import type { Item, Favorite, WearLog } from "@/lib/types";
 import type { ClosetDeltas } from "@/lib/storage";
 
 /* ─── Closet deltas (user items + hidden + overrides) ────────────────────── */
-export type ClosetSnapshot = ClosetDeltas & { rejectedIds: string[] };
+/** 刪除墓碑：id + 刪除時間，供 client 合併時據此剔除（避免跨裝置「復活」）。 */
+export interface Tombstone {
+  id: string;
+  deletedAt: number;
+}
+export type ClosetSnapshot = ClosetDeltas & {
+  rejectedIds: string[];
+  deletedItems: Tombstone[];
+};
 
 export async function loadCloset(userId: string): Promise<ClosetSnapshot> {
   const [items, hidden, ovr] = await Promise.all([
@@ -43,6 +51,10 @@ export async function loadCloset(userId: string): Promise<ClosetSnapshot> {
       ovr.filter((r) => r.deletedAt == null).map((r) => [r.itemId, r.patch]),
     ),
     rejectedIds: live.filter((r) => r.moderationStatus === "rejected").map((r) => r.id),
+    // 已刪除（軟刪除）的衣物 id + 時間，讓 client 合併時剔除（不再復活）。
+    deletedItems: items
+      .filter((r) => r.deletedAt != null)
+      .map((r) => ({ id: r.id, deletedAt: r.deletedAt as number })),
   };
 }
 
@@ -59,9 +71,28 @@ export async function saveCloset(userId: string, d: ClosetDeltas): Promise<void>
     .from(closetItems)
     .where(eq(closetItems.userId, userId));
   const prev = new Map(existing.map((r) => [r.id, r]));
+  const pushedIds = d.userItems.map((i) => i.id);
 
   await db.transaction(async (tx) => {
-    await tx.delete(closetItems).where(eq(closetItems.userId, userId));
+    // 衣物：client 已不再持有的列改寫「軟刪除」墓碑（保留刪除事實供跨裝置合併），
+    // 而非 hard delete。被推上來的 id 才 hard-replace 成最新值。
+    await tx
+      .update(closetItems)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(closetItems.userId, userId),
+          isNull(closetItems.deletedAt),
+          pushedIds.length ? notInArray(closetItems.id, pushedIds) : undefined,
+        ),
+      );
+    if (pushedIds.length) {
+      await tx
+        .delete(closetItems)
+        .where(and(eq(closetItems.userId, userId), inArray(closetItems.id, pushedIds)));
+    }
+    // hidden / overrides 仍為整包替換（其合併採 set-union/spread，非 id-merge；
+    // 跨裝置 un-hide 持久化見後續批次）。
     await tx.delete(hiddenCatalogItems).where(eq(hiddenCatalogItems.userId, userId));
     await tx.delete(overridesTable).where(eq(overridesTable.userId, userId));
 
@@ -103,27 +134,51 @@ export async function saveCloset(userId: string, d: ClosetDeltas): Promise<void>
 }
 
 /* ─── Favorites ──────────────────────────────────────────────────────────── */
-export async function loadFavorites(userId: string): Promise<Favorite[]> {
+export interface FavoritesSnapshot {
+  items: Favorite[];
+  deleted: Tombstone[];
+}
+
+export async function loadFavorites(userId: string): Promise<FavoritesSnapshot> {
   const rows = await db
     .select()
     .from(favoritesTable)
     .where(eq(favoritesTable.userId, userId));
-  return rows
-    .filter((r) => r.deletedAt == null)
-    .map((r) => ({
-      id: r.id,
-      date: r.date,
-      name: r.name ?? undefined,
-      outfit: r.outfit,
-      updatedAt: r.updatedAt,
-    }));
+  return {
+    items: rows
+      .filter((r) => r.deletedAt == null)
+      .map((r) => ({
+        id: r.id,
+        date: r.date,
+        name: r.name ?? undefined,
+        outfit: r.outfit,
+        updatedAt: r.updatedAt,
+      })),
+    deleted: rows
+      .filter((r) => r.deletedAt != null)
+      .map((r) => ({ id: r.id, deletedAt: r.deletedAt as number })),
+  };
 }
 
 export async function saveFavorites(userId: string, list: Favorite[]): Promise<void> {
   const now = Date.now();
+  const ids = list.map((f) => f.id);
   await db.transaction(async (tx) => {
-    await tx.delete(favoritesTable).where(eq(favoritesTable.userId, userId));
-    if (list.length) {
+    // client 已不再持有者改寫墓碑；被推上來的 id 才 hard-replace。
+    await tx
+      .update(favoritesTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(favoritesTable.userId, userId),
+          isNull(favoritesTable.deletedAt),
+          ids.length ? notInArray(favoritesTable.id, ids) : undefined,
+        ),
+      );
+    if (ids.length) {
+      await tx
+        .delete(favoritesTable)
+        .where(and(eq(favoritesTable.userId, userId), inArray(favoritesTable.id, ids)));
       await tx.insert(favoritesTable).values(
         list.map((f) => ({
           id: f.id,
@@ -139,29 +194,52 @@ export async function saveFavorites(userId: string, list: Favorite[]): Promise<v
 }
 
 /* ─── Wear logs ──────────────────────────────────────────────────────────── */
-export async function loadWearLogs(userId: string): Promise<WearLog[]> {
+export interface WearLogsSnapshot {
+  items: WearLog[];
+  deleted: Tombstone[];
+}
+
+export async function loadWearLogs(userId: string): Promise<WearLogsSnapshot> {
   const rows = await db
     .select()
     .from(wearLogsTable)
     .where(eq(wearLogsTable.userId, userId));
-  return rows
-    .filter((r) => r.deletedAt == null)
-    .map((r) => ({
-      id: r.id,
-      date: r.date,
-      outfit: r.outfit,
-      note: r.note ?? undefined,
-      favoriteId: r.favoriteId ?? undefined,
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-    }));
+  return {
+    items: rows
+      .filter((r) => r.deletedAt == null)
+      .map((r) => ({
+        id: r.id,
+        date: r.date,
+        outfit: r.outfit,
+        note: r.note ?? undefined,
+        favoriteId: r.favoriteId ?? undefined,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
+    deleted: rows
+      .filter((r) => r.deletedAt != null)
+      .map((r) => ({ id: r.id, deletedAt: r.deletedAt as number })),
+  };
 }
 
 export async function saveWearLogs(userId: string, list: WearLog[]): Promise<void> {
   const now = Date.now();
+  const ids = list.map((l) => l.id);
   await db.transaction(async (tx) => {
-    await tx.delete(wearLogsTable).where(eq(wearLogsTable.userId, userId));
-    if (list.length) {
+    await tx
+      .update(wearLogsTable)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(wearLogsTable.userId, userId),
+          isNull(wearLogsTable.deletedAt),
+          ids.length ? notInArray(wearLogsTable.id, ids) : undefined,
+        ),
+      );
+    if (ids.length) {
+      await tx
+        .delete(wearLogsTable)
+        .where(and(eq(wearLogsTable.userId, userId), inArray(wearLogsTable.id, ids)));
       await tx.insert(wearLogsTable).values(
         list.map((l) => ({
           id: l.id,

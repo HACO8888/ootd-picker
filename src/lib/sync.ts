@@ -85,10 +85,18 @@ async function pushCollection(c: Collection): Promise<void> {
 
 /* ─── 登入合併 ───────────────────────────────────────────────────────────── */
 
-/** union by id，updatedAt 較新者勝（fallback 0）。 */
+/** 刪除墓碑：id + 刪除時間（server 軟刪除後回傳）。 */
+type Tombstone = { id: string; deletedAt: number };
+
+/**
+ * union by id，updatedAt 較新者勝（fallback 0）；再依遠端墓碑剔除已刪除項目。
+ * 墓碑剔除規則：delete 時間不早於該項目最後修改時間才剔除——若本地在刪除之後又
+ * 編輯（updatedAt 較新）則視為「重新建立」予以保留，否則尊重刪除（不復活）。
+ */
 function mergeById<T extends { id: string; updatedAt?: number }>(
   local: T[],
   remote: T[],
+  tombstones: Tombstone[] = [],
 ): T[] {
   const map = new Map<string, T>();
   for (const r of remote) map.set(r.id, r);
@@ -96,19 +104,28 @@ function mergeById<T extends { id: string; updatedAt?: number }>(
     const r = map.get(l.id);
     if (!r || (l.updatedAt ?? 0) >= (r.updatedAt ?? 0)) map.set(l.id, l);
   }
-  return [...map.values()];
+  const tomb = new Map(tombstones.map((t) => [t.id, t.deletedAt]));
+  const out: T[] = [];
+  for (const item of map.values()) {
+    const delAt = tomb.get(item.id);
+    if (delAt != null && delAt >= (item.updatedAt ?? 0)) continue;
+    out.push(item);
+  }
+  return out;
 }
 
 function mergeCloset(
   local: ClosetDeltas,
-  remote: ClosetDeltas & { rejectedIds?: string[] },
+  remote: ClosetDeltas & { rejectedIds?: string[]; deletedItems?: Tombstone[] },
 ): ClosetDeltas {
   const rejected = new Set(remote.rejectedIds ?? []);
   return {
-    // 剔除遭管理員拒絕的項目（不分本地/雲端來源）。
-    userItems: mergeById<Item>(local.userItems, remote.userItems).filter(
-      (i) => !rejected.has(i.id),
-    ),
+    // 剔除遭管理員拒絕的項目（不分本地/雲端來源），並依墓碑剔除已刪除項目。
+    userItems: mergeById<Item>(
+      local.userItems,
+      remote.userItems,
+      remote.deletedItems,
+    ).filter((i) => !rejected.has(i.id)),
     hidden: [...new Set([...remote.hidden, ...local.hidden])],
     // overrides 無 per-key 時間戳：本地優先（使用者本機剛改的視為較新）。
     overrides: { ...remote.overrides, ...local.overrides },
@@ -129,11 +146,23 @@ export async function mergeOnLogin(): Promise<void> {
       closetRes.json(),
       favRes.json(),
       logRes.json(),
-    ])) as [ClosetDeltas & { rejectedIds?: string[] }, Favorite[], WearLog[]];
+    ])) as [
+      ClosetDeltas & { rejectedIds?: string[]; deletedItems?: Tombstone[] },
+      { items: Favorite[]; deleted?: Tombstone[] },
+      { items: WearLog[]; deleted?: Tombstone[] },
+    ];
 
     const mergedCloset = mergeCloset(getClosetDeltas(), remoteCloset);
-    const mergedFavs = mergeById<Favorite>(getFavorites(), remoteFavs);
-    const mergedLogs = mergeById<WearLog>(getWearLogs(), remoteLogs);
+    const mergedFavs = mergeById<Favorite>(
+      getFavorites(),
+      remoteFavs.items ?? [],
+      remoteFavs.deleted,
+    );
+    const mergedLogs = mergeById<WearLog>(
+      getWearLogs(),
+      remoteLogs.items ?? [],
+      remoteLogs.deleted,
+    );
 
     // 寫回本地真相 + 重整 React store。
     setClosetDeltas(mergedCloset);

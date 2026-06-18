@@ -107,8 +107,9 @@ export async function getUserData(id: string) {
       createdAt: u.createdAt.toISOString(),
     },
     closet,
-    favorites,
-    wearLogs,
+    // load* 現回傳 { items, deleted } 快照；admin 檢視只需現存項目。
+    favorites: favorites.items,
+    wearLogs: wearLogs.items,
   };
 }
 

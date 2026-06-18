@@ -38,14 +38,25 @@ export default function ModerationPage() {
       reason = prompt("拒絕原因（選填）") ?? undefined;
     }
     setBusy(id);
-    await fetch("/api/admin/moderation", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, action, reason }),
-    });
-    setRows((rs) => rs.filter((r) => r.id !== id));
-    setBusy(null);
-    showToast(action === "approved" ? "已通過" : "已拒絕");
+    try {
+      const res = await fetch("/api/admin/moderation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, action, reason }),
+      });
+      if (!res.ok) {
+        // Only remove the row on a confirmed server-side change; otherwise the
+        // moderation queue would silently desync (item stays pending in the DB).
+        showToast("操作失敗，請重試");
+        return;
+      }
+      setRows((rs) => rs.filter((r) => r.id !== id));
+      showToast(action === "approved" ? "已通過" : "已拒絕");
+    } catch {
+      showToast("操作失敗，請檢查網路");
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (

@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "gen:images": "tsx scripts/generate-images.ts",
     "fetch:fashion": "tsx scripts/fetch-fashion.ts",

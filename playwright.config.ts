@@ -16,9 +16,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `pnpm exec next start --port ${PORT}`,
+    // Build first so `next start` always serves fresh code (it requires an
+    // existing .next/ and would otherwise test a stale or missing build).
+    command: `pnpm exec next build && pnpm exec next start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 240_000,
   },
 });

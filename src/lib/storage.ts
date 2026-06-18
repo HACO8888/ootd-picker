@@ -1,5 +1,5 @@
 // localStorage persistence — SSR-safe.
-// Closet model (v11): a large static CATALOG (>10,000 items) composed with the
+// Closet model (v11): a large static CATALOG (~3,000 items) composed with the
 // user's own additions, hidden catalog ids and per-item overrides. Only the
 // user's deltas are stored in localStorage, so the catalog never bloats it.
 import { getAutoImage } from "./recommend";

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Dummy values so the app boots in CI: postgres.js connects lazily, so a
+# placeholder DATABASE_URL is enough for build and guest-mode e2e (which never
+# hit the DB). Override with real secrets if/when authed e2e is added.
+env:
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+  AUTH_SECRET: ci-dummy-secret-not-used-in-production
+  AUTH_URL: http://localhost:4599
+  AUTH_TRUST_HOST: "true"
+  NEXT_PUBLIC_SITE_URL: http://localhost:4599
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # webServer in playwright.config.ts builds + starts the app on PORT 4599.
+      - run: pnpm test:e2e

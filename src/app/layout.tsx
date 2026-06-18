@@ -26,7 +26,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ootd-picker.example"),
+  // 由環境變數決定對外網址，避免 production OG/canonical 連到不可達的佔位網域。
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  ),
   title: {
     default: "OOTD PICKER | 風格與妝容嚮導",
     template: "%s | OOTD PICKER",

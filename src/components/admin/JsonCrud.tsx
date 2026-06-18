@@ -87,11 +87,15 @@ export function JsonCrud({
 
   async function remove(id: string) {
     if (!confirm(`刪除 ${id}？`)) return;
-    await fetch(endpoint, {
+    const res = await fetch(endpoint, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    if (!res.ok) {
+      setError((await res.json().catch(() => ({}))).error ?? "刪除失敗");
+      return;
+    }
     await load();
     showToast("已刪除");
   }

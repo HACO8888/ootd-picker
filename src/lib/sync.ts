@@ -70,16 +70,39 @@ function localSnapshot(c: Collection): ClosetDeltas | Favorite[] | WearLog[] {
   return getWearLogs();
 }
 
+const MAX_RETRY = 3;
+const RETRY_MS = 5000;
+const retryCount: Partial<Record<Collection, number>> = {};
+
+function scheduleRetry(c: Collection): void {
+  const n = (retryCount[c] ?? 0) + 1;
+  if (n > MAX_RETRY) {
+    // 放棄自動重試；下次 mutation 仍會再 enqueue（整包覆蓋自然修復）。
+    retryCount[c] = 0;
+    return;
+  }
+  retryCount[c] = n;
+  setTimeout(() => void pushCollection(c), RETRY_MS * n);
+}
+
 async function pushCollection(c: Collection): Promise<void> {
   if (!currentUserId) return;
   try {
-    await fetch(PATH[c], {
+    const res = await fetch(PATH[c], {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(localSnapshot(c)),
     });
+    if (res.ok) {
+      retryCount[c] = 0;
+      return;
+    }
+    // 4xx = payload 問題，重試無益（記錄即可）；5xx = 暫態，退避重試。
+    if (res.status >= 500) scheduleRetry(c);
+    else console.error(`sync ${c} rejected with ${res.status}`);
   } catch {
-    // 離線/失敗：下次 mutation 會再次 enqueue，整包覆蓋自然修復。
+    // 離線/網路錯誤：退避重試（有上限），逾限後靠下次 mutation 修復。
+    scheduleRetry(c);
   }
 }
 

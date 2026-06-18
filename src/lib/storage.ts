@@ -16,6 +16,16 @@ const WEAR_LOG_KEY = "ootd_picker_wear_log_v1";
 
 const hasWindow = () => typeof window !== "undefined";
 
+/** Collision-resistant id with a type prefix (Date.now() alone collides on
+ *  same-ms adds — rapid clicks / batches — corrupting edit/delete-by-id). */
+function uid(prefix: string): string {
+  const rand =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  return prefix + rand;
+}
+
 function read<T>(key: string, fallback: T): T {
   if (!hasWindow()) return fallback;
   const raw = localStorage.getItem(key);
@@ -27,8 +37,25 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+/** localStorage 已滿時拋出的可辨識錯誤，供 UI 顯示友善訊息。 */
+export class StorageQuotaError extends Error {
+  constructor() {
+    super("本機儲存空間不足，請刪除部分單品或縮小上傳圖片後再試。");
+    this.name = "StorageQuotaError";
+  }
+}
+
 function write(key: string, value: unknown): void {
-  if (hasWindow()) localStorage.setItem(key, JSON.stringify(value));
+  if (!hasWindow()) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    // 配額超出（多為過大的上傳 data URL）：拋出可辨識錯誤而非靜默失敗。
+    if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.code === 22)) {
+      throw new StorageQuotaError();
+    }
+    throw err;
+  }
 }
 
 /* ─── Closet (catalog ⊕ user deltas) ─────────────────────────────────────── */
@@ -118,7 +145,7 @@ export function addClosetItem(
 ): Item[] {
   const colorsArr = Array.isArray(colors) ? colors : [colors];
   const item: Item = {
-    id: "c_" + Date.now(),
+    id: uid("c_"),
     name,
     brand: brand || "自訂",
     category,
@@ -175,7 +202,7 @@ function persistFavorites(list: Favorite[]): Favorite[] {
 
 export function addFavorite(outfit: Outfit, name?: string): Favorite[] {
   const fav: Favorite = {
-    id: "f_" + Date.now(),
+    id: uid("f_"),
     date: new Date().toLocaleDateString("zh-Hant"),
     name: name?.trim() || undefined,
     outfit,

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/server/session";
 import { listUsers, updateUser, deleteUser } from "@/lib/server/admin-repo";
+import { parseBody } from "@/lib/server/parse";
+import { userPatchSchema, idBodySchema } from "@/lib/schemas";
+import type { Role, AccountStatus } from "@/lib/auth.types";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +16,12 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id, role, status } = (await req.json()) as {
-    id?: string;
-    role?: "user" | "admin";
-    status?: "active" | "suspended";
-  };
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  const parsed = await parseBody<{ id: string; role?: Role; status?: AccountStatus }>(
+    req,
+    userPatchSchema,
+  );
+  if (!parsed.ok) return parsed.res;
+  const { id, role, status } = parsed.data;
   // 不可停權或降級自己，避免把自己鎖在門外。
   if (id === admin.id && (status === "suspended" || role === "user")) {
     return NextResponse.json({ error: "不可變更自己的權限或狀態" }, { status: 400 });
@@ -30,11 +33,11 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id } = (await req.json()) as { id?: string };
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-  if (id === admin.id) {
+  const parsed = await parseBody<{ id: string }>(req, idBodySchema);
+  if (!parsed.ok) return parsed.res;
+  if (parsed.data.id === admin.id) {
     return NextResponse.json({ error: "不可刪除自己" }, { status: 400 });
   }
-  await deleteUser(id);
+  await deleteUser(parsed.data.id);
   return NextResponse.json({ ok: true });
 }

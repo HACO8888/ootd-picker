@@ -541,8 +541,11 @@ export function bestMakeup(weather: Weather, mood: string, destination: string, 
     });
     return s;
   };
+  // 防止空陣列 reduce 崩潰：若某性別過濾後無妝容（admin 刪光該性別+unisex 妝容），
+  // 退回整本 lookbook 取最高分，避免 generateOOTDSet/picker 整個崩潰。
   const valid = MAKEUP_LOOKBOOK.filter(genderMatches);
-  return valid.reduce((best, m) => (mScore(m) > mScore(best) ? m : best));
+  const pool = valid.length ? valid : MAKEUP_LOOKBOOK;
+  return pool.reduce((best, m) => (mScore(m) > mScore(best) ? m : best));
 }
 
 /** Best-matching perfume for a context (highest score). */

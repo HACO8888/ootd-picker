@@ -32,6 +32,10 @@ const COLORS: { value: string; label: string; swatch: string; border?: boolean }
 
 const TAGS = ["放鬆", "工作", "專業", "約會", "優雅", "活力", "舒適"];
 
+/** 上傳原圖大小上限與降階後最長邊（px）。 */
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 800;
+
 /* ─── Form state (useReducer) ────────────────────────────────────────────── */
 interface FormState {
   name: string;
@@ -103,9 +107,40 @@ export function UploadModal({
       alert("請上傳圖片檔案！");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => dispatch({ type: "set", patch: { image: reader.result as string } });
-    reader.readAsDataURL(file);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      alert("圖片檔案過大（上限 15MB），請改用較小的圖片。");
+      return;
+    }
+    // 透過 canvas 降階到最長邊 ~800px 並重編碼，避免巨大 data URL 撐爆
+    // localStorage 配額或讓同步請求過大；canvas 不可用時退回原圖讀取。
+    const fallbackRead = () => {
+      const reader = new FileReader();
+      reader.onload = () => dispatch({ type: "set", patch: { image: reader.result as string } });
+      reader.readAsDataURL(file);
+    };
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        fallbackRead();
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      dispatch({ type: "set", patch: { image: canvas.toDataURL("image/webp", 0.85) } });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      alert("圖片讀取失敗，請換一張圖片。");
+    };
+    img.src = url;
   };
 
   const submit = () => {

@@ -72,11 +72,15 @@ export default function AdminCatalogPage() {
 
   async function deleteExtra(id: string) {
     if (!confirm(`刪除全域服裝 ${id}？`)) return;
-    await fetch("/api/admin/catalog", {
+    const res = await fetch("/api/admin/catalog", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    if (!res.ok) {
+      setError("刪除失敗，請重試");
+      return;
+    }
     await load();
     showToast("已刪除");
   }
@@ -94,22 +98,34 @@ export default function AdminCatalogPage() {
       setError("覆蓋 JSON 格式錯誤");
       return;
     }
-    await fetch("/api/admin/catalog", {
+    if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).length === 0) {
+      setError("覆蓋內容不可為空物件");
+      return;
+    }
+    const res = await fetch("/api/admin/catalog", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ catalogId: ovrId.trim(), patch }),
     });
+    if (!res.ok) {
+      setError((await res.json().catch(() => ({}))).error ?? "套用覆蓋失敗");
+      return;
+    }
     setOvrId("");
     await load();
     showToast("已套用覆蓋");
   }
 
   async function removeOverride(catalogId: string) {
-    await fetch("/api/admin/catalog", {
+    const res = await fetch("/api/admin/catalog", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ catalogId, patch: null }),
     });
+    if (!res.ok) {
+      setError("移除覆蓋失敗，請重試");
+      return;
+    }
     await load();
     showToast("已移除覆蓋");
   }

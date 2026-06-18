@@ -2,8 +2,10 @@
 
 import { useMemo, useReducer, useState } from "react";
 import { useCloset } from "@/hooks/useCloset";
+import { useChrome } from "@/components/chrome/ChromeProvider";
 import { TRANSLATE } from "@/lib/data";
 import { getAutoImage } from "@/lib/recommend";
+import { StorageQuotaError } from "@/lib/storage";
 import type { Category, Item } from "@/lib/types";
 import { Footer } from "@/components/nav/Footer";
 import { Icon } from "@/components/ui/Icon";
@@ -21,6 +23,7 @@ const PAGE = 48;
 
 export default function ClosetPage() {
   const { closet, addItem, deleteItem, updateItem } = useCloset();
+  const { showToast } = useChrome();
 
   const [filters, dispatch] = useReducer(filterReducer, initialFilters);
   const [modalOpen, setModalOpen] = useState(false);
@@ -90,21 +93,30 @@ export default function ClosetPage() {
   };
 
   const handleSubmit = (p: UploadPayload) => {
-    if (editing) {
-      const imageUrl = p.imageUrl || getAutoImage(p.name, p.category, p.colors);
-      updateItem(editing.id, {
-        name: p.name,
-        category: p.category,
-        brand: p.brand,
-        seasons: p.seasons,
-        colors: p.colors,
-        tags: p.tags,
-        imageUrl,
-      });
-    } else {
-      addItem(p.name, p.category, p.seasons, p.colors, p.tags, p.imageUrl, p.brand);
+    try {
+      if (editing) {
+        const imageUrl = p.imageUrl || getAutoImage(p.name, p.category, p.colors);
+        updateItem(editing.id, {
+          name: p.name,
+          category: p.category,
+          brand: p.brand,
+          seasons: p.seasons,
+          colors: p.colors,
+          tags: p.tags,
+          imageUrl,
+        });
+      } else {
+        addItem(p.name, p.category, p.seasons, p.colors, p.tags, p.imageUrl, p.brand);
+      }
+      closeModal();
+    } catch (err) {
+      // 配額不足等寫入失敗：保留 modal（不清空輸入）並提示，讓使用者調整後重試。
+      showToast(
+        err instanceof StorageQuotaError
+          ? err.message
+          : "儲存失敗，請稍後再試。",
+      );
     }
-    closeModal();
   };
 
   const active = activeFilterCount(filters);

@@ -37,10 +37,17 @@ function resolveItem(id: string): Item | null {
  * (missing weather/makeup/perfume). `missing` flags that some private garments
  * couldn't be resolved on this device.
  */
+const WEATHERS: Weather[] = ["sunny", "cloudy", "rainy", "cold"];
+const GENDERS: Gender[] = ["female", "male", "unisex"];
+/** 限制來自不可信連結的自由文字長度（避免內容偽冒/超長 URL）。 */
+const clampText = (s: string | null): string => (s ?? "").slice(0, 40);
+
 export function decodeShareParams(params: URLSearchParams): { outfit: Outfit; missing: boolean } | null {
-  const weather = params.get("w") as Weather | null;
+  const weatherRaw = params.get("w");
+  const weather = WEATHERS.includes(weatherRaw as Weather) ? (weatherRaw as Weather) : null;
   const makeup = MAKEUP_LOOKBOOK.find((m) => m.id === params.get("m"));
   const perfume = PERFUME_LOOKBOOK.find((p) => p.id === params.get("p"));
+  // weather 須為合法列舉值（不再讓任意字串通過）。
   if (!weather || !makeup || !perfume) return null;
 
   let missing = false;
@@ -61,9 +68,12 @@ export function decodeShareParams(params: URLSearchParams): { outfit: Outfit; mi
     perfume,
     context: {
       weather,
-      mood: params.get("mood") ?? "",
-      destination: params.get("dest") ?? "",
-      gender: (params.get("g") as Gender) || "unisex",
+      mood: clampText(params.get("mood")),
+      destination: clampText(params.get("dest")),
+      // gender 須為合法列舉值，否則退回 unisex。
+      gender: GENDERS.includes(params.get("g") as Gender)
+        ? (params.get("g") as Gender)
+        : "unisex",
     },
   };
   outfit.harmony = evaluateHarmony(outfit);

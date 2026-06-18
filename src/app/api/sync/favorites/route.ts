@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getActiveUser } from "@/lib/server/session";
 import { loadFavorites, saveFavorites } from "@/lib/server/sync-repo";
+import { parseBody } from "@/lib/server/parse";
+import { favoritesArraySchema } from "@/lib/schemas";
 import type { Favorite } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +16,8 @@ export async function GET() {
 export async function PUT(req: Request) {
   const user = await getActiveUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const body = (await req.json()) as Favorite[];
-  if (!Array.isArray(body)) {
-    return NextResponse.json({ error: "Bad payload" }, { status: 400 });
-  }
-  await saveFavorites(user.id, body);
+  const parsed = await parseBody<Favorite[]>(req, favoritesArraySchema);
+  if (!parsed.ok) return parsed.res;
+  await saveFavorites(user.id, parsed.data);
   return NextResponse.json({ ok: true });
 }

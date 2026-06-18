@@ -86,9 +86,23 @@ export default function ModerationPage() {
           {rows.map((r) => (
             <div key={r.id} className="border border-outline-variant p-3 flex gap-3">
               <div className="w-20 h-24 shrink-0 bg-outline-variant/30 overflow-hidden">
-                {r.imageUrl ? (
+                {r.imageUrl?.startsWith("data:") ? (
+                  // 僅內嵌渲染 data: 上傳圖。遠端 URL 不自動載入，避免未審內容
+                  // 讓 admin 瀏覽器向第三方發出請求（IP/UA 外洩 / 追蹤 beacon）。
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.imageUrl} alt={r.name} className="w-full h-full object-cover" />
+                  <img
+                    src={r.imageUrl}
+                    alt={r.name}
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                ) : r.imageUrl ? (
+                  <div className="w-full h-full flex items-center justify-center p-1 text-center">
+                    <span className="text-[10px] leading-tight text-on-surface-variant break-all line-clamp-4">
+                      外部圖片（未載入）：{r.imageUrl}
+                    </span>
+                  </div>
                 ) : null}
               </div>
               <div className="min-w-0 flex-1">

@@ -13,10 +13,12 @@
   - `pnpm build`　production build（含 TypeScript 型別檢查）
   - `pnpm lint`　ESLint（flat config）
   - `pnpm db:generate` / `db:studio`　產生 migration / Drizzle Studio
+  - `pnpm eval:recommend`　推薦引擎離線評估（違規率／命中率／多樣性／速度）
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
 - **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
 - **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
+- **SEO**：網域與公開路由集中在 `src/lib/site.ts`（`NEXT_PUBLIC_SITE_URL` 覆寫，預設 https://ootd.haco.tw）；新增公開頁要加進 `PUBLIC_ROUTES` 並用 `pageMetadata()` 設 canonical。client 頁的 metadata 放同目錄的 server `layout.tsx`。
 
 ## 目錄速覽
 
@@ -31,9 +33,12 @@ src/components/  nav · picker · results · closet · favorites · insights · 
 src/hooks/       useCloset · useFavorites · useUserCloset · useWearLog（皆包 useSyncExternalStore）
 src/lib/         types · data · catalog · catalog-data.json · recommend · storage · store · weather · sync · auth.types
                  server/  server-only repo：sync-repo · admin-repo · catalog-repo · session
-                 catalog = Fashion Product Images 資料集(MIT)~3000 件，每件一張白底商品照，
-                 名稱由資料集的顏色＋品類標籤產生（文字與圖對應、不重複）。
-                 重新抓取：pnpm fetch:fashion；可選 pnpm gen:images 改用 AI 生圖
+                 catalog = Fashion Product Images 資料集(MIT)~5400 件，每件一張白底商品照，
+                 名稱由資料集的顏色＋品類標籤產生（文字與圖對應、不重複），帶原生 gender。
+                 重新抓取：pnpm fetch:fashion；只重推標籤/季節：pnpm derive:catalog（離線）
+                 catalog JSON 只由 `@/lib/catalog-source` 註冊；需要目錄的頁面才 import 它
+                 （picker/closet/insights/share），其他頁不得直接 import catalog-data.json
+                 妝容/香水 seed：data.ts + lookbook-extra.ts；圖 pnpm gen:looks；入庫 pnpm seed:lookbook
                  衣櫥 = 靜態 catalog ⊕ 使用者自訂(localStorage：user_items/hidden/overrides v11)
 drizzle/        產生的 SQL migration（納版控）
 public/images/   服裝圖 + 首頁圖    public/looks/  妝容/香水圖
@@ -47,7 +52,7 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - localStorage 一律走 `src/lib/store.ts`（`useSyncExternalStore`）以跨元件同步；**勿**用 effect 直接 `setState` 讀取（會觸發 `react-hooks/set-state-in-effect`）。
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
-- 推薦演算法為核心契約（引擎 `generateOOTDSet`／單套 `generateOOTD`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加語意相近標籤、天氣實穿性、性別脈絡補正；整套再以 `totalOutfitScore` 比對上下身/配件/外套相容性、色彩和諧、近似去重）。調整前先確認對 USER_STORY 的影響。
+- 推薦演算法為核心契約（引擎 `generateOOTDSet`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加以單品類型推得的語意分數（上限 ±4）、天氣實穿性、性別；評分前先過硬性排除 `violates`（性別/天氣/場合），整套再以 `totalOutfitScore` 比對相容性、色彩和諧，並以 Gumbel 抽樣 + 多樣性挑選三套；設計見 PRD §8 D-REC-2）。**改動演算法或資料後必跑 `pnpm eval:recommend`（另加 `--small` 測小衣櫥）**，與 PRD 記錄的指標比較，並確認對 USER_STORY 的影響。
 - **雲端同步**：唯一切入點是 `src/lib/store.ts` mutator 末端的 `enqueueSync`（訪客 no-op）；登入合併在 `src/lib/sync.ts` `mergeOnLogin`。新增使用者資料表時，需同步 `sync-repo.ts` 的 load/save 與型別的 `updatedAt?`。push=整包取代，故 `saveCloset` 要保留既有 `moderation_status`。
 - **認證**：session 帶 `id/role/status`。`auth.config.ts` 必須 edge-safe（不可 import db / `server-only`），`proxy.ts` 只用它解碼 JWT；完整流程（adapter/bootstrap）在 `auth.ts`。JWT 型別因 pnpm 無法 augment `@auth/core/jwt`，callback 內以 `auth.types.ts` 的 `Role/AccountStatus` 轉型。
 - **後台**：所有 `/api/admin/*` handler 內**再驗證一次** `getAdminUser()`（proxy 之外的縱深防禦）；db 存取一律走 `src/lib/server/*`（`server-only`）。

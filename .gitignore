@@ -33,3 +33,7 @@ next-env.d.ts
 /playwright/.cache/
 public/images/catalog/gen/
 scripts/.images-urls.csv
+scripts/.cache/
+
+# private agent memory (public repo)
+memory/

@@ -18,7 +18,11 @@
     "fetch:fashion": "tsx scripts/fetch-fashion.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "eval:recommend": "tsx scripts/eval-recommend.ts",
+    "derive:catalog": "tsx scripts/catalog-derive.ts",
+    "gen:looks": "tsx scripts/generate-looks.ts",
+    "seed:lookbook": "tsx scripts/seed-lookbook.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
@@ -42,6 +46,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.7",
+    "hyparquet": "^1.31.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.4",

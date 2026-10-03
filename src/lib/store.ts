@@ -1,7 +1,7 @@
 // Shared external stores for closet + favorites, built on useSyncExternalStore.
 // This keeps every component in sync (saving in the picker instantly updates the
 // favorites drawer) and reads localStorage the React-blessed way (no effect).
-import { getCatalog } from "./catalog";
+import { getCatalog, onCatalogRegistered } from "./catalog";
 import { buildCloset } from "./data";
 import {
   getCloset,
@@ -24,8 +24,9 @@ import { enqueueSync, registerStoreRefresh } from "./sync";
 import type { Item, Favorite, Outfit, Category, Season, WearLog } from "./types";
 
 /* ─── generic tiny store ─────────────────────────────────────────────────── */
-function createStore<T>(serverValue: T, read: () => T) {
+function createStore<T>(serverValue: () => T, read: () => T) {
   let cache: T | null = null;
+  let server: T | null = null;
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((l) => l());
   return {
@@ -38,7 +39,10 @@ function createStore<T>(serverValue: T, read: () => T) {
       return cache;
     },
     getServerSnapshot(): T {
-      return serverValue;
+      // Lazy + memoized: stable across renders, and computed after the page's
+      // catalog source has registered.
+      if (server === null) server = serverValue();
+      return server;
     },
     set(value: T) {
       cache = value;
@@ -47,16 +51,14 @@ function createStore<T>(serverValue: T, read: () => T) {
   };
 }
 
-// Stable server-side snapshots (must be referentially constant across renders).
-const SERVER_CLOSET = getCatalog();
-const SERVER_USER_CLOSET = buildCloset();
+// Server-side snapshots (memoized on first use, so referentially constant).
 const SERVER_FAVORITES: Favorite[] = [];
 const SERVER_WEAR_LOGS: WearLog[] = [];
 
-export const closetStore = createStore<Item[]>(SERVER_CLOSET, getCloset);
-export const userClosetStore = createStore<Item[]>(SERVER_USER_CLOSET, getUserCloset);
-export const favoritesStore = createStore<Favorite[]>(SERVER_FAVORITES, getFavorites);
-export const wearLogStore = createStore<WearLog[]>(SERVER_WEAR_LOGS, getWearLogs);
+export const closetStore = createStore<Item[]>(getCatalog, getCloset);
+export const userClosetStore = createStore<Item[]>(buildCloset, getUserCloset);
+export const favoritesStore = createStore<Favorite[]>(() => SERVER_FAVORITES, getFavorites);
+export const wearLogStore = createStore<WearLog[]>(() => SERVER_WEAR_LOGS, getWearLogs);
 
 // Keep the user-closet view in sync whenever the composed closet mutates.
 function syncUserCloset() {
@@ -71,6 +73,12 @@ export function refreshAllStores() {
   wearLogStore.set(getWearLogs());
 }
 registerStoreRefresh(refreshAllStores);
+// A page that needs the catalog registers it on import; if the closet store
+// was already read without it (e.g. after an overlay refresh on another page),
+// rebuild it now.
+onCatalogRegistered(() => {
+  if (typeof window !== "undefined") closetStore.set(getCloset());
+});
 
 /* ─── closet mutators ────────────────────────────────────────────────────── */
 export function addClosetItemToStore(

@@ -1,142 +1,296 @@
 /**
- * Build the catalog from the MIT-licensed "Fashion Product Images" dataset on
- * Hugging Face (clean white-background e-commerce shots WITH colour + type
- * labels). Each downloaded image becomes one unique item whose name matches the
- * photo (colour + garment type from the dataset's own labels).
+ * Build the catalog from the MIT-licensed "Fashion Product Images" dataset
+ * (Param Aggarwal / Myntra): clean white-background e-commerce shots WITH
+ * colour + type + gender + usage labels. Each item is one unique product photo
+ * whose name matches the picture (colour + garment type from its own labels).
  *
- *   pnpm fetch:fashion            # default target
- *   pnpm fetch:fashion --target 2500 --per-type 250
+ *   pnpm fetch:fashion            # labels → select → download hi-res → derive
+ *   pnpm fetch:fashion --refresh  # re-download the label / image-path caches
+ *   pnpm derive:catalog           # re-derive tags/seasons only (no network)
  *
- * Output: public/images/catalog/fp/<id>.jpg  +  src/lib/catalog-data.json
- * Then:   pnpm build
+ * Sources (no Kaggle account needed)
+ *   - labels:      styles.csv mirror on Hugging Face (nreimers/fashion-dataset)
+ *   - image paths: the `image.path` column of 0x-74/FASHION-DF (same row order as
+ *                  styles.csv). Only that tiny column is range-read (~0.7 MB per
+ *                  shard) — the 7 GB of embedded image bytes are never fetched.
+ *   - images:      the original Myntra CDN file for that path, resized to 460px
+ *                  (same size/quality as the existing catalog photos).
+ *
+ * Every id already in the catalog is kept (user hidden/override rows and share
+ * links key on them); new rows top the catalog up per type × gender.
+ * scripts/data/fashion-selected.json keeps the raw labels of the selected rows
+ * so tags can be re-derived (and tuned against `pnpm eval:recommend`) offline.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
+import { parquetMetadataAsync, parquetReadObjects, type AsyncBuffer } from "hyparquet";
+import { ARTICLE, deriveCatalog, type RawRow } from "./catalog-derive";
 
-const HF = "https://datasets-server.huggingface.co/rows?dataset=ashraq/fashion-product-images-small&config=default&split=train";
+const STYLES_URL = "https://huggingface.co/datasets/nreimers/fashion-dataset/resolve/main/train.csv";
+const PATHS_URL = (shard: number) =>
+  `https://huggingface.co/datasets/0x-74/FASHION-DF/resolve/main/data/train-${String(shard).padStart(5, "0")}-of-00016.parquet`;
+const CDN = "https://assets.myntassets.com/v1/images/style/properties/";
+
+const CACHE_DIR = path.resolve("scripts/.cache");
+const STYLES_CACHE = path.join(CACHE_DIR, "styles.csv");
+const PATHS_CACHE = path.join(CACHE_DIR, "fashiondf-paths.json");
 const FP_DIR = path.resolve("public/images/catalog/fp");
-const OUT_JSON = path.resolve("src/lib/catalog-data.json");
+const SELECTED = path.resolve("scripts/data/fashion-selected.json");
+const CATALOG = path.resolve("src/lib/catalog-data.json");
 
-const a = (k: string, d: number) => {
-  const i = process.argv.indexOf(k);
-  return i > -1 ? parseInt(process.argv[i + 1], 10) : d;
+const REFRESH = process.argv.includes("--refresh");
+const WIDTH = 460;
+const QUALITY = 78;
+const CONCURRENCY = 12;
+
+/**
+ * Max items per dataset articleType (existing ids are always kept, even above
+ * the cap). Scarce-but-useful types are taken in full; accessories now span
+ * watches / sunglasses / scarves / belts / caps / ties instead of bags only.
+ */
+const TYPE_CAPS: Record<string, number> = {
+  Tshirts: 330, Shirts: 330, Tops: 300, Tunics: 81, Kurtas: 220, Sweaters: 300, Sweatshirts: 260,
+  Jackets: 300, Blazers: 20, "Rain Jacket": 30, "Nehru Jackets": 10, Waistcoat: 20, Shrug: 10,
+  Jeans: 300, Trousers: 320, "Track Pants": 200, Shorts: 260, Skirts: 130, Capris: 120, Leggings: 100,
+  Jeggings: 40, "Lounge Pants": 70, "Lounge Shorts": 40,
+  Backpacks: 240, Handbags: 300, Clutches: 260, "Laptop Bag": 90, "Duffel Bag": 90, "Messenger Bag": 50,
+  Watches: 260, Sunglasses: 200, Belts: 160, Scarves: 120, Stoles: 90, Mufflers: 40, Caps: 150, Ties: 120,
 };
-const TARGET = a("--target", 2400);
-const PER_TYPE = a("--per-type", 240);
-const SCAN_LIMIT = a("--scan", 12000);
+/** No single gender may take more than this share of a type's slots. */
+const GENDER_SHARE = 0.65;
 
-type Cat = "tops" | "bottoms" | "outerwear" | "accessories";
-const ARTICLE: Record<string, { category: Cat; label: string }> = {
-  Tshirts: { category: "tops", label: "T恤" },
-  Shirts: { category: "tops", label: "襯衫" },
-  Tops: { category: "tops", label: "上衣" },
-  Tunics: { category: "tops", label: "長版上衣" },
-  Kurtas: { category: "tops", label: "印度長衫" },
-  Sweaters: { category: "tops", label: "針織毛衣" },
-  Sweatshirts: { category: "tops", label: "大學T" },
-  Jackets: { category: "outerwear", label: "外套" },
-  Blazers: { category: "outerwear", label: "西裝外套" },
-  "Rain Jacket": { category: "outerwear", label: "風雨衣" },
-  "Nehru Jackets": { category: "outerwear", label: "立領外套" },
-  Waistcoat: { category: "outerwear", label: "背心" },
-  Jeans: { category: "bottoms", label: "牛仔褲" },
-  Trousers: { category: "bottoms", label: "長褲" },
-  "Track Pants": { category: "bottoms", label: "運動長褲" },
-  Shorts: { category: "bottoms", label: "短褲" },
-  Skirts: { category: "bottoms", label: "裙" },
-  Capris: { category: "bottoms", label: "七分褲" },
-  Leggings: { category: "bottoms", label: "內搭褲" },
-  Backpacks: { category: "accessories", label: "後背包" },
-  Handbags: { category: "accessories", label: "手提包" },
-  Clutches: { category: "accessories", label: "手拿包" },
-  "Laptop Bag": { category: "accessories", label: "電腦包" },
-  "Duffel Bag": { category: "accessories", label: "旅行袋" },
-  "Messenger Bag": { category: "accessories", label: "郵差包" },
-};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const COLOR: Record<string, string> = {
-  Black: "黑色", White: "白色", "Off White": "米白色", Cream: "奶油色", Beige: "米色",
-  Grey: "灰色", "Grey Melange": "麻灰", Charcoal: "碳灰", Silver: "銀色",
-  Blue: "藍色", "Navy Blue": "藏青", "Sea Green": "海綠", Teal: "藍綠", "Turquoise Blue": "土耳其藍", "Steel": "鋼藍",
-  Red: "紅色", Maroon: "酒紅", Burgundy: "勃根地紅", Rust: "鏽紅", Pink: "粉色", Rose: "玫瑰粉", Magenta: "洋紅", Peach: "蜜桃色",
-  Green: "綠色", Olive: "墨綠", "Lime Green": "萊姆綠", "Fluorescent Green": "螢光綠",
-  Yellow: "黃色", Mustard: "芥末黃", Gold: "金色",
-  Brown: "咖啡色", "Coffee Brown": "咖啡色", Khaki: "卡其色", Tan: "棕褐", Bronze: "古銅", Copper: "銅色", Nude: "裸色", Skin: "膚色",
-  Purple: "紫色", Lavender: "薰衣草紫", Mauve: "淺紫", Orange: "橘色", Multi: "多色", Metallic: "金屬色",
-};
-
-const SEASON: Record<string, string> = { Summer: "summer", Fall: "autumn", Winter: "winter", Spring: "spring" };
-const USAGE_TAGS: Record<string, string[]> = {
-  Casual: ["休閒漫步", "放鬆"], Formal: ["工作", "專業"], Sports: ["活力"],
-  Ethnic: ["優雅"], Party: ["社交聚會", "約會"], "Smart Casual": ["工作", "休閒漫步"], Travel: ["休閒漫步"],
-};
-
-interface OutItem {
-  id: string; name: string; category: Cat; seasons: string[]; colors: string[]; tags: string[]; imageUrl: string;
+async function exists(file: string): Promise<boolean> {
+  try {
+    await access(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-async function rows(offset: number) {
-  const res = await fetch(`${HF}&offset=${offset}&length=100`);
-  if (!res.ok) throw new Error(`HF ${res.status}`);
-  const json = await res.json();
-  return json.rows as { row: Record<string, unknown> }[];
+async function fetchRetry(url: string, init: RequestInit = {}, tries = 6): Promise<Response> {
+  for (let a = 0; ; a++) {
+    try {
+      const res = await fetch(url, { ...init, redirect: "follow", signal: AbortSignal.timeout(60_000) });
+      if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`);
+      return res;
+    } catch (e) {
+      if (a >= tries - 1) throw e;
+      await sleep(1500 * 2 ** a);
+    }
+  }
+}
+
+/* ─── 1. labels ───────────────────────────────────────────────────────────── */
+async function loadStyles(): Promise<RawRow[]> {
+  if (REFRESH || !(await exists(STYLES_CACHE))) {
+    const res = await fetchRetry(STYLES_URL);
+    await writeFile(STYLES_CACHE, await res.text());
+  }
+  const lines = (await readFile(STYLES_CACHE, "utf8")).trim().split("\n").slice(1);
+  return lines.map((l) => {
+    const c = l.split(",");
+    return {
+      id: c[0],
+      gender: c[1],
+      articleType: c[4],
+      baseColour: c[5],
+      season: c[6],
+      year: Number(c[7]) || 0,
+      usage: c[8],
+      // The display name is the only field that may itself contain commas.
+      productDisplayName: c.slice(9).join(",").trim(),
+    };
+  });
+}
+
+/* ─── 2. image paths (range-read one parquet column) ──────────────────────── */
+function rangeBuffer(url: string, byteLength: number): AsyncBuffer {
+  return {
+    byteLength,
+    slice: async (start: number, end = byteLength) => {
+      const res = await fetchRetry(url, { headers: { Range: `bytes=${start}-${end - 1}` } });
+      if (res.status !== 206 && res.status !== 200) throw new Error(`HTTP ${res.status}`);
+      return res.arrayBuffer();
+    },
+  };
+}
+
+async function loadImagePaths(styles: RawRow[]): Promise<Map<string, string>> {
+  let shards: Record<string, [string, string][]> = {};
+  if (!REFRESH && (await exists(PATHS_CACHE))) shards = JSON.parse(await readFile(PATHS_CACHE, "utf8"));
+  for (let s = 0; s < 16; s++) {
+    if (shards[s]) continue;
+    const url = PATHS_URL(s);
+    const head = await fetchRetry(url, { method: "HEAD" });
+    const file = rangeBuffer(url, Number(head.headers.get("content-length")));
+    const md = await parquetMetadataAsync(file);
+    // Drop the heavy image.bytes leaf so only image.path + text are planned/fetched.
+    const schema = md.schema
+      .filter((e) => e.name !== "bytes")
+      .map((e) => (e.name === "image" ? { ...e, num_children: 1 } : e));
+    const row_groups = md.row_groups.map((rg) => ({
+      ...rg,
+      columns: rg.columns.filter((c) => c.meta_data?.path_in_schema.join(".") !== "image.bytes"),
+    }));
+    const rows = (await parquetReadObjects({
+      file,
+      metadata: { ...md, schema, row_groups },
+      columns: ["image", "text"],
+    })) as { image?: { path?: string }; text?: string }[];
+    shards[s] = rows.map((r) => [r.text ?? "", r.image?.path ?? ""]);
+    await writeFile(PATHS_CACHE, JSON.stringify(shards));
+    console.log(`  圖片路徑 shard ${s + 1}/16：${rows.length} 筆`);
+  }
+
+  // FASHION-DF keeps styles.csv's row order but dropped a handful of rows, so
+  // align sequentially on the display name with a small look-ahead.
+  const rows = Object.keys(shards)
+    .sort((a, b) => Number(a) - Number(b))
+    .flatMap((k) => shards[k]);
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+  const out = new Map<string, string>();
+  let i = 0;
+  let j = 0;
+  while (i < rows.length && j < styles.length) {
+    if (norm(rows[i][0]) === norm(styles[j].productDisplayName ?? "")) {
+      if (rows[i][1]) out.set(styles[j].id, rows[i][1]);
+      i++;
+      j++;
+      continue;
+    }
+    let skipped = false;
+    for (let k = 1; k < 6 && !skipped; k++) {
+      if (j + k < styles.length && norm(rows[i][0]) === norm(styles[j + k].productDisplayName ?? "")) {
+        j += k;
+        skipped = true;
+      } else if (i + k < rows.length && norm(rows[i + k][0]) === norm(styles[j].productDisplayName ?? "")) {
+        i += k;
+        skipped = true;
+      }
+    }
+    if (!skipped) {
+      i++;
+      j++;
+    }
+  }
+  return out;
+}
+
+/* ─── 3. select ───────────────────────────────────────────────────────────── */
+/** Stable pseudo-random order so re-runs pick the same rows. */
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function select(all: RawRow[], existingIds: Set<string>, paths: Map<string, string>): RawRow[] {
+  const byId = new Map(all.map((r) => [r.id, r]));
+  const picked: RawRow[] = [];
+  const perType: Record<string, number> = {};
+  const perTypeGender: Record<string, number> = {};
+  const bump = (r: RawRow) => {
+    perType[r.articleType] = (perType[r.articleType] ?? 0) + 1;
+    const k = `${r.articleType}|${r.gender}`;
+    perTypeGender[k] = (perTypeGender[k] ?? 0) + 1;
+  };
+
+  for (const id of existingIds) {
+    const r = byId.get(id);
+    if (r) {
+      picked.push(r);
+      bump(r);
+    } else console.warn(`  既有 id ${id} 不在 styles.csv，略過`);
+  }
+
+  // New candidates: adults only, a usable colour, a known image, stable order.
+  const candidates = all
+    .filter((r) => !existingIds.has(r.id) && ARTICLE[r.articleType] && TYPE_CAPS[r.articleType])
+    .filter((r) => ["Men", "Women", "Unisex"].includes(r.gender))
+    .filter((r) => r.baseColour && r.baseColour !== "NA" && paths.has(r.id))
+    .sort((a, b) => hash(a.id) - hash(b.id));
+
+  for (const r of candidates) {
+    const cap = TYPE_CAPS[r.articleType];
+    if ((perType[r.articleType] ?? 0) >= cap) continue;
+    const genderCap = Math.max(20, Math.ceil(cap * GENDER_SHARE));
+    if (r.gender !== "Unisex" && (perTypeGender[`${r.articleType}|${r.gender}`] ?? 0) >= genderCap) continue;
+    picked.push(r);
+    bump(r);
+  }
+  return picked;
+}
+
+/* ─── 4. download ─────────────────────────────────────────────────────────── */
+async function download(rows: RawRow[], paths: Map<string, string>): Promise<Set<string>> {
+  await mkdir(FP_DIR, { recursive: true });
+  const ok = new Set<string>();
+  const queue: RawRow[] = [];
+  for (const r of rows) {
+    if (await exists(path.join(FP_DIR, `${r.id}.jpg`))) ok.add(r.id);
+    else queue.push(r);
+  }
+  const total = queue.length;
+  console.log(`圖片：已存在 ${ok.size}，需下載 ${total}`);
+  let done = 0;
+  let fail = 0;
+  async function worker() {
+    while (queue.length) {
+      const r = queue.shift()!;
+      try {
+        const res = await fetchRetry(CDN + paths.get(r.id), {}, 3);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const out = await sharp(Buffer.from(await res.arrayBuffer()))
+          .resize({ width: WIDTH, withoutEnlargement: true })
+          .jpeg({ quality: QUALITY, mozjpeg: true })
+          .toBuffer();
+        await writeFile(path.join(FP_DIR, `${r.id}.jpg`), out);
+        ok.add(r.id);
+      } catch {
+        fail++;
+      }
+      if (++done % 250 === 0) console.log(`  下載 ${done}/${total}（失敗 ${fail}）`);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  console.log(`下載完成：失敗 ${fail}`);
+  return ok;
 }
 
 async function main() {
-  await mkdir(FP_DIR, { recursive: true });
-  const out: OutItem[] = [];
-  const perType: Record<string, number> = {};
-  let offset = 0;
-  while (out.length < TARGET && offset < SCAN_LIMIT) {
-    let batch;
-    try {
-      batch = await rows(offset);
-    } catch (e) {
-      console.error(`offset ${offset} 失敗：${e instanceof Error ? e.message : e}`);
-      break;
-    }
-    if (!batch.length) break;
-    for (const { row } of batch) {
-      const at = row.articleType as string;
-      const map = ARTICLE[at];
-      if (!map) continue;
-      if ((perType[at] ?? 0) >= PER_TYPE) continue;
-      const id = String(row.id);
-      const src = (row.image as { src: string }).src;
-      const file = path.join(FP_DIR, `${id}.jpg`);
-      try {
-        const img = await fetch(src);
-        if (!img.ok) continue;
-        await writeFile(file, Buffer.from(await img.arrayBuffer()));
-      } catch {
-        continue;
-      }
-      const colorEn = row.baseColour as string;
-      const color = COLOR[colorEn] ?? "多色";
-      const seasonZh = SEASON[row.season as string];
-      const seasons = seasonZh ? [seasonZh] : ["spring", "summer", "autumn", "winter"];
-      const tags = USAGE_TAGS[row.usage as string] ?? ["休閒漫步"];
-      out.push({
-        id: `fp_${id}`,
-        name: `${color}${map.label}`,
-        category: map.category,
-        seasons,
-        colors: [color],
-        tags,
-        imageUrl: `/images/catalog/fp/${id}.jpg`,
-      });
-      perType[at] = (perType[at] ?? 0) + 1;
-      if (out.length >= TARGET) break;
-    }
-    offset += 100;
-    if (offset % 1000 === 0) console.log(`  掃描 ${offset}，已收 ${out.length} 件`);
-  }
-  await writeFile(OUT_JSON, JSON.stringify(out));
+  await mkdir(CACHE_DIR, { recursive: true });
+  const styles = await loadStyles();
+  const paths = await loadImagePaths(styles);
+  console.log(`標籤 ${styles.length} 筆，對應到圖片 ${paths.size} 筆`);
+
+  const current = JSON.parse(await readFile(CATALOG, "utf8")) as { id: string }[];
+  const existingIds = new Set(current.map((i) => i.id.replace(/^fp_/, "")));
+  const selected = select(styles, existingIds, paths);
+  const downloaded = await download(selected, paths);
+  const final = selected.filter((r) => downloaded.has(r.id));
+
+  await mkdir(path.dirname(SELECTED), { recursive: true });
+  // Keep only what derive needs, so the committed raw selection stays small.
+  const slim = final.map(({ id, gender, articleType, baseColour, season, usage }) => ({ id, gender, articleType, baseColour, season, usage }));
+  await writeFile(SELECTED, JSON.stringify(slim));
+  const items = deriveCatalog(final);
+  await writeFile(CATALOG, JSON.stringify(items));
+
   const byCat: Record<string, number> = {};
-  out.forEach((i) => (byCat[i.category] = (byCat[i.category] ?? 0) + 1));
-  console.log(`完成：${out.length} 件 → ${OUT_JSON}`);
+  items.forEach((i) => (byCat[i.category] = (byCat[i.category] ?? 0) + 1));
+  console.log(`完成：${items.length} 件 → ${CATALOG}`);
   console.log("分類:", byCat);
-  console.log("接著執行 pnpm build");
+  console.log("接著執行 pnpm eval:recommend 與 pnpm build");
 }
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

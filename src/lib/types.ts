@@ -15,6 +15,12 @@ export interface Item {
   colors: string[];
   tags: string[];
   imageUrl: string;
+  /**
+   * Who the garment is cut for (catalog items, from the dataset's own label).
+   * Absent on curated defaults and user uploads — the engine then falls back to
+   * name heuristics.
+   */
+  gender?: Gender;
   /** 雲端同步用：使用者單品的最後修改時間(ms)。catalog 項不帶此欄位。 */
   updatedAt?: number;
 }

@@ -1,7 +1,19 @@
 // Recommendation engine + image fallback.
-// Exact context weights stay aligned with the PRD contract, while softer
-// semantic and outfit-level scores keep sparse catalog tags from producing odd
-// combinations.
+//
+// Pipeline (see PRD §8 D-REC-2 for the rationale and measured impact):
+//   1. Hard constraints  — garments that are wrong for the context are removed
+//      before scoring (gender cut, weather, venue). Pools fall back to the
+//      gender-only rule, then to the whole category, so a set is never empty.
+//   2. scoreItem         — the PRD contract weights (destination +5, weather /
+//      season +4, mood +3) plus *bounded* semantic scores derived from the
+//      garment TYPE (T恤 / 西裝外套 / 手拿包 …), so sparse tags can't dominate.
+//   3. Stochastic pools  — each category pool is drawn from the top candidates
+//      with Gumbel noise, so 「重新生成」 explores the catalog instead of
+//      re-ranking the same eight pieces; recently worn pieces are down-weighted.
+//   4. Outfit ranking    — fit + top/bottom/outer/accessory compatibility +
+//      colour harmony, then a diversity-aware greedy pick of distinct outfits.
+//   5. Makeup / perfume  — scored with the same tag affinities and picked per
+//      outfit, preferring a different look for each candidate.
 import { IMG, MAKEUP_LOOKBOOK, PERFUME_LOOKBOOK, TRANSLATE } from "./data";
 import { evaluateHarmony } from "./color-harmony";
 import type {
@@ -20,6 +32,17 @@ import type {
 const DIRECT_DESTINATION_WEIGHT = 5;
 const DIRECT_WEATHER_WEIGHT = 4;
 const DIRECT_MOOD_WEIGHT = 3;
+/** Semantic (type-derived) scores are clamped so they refine, not override, the contract weights. */
+const STYLE_SCORE_CAP = 4;
+/** Women's-cut garment offered to a female user who chose 女生, and vice versa. */
+const GENDER_MATCH_BONUS = 1.5;
+/** Men's-cut garment in a female context (allowed, but rarely the best pick). */
+const CROSS_GENDER_PENALTY = 6;
+/** Per-piece penalty for something worn in the last 7 days. */
+const RECENT_WEAR_PENALTY = 3;
+/** Gumbel temperature for pool sampling / outfit ranking (score units). */
+const POOL_TEMPERATURE = 1.2;
+const OUTFIT_TEMPERATURE = 6;
 
 type WeightedTag = { tag: string; score: number };
 
@@ -158,44 +181,136 @@ export function seasonsForWeather(weather: Weather): Season[] {
           : ["spring", "summer", "autumn", "winter"];
 }
 
-function itemText(i: Item | null | undefined): string {
+/* ═══════════════════════════════════════════════════════════════════════════
+   GARMENT KNOWLEDGE — what each garment type is good for
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+type P = Partial<StyleProfile>;
+
+/**
+ * Garment types recognised in item names (catalog names are colour + type,
+ * curated / user names contain the type word). Longest key wins, so 西裝外套
+ * beats 外套 and 運動長褲 beats 長褲.
+ */
+const TYPE_PROFILE: Record<string, P> = {
+  // tops
+  T恤: { casual: 1.5, sporty: 0.5, lightness: 1.5, coldRisk: 0.5 },
+  襯衫: { formal: 1.8, elegant: 0.6, casual: 0.4, warmth: 0.6 },
+  罩衫: { elegant: 1.2, lightness: 1 },
+  上衣: { elegant: 1, casual: 1, statement: 0.4, lightness: 1.2 },
+  長版上衣: { elegant: 1.2, casual: 0.8, lightness: 1 },
+  印度長衫: { elegant: 1.5, casual: 0.3, statement: 0.4, lightness: 1 },
+  針織毛衣: { cozy: 2, elegant: 1, warmth: 2.2 },
+  毛衣: { cozy: 2, elegant: 1, warmth: 2.2 },
+  開衫: { cozy: 1.6, elegant: 1.2, warmth: 1.6 },
+  大學T: { casual: 1.5, cozy: 1.5, sporty: 1, warmth: 1.5 },
+  帽T: { casual: 1.5, cozy: 1.5, sporty: 1, warmth: 1.5 },
+  連帽: { casual: 1.5, cozy: 1.5, sporty: 1, warmth: 1.5 },
+  // outerwear
+  外套: { casual: 1.2, utility: 0.6, warmth: 1.8, rainReady: 0.8 },
+  西裝外套: { formal: 3, elegant: 1.2, statement: 0.5, warmth: 1.2 },
+  風雨衣: { utility: 1.8, sporty: 1, rainReady: 3, warmth: 1 },
+  風衣: { formal: 1.5, elegant: 1.5, rainReady: 1.6, warmth: 1.2 },
+  立領外套: { formal: 1.5, elegant: 1.5, statement: 0.6, warmth: 0.8 },
+  背心: { formal: 1.5, elegant: 1, warmth: 0.5 },
+  罩衫外套: { elegant: 1.5, lightness: 0.8, warmth: 0.5 },
+  // bottoms
+  牛仔褲: { casual: 2, warmth: 0.8 },
+  長褲: { formal: 1.6, elegant: 0.6, warmth: 0.8 },
+  寬褲: { elegant: 1.6, casual: 0.6, lightness: 0.6 },
+  闊腿: { elegant: 1.6, casual: 0.6, lightness: 0.6 },
+  運動長褲: { sporty: 2.2, casual: 1, cozy: 1, warmth: 0.6 },
+  居家長褲: { cozy: 2.5, casual: 1, warmth: 0.6 },
+  居家短褲: { cozy: 2.2, casual: 1, lightness: 1.2, coldRisk: 2 },
+  短褲: { casual: 1.6, sporty: 1, lightness: 2, coldRisk: 2.5 },
+  七分褲: { casual: 1.2, lightness: 1.4, coldRisk: 1.5 },
+  內搭褲: { cozy: 1.5, sporty: 1, casual: 0.8, warmth: 0.5 },
+  彈性窄管褲: { casual: 1.4, elegant: 0.4, warmth: 0.6 },
+  裙: { elegant: 2, statement: 0.4, lightness: 0.8, coldRisk: 0.6 },
+  // accessories
+  後背包: { utility: 2.2, casual: 1.2, sporty: 0.8 },
+  背包: { utility: 2.2, casual: 1.2, sporty: 0.8 },
+  手提包: { elegant: 2, formal: 0.8, statement: 0.6 },
+  手拿包: { elegant: 1.8, statement: 2.2 },
+  電腦包: { formal: 1.8, utility: 2 },
+  旅行袋: { utility: 2.2, sporty: 1.2, casual: 0.6 },
+  郵差包: { utility: 1.4, casual: 1, formal: 0.6 },
+  手錶: { formal: 1.4, elegant: 1, statement: 0.4 },
+  太陽眼鏡: { casual: 1, statement: 1, lightness: 1 },
+  皮帶: { formal: 1.2, casual: 0.6 },
+  圍巾: { cozy: 1.6, elegant: 0.8, warmth: 2 },
+  毛線圍巾: { cozy: 1.8, casual: 0.6, warmth: 2.2 },
+  披肩: { elegant: 2, statement: 1, warmth: 0.8 },
+  棒球帽: { casual: 1.4, sporty: 1.4, lightness: 0.6 },
+  領帶: { formal: 3, statement: 0.4 },
+};
+const TYPE_KEYS = Object.keys(TYPE_PROFILE).sort((a, b) => b.length - a.length);
+
+/** Material / detail words that shift a garment's profile. */
+const MODIFIERS: [RegExp, P][] = [
+  [/西裝/, { formal: 1 }],
+  [/皮革|仿皮/, { statement: 1, rainReady: 0.3 }],
+  [/羽絨|鋪棉/, { warmth: 2.5, cozy: 0.5 }],
+  [/法蘭絨|格紋/, { cozy: 0.8, casual: 0.4 }],
+  [/亞麻|棉麻/, { lightness: 1 }],
+  [/短袖/, { lightness: 0.8, coldRisk: 0.6 }],
+  [/長袖/, { warmth: 0.5 }],
+  [/尼龍/, { utility: 0.6, rainReady: 0.5 }],
+  [/運動/, { sporty: 1 }],
+  [/亮片|金屬/, { statement: 1.5 }],
+  [/牛仔/, { casual: 0.6 }],
+];
+
+const STATEMENT_COLOURS = new Set(["金色", "銀色", "金屬色", "紅色", "酒紅", "勃根地紅", "洋紅", "古銅"]);
+
+/** Types that are women's cuts when the item carries no explicit gender. */
+const FEMININE_TYPES = new Set(["裙", "手提包", "手拿包", "印度長衫", "長版上衣", "內搭褲", "彈性窄管褲", "罩衫外套", "披肩"]);
+const MASCULINE_TYPES = new Set(["領帶"]);
+
+const typeCache = new WeakMap<Item, string>();
+/** The garment type word found in the item's name ("" when unknown). */
+function garmentType(i: Item | null | undefined): string {
   if (!i) return "";
-  return `${i.name} ${i.tags.join(" ")} ${i.colors.join(" ")}`;
+  const cached = typeCache.get(i);
+  if (cached !== undefined) return cached;
+  const t = TYPE_KEYS.find((k) => i.name.includes(k)) ?? "";
+  typeCache.set(i, t);
+  return t;
 }
 
-// Memoize per Item object — scoreItem calls profileFor ~3x per item and a
-// single generate scores thousands of items, each running ~12 regexes. Items
-// are immutable (overrides clone), so caching by identity is safe. Returned
-// profiles are never mutated by callers (sumProfiles/score* only read them).
+/** The item's own gender label, else inferred from its type. */
+function itemGender(i: Item): Gender {
+  if (i.gender) return i.gender;
+  const t = garmentType(i);
+  return FEMININE_TYPES.has(t) ? "female" : MASCULINE_TYPES.has(t) ? "male" : "unisex";
+}
+
+function add(p: StyleProfile, d: P, k = 1) {
+  for (const key in d) p[key as keyof StyleProfile] += (d[key as keyof StyleProfile] ?? 0) * k;
+}
+
+// Memoize per Item object — profiles are read many times per generate. Items
+// are immutable (overrides clone), so caching by identity is safe.
 const profileCache = new WeakMap<Item, StyleProfile>();
 
 function profileFor(i: Item | null | undefined): StyleProfile {
   if (!i) return ZERO_PROFILE;
   const cached = profileCache.get(i);
   if (cached) return cached;
-  const text = itemText(i);
   const p: StyleProfile = { ...ZERO_PROFILE };
+  const type = garmentType(i);
+  if (type) add(p, TYPE_PROFILE[type]);
+  for (const [re, d] of MODIFIERS) if (re.test(i.name)) add(p, d);
+  if (i.colors.some((c) => STATEMENT_COLOURS.has(c))) p.statement += 1;
 
-  if (i.tags.includes("工作") || i.tags.includes("專業")) p.formal += 1.5;
-  if (i.tags.includes("休閒漫步") || i.tags.includes("放鬆")) p.casual += 1.2;
-  if (i.tags.includes("活力")) p.sporty += 1.3;
-  if (i.tags.includes("舒適") || i.tags.includes("居家") || i.tags.includes("放鬆")) p.cozy += 1.2;
-  if (i.tags.includes("優雅") || i.tags.includes("約會")) p.elegant += 1.5;
-  if (i.tags.includes("社交聚會")) p.statement += 1.8;
-
-  if (/襯衫|西裝|長褲|風衣/.test(text)) p.formal += 1.1;
-  if (/西裝|電腦包|郵差包/.test(text)) p.formal += 0.8;
-  if (/T恤|牛仔|短褲|後背包|大學T|內搭褲/.test(text)) p.casual += 1;
-  if (/運動|短褲|後背包|大學T|內搭褲/.test(text)) p.sporty += 1;
-  if (/針織|毛衣|法蘭絨|大學T|運動長褲|內搭褲/.test(text)) p.cozy += 1.1;
-  if (/裙|寬褲|闊腿|針織|毛衣|手提包|手拿包|風衣|印度長衫/.test(text)) p.elegant += 1;
-  if (/皮革|手拿包|金色|銀色|紅色|酒紅|勃根地紅|洋紅|亮片/.test(text)) p.statement += 1.1;
-  if (/後背包|電腦包|旅行袋|郵差包|尼龍|風雨衣/.test(text)) p.utility += 1.3;
-
-  if (/羽絨|鋪棉|針織|毛衣|法蘭絨|外套|風衣|長袖|長褲|大學T/.test(text)) p.warmth += 1.2;
-  if (/T恤|短袖|短褲|亞麻|七分褲|背心/.test(text)) p.lightness += 1.2;
-  if (/風雨衣|風衣|尼龍|外套|後背包|電腦包/.test(text)) p.rainReady += 1;
-  if (/短褲|短袖|七分褲|背心|亞麻/.test(text)) p.coldRisk += 1.5;
+  // Tags refine the type (and are the only signal for unrecognised uploads).
+  const k = type ? 0.6 : 1.4;
+  if (i.tags.includes("工作") || i.tags.includes("專業")) p.formal += 1.2 * k;
+  if (i.tags.includes("休閒漫步") || i.tags.includes("放鬆")) p.casual += k;
+  if (i.tags.includes("活力")) p.sporty += k;
+  if (i.tags.includes("舒適") || i.tags.includes("居家")) p.cozy += k;
+  if (i.tags.includes("優雅") || i.tags.includes("約會")) p.elegant += k;
+  if (i.tags.includes("社交聚會")) p.statement += 1.3 * k;
 
   profileCache.set(i, p);
   return p;
@@ -206,19 +321,21 @@ function relatedTagScore(tags: string[], target: string, affinity: Record<string
   return (affinity[target] ?? []).reduce((best, item) => (tags.includes(item.tag) ? Math.max(best, item.score) : best), 0);
 }
 
+const clampStyle = (n: number) => Math.max(-STYLE_SCORE_CAP, Math.min(STYLE_SCORE_CAP, n));
+
 function destinationStyleScore(i: Item, destination: string): number {
   const p = profileFor(i);
   switch (destination) {
     case "工作":
-      return p.formal * 1.15 + p.utility * 0.55 + p.elegant * 0.2 - p.sporty * 0.45 - p.cozy * 0.25;
+      return p.formal * 1.15 + p.utility * 0.4 + p.elegant * 0.3 - p.sporty * 0.6 - p.cozy * 0.4;
     case "約會":
-      return p.elegant * 1.1 + p.statement * 0.55 + p.cozy * 0.2 - p.utility * 0.35 - p.sporty * 0.45;
+      return p.elegant * 1.1 + p.statement * 0.55 + p.cozy * 0.2 - p.utility * 0.6 - p.sporty * 0.5;
     case "休閒漫步":
-      return p.casual * 1 + p.sporty * 0.45 + p.utility * 0.25 - p.formal * 0.2;
+      return p.casual * 1 + p.sporty * 0.45 + p.utility * 0.25 - p.formal * 0.35;
     case "社交聚會":
-      return p.statement * 1.15 + p.elegant * 0.85 + p.sporty * 0.25 - p.cozy * 0.45 - p.utility * 0.25;
+      return p.statement * 1.15 + p.elegant * 0.85 + p.sporty * 0.2 - p.cozy * 0.5 - p.utility * 0.5;
     case "居家":
-      return p.cozy * 1.15 + p.casual * 0.55 - p.formal * 0.55 - p.statement * 0.35;
+      return p.cozy * 1.2 + p.casual * 0.55 - p.formal * 0.7 - p.statement * 0.45 - p.utility * 0.4;
     default:
       return 0;
   }
@@ -228,13 +345,13 @@ function moodStyleScore(i: Item, mood: string): number {
   const p = profileFor(i);
   switch (mood) {
     case "活力":
-      return p.sporty * 1 + p.casual * 0.35 + p.statement * 0.25 - p.formal * 0.2;
+      return p.sporty * 1 + p.casual * 0.35 + p.statement * 0.35 - p.formal * 0.2;
     case "放鬆":
-      return p.casual * 0.8 + p.cozy * 0.75 - p.statement * 0.25;
+      return p.casual * 0.8 + p.cozy * 0.75 - p.statement * 0.25 - p.formal * 0.2;
     case "專業":
-      return p.formal * 1.05 + p.utility * 0.35 - p.sporty * 0.35 - p.cozy * 0.25;
+      return p.formal * 1.05 + p.utility * 0.3 - p.sporty * 0.4 - p.cozy * 0.3;
     case "優雅":
-      return p.elegant * 1 + p.formal * 0.25 + p.statement * 0.2 - p.sporty * 0.35;
+      return p.elegant * 1 + p.formal * 0.25 + p.statement * 0.2 - p.sporty * 0.4 - p.utility * 0.3;
     case "舒適":
       return p.cozy * 1.1 + p.casual * 0.45 - p.formal * 0.35 - p.statement * 0.25;
     default:
@@ -250,26 +367,17 @@ function weatherPracticalityScore(i: Item, weather: Weather): number {
     case "rainy":
       return p.rainReady * 1.1 + p.utility * 0.25 - p.lightness * 0.35;
     case "sunny":
-      return p.lightness * 0.65 - p.warmth * (i.category === "outerwear" ? 0.9 : 0.25);
+      return p.lightness * 0.65 - p.warmth * (i.category === "outerwear" ? 0.9 : 0.35);
     case "cloudy":
       return p.warmth * 0.25 + p.rainReady * 0.15;
   }
 }
 
 function genderStyleScore(i: Item, gender: Gender | undefined): number {
-  if (gender !== "male") return 0;
-  const text = itemText(i);
-  let s = 0;
-  if (/襯衫|T恤|長褲|牛仔褲|運動長褲|外套|西裝|後背包|電腦包|郵差包|旅行袋/.test(text)) s += 1.8;
-  if (/襯衫/.test(text)) s += 1.4;
-  if (/裙|洋裝|連衣裙/.test(text)) s -= 12;
-  if (/內搭褲/.test(text)) s -= 8;
-  if (/手提包|手拿包/.test(text)) s -= 11;
-  if (i.category === "accessories" && !/後背包|電腦包|郵差包|旅行袋/.test(text)) s -= 4;
-  if (/印度長衫/.test(text)) s -= 12;
-  if (/長版上衣/.test(text)) s -= 6;
-  if (/粉色|蜜桃色|蕾絲/.test(text)) s -= 0.8;
-  return s;
+  const g = itemGender(i);
+  if (gender === "male") return g === "female" ? -12 : g === "male" ? GENDER_MATCH_BONUS : 0;
+  if (gender === "female") return g === "male" ? -CROSS_GENDER_PENALTY : g === "female" ? GENDER_MATCH_BONUS : 0;
+  return g === "unisex" ? GENDER_MATCH_BONUS : 0;
 }
 
 function itemHasIntentMatch(i: Item, ctx: ClothCtx, intent: "destination" | "mood"): boolean {
@@ -288,6 +396,65 @@ function itemHasIntentMatch(i: Item, ctx: ClothCtx, intent: "destination" | "moo
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   HARD CONSTRAINTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Garment types that are never right for a venue (by category). */
+const VENUE_EXCLUDES: Record<string, Partial<Record<Category, string[]>>> = {
+  工作: {
+    bottoms: ["短褲", "運動長褲", "內搭褲", "居家長褲", "居家短褲", "七分褲"],
+    accessories: ["旅行袋", "棒球帽", "太陽眼鏡"],
+  },
+  約會: {
+    bottoms: ["運動長褲", "內搭褲", "居家長褲", "居家短褲"],
+    accessories: ["後背包", "背包", "電腦包", "旅行袋", "領帶"],
+  },
+  社交聚會: {
+    bottoms: ["運動長褲", "居家長褲", "居家短褲"],
+    accessories: ["後背包", "背包", "電腦包", "旅行袋", "棒球帽"],
+  },
+  休閒漫步: {
+    accessories: ["領帶", "手拿包", "電腦包"],
+  },
+  居家: {
+    outerwear: ["西裝外套", "立領外套", "背心"],
+    accessories: ["手提包", "手拿包", "電腦包", "旅行袋", "郵差包", "後背包", "背包", "領帶", "皮帶", "披肩", "太陽眼鏡", "棒球帽"],
+  },
+};
+
+/** Gender rule only — the one constraint that is never relaxed. */
+function violatesGender(i: Item, ctx: ClothCtx): boolean {
+  const g = itemGender(i);
+  if (ctx.gender === "male") return g === "female";
+  if (ctx.gender === "female") return MASCULINE_TYPES.has(garmentType(i));
+  return false;
+}
+
+/** Whether a garment is ruled out for this context (gender, weather, venue). */
+function violates(i: Item, ctx: ClothCtx): boolean {
+  if (violatesGender(i, ctx)) return true;
+  const type = garmentType(i);
+  if ((VENUE_EXCLUDES[ctx.destination]?.[i.category] ?? []).includes(type)) return true;
+  const p = profileFor(i);
+  const seasons = i.seasons;
+  switch (ctx.weather) {
+    case "cold":
+      if (p.coldRisk >= 1.5) return true;
+      if (seasons.length && !seasons.some((s) => s === "autumn" || s === "winter")) return true;
+      if (type === "太陽眼鏡") return true;
+      break;
+    case "sunny":
+      if (seasons.length && !seasons.some((s) => s === "spring" || s === "summer")) return true;
+      if (i.category === "outerwear" && p.warmth >= 3) return true;
+      break;
+    case "rainy":
+      if (type === "太陽眼鏡") return true;
+      break;
+  }
+  return false;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    GARMENT SCORING (shared by generateOOTD, generateOOTDSet and item swaps)
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -300,10 +467,10 @@ export interface ClothCtx {
 }
 
 /**
- * How well a garment fits the chosen context. Season is now a *soft* signal in
- * the score (weather finally counts directly) rather than a hard pre-filter, so
- * a slightly out-of-season but on-purpose piece can still surface — and a piece
- * that matches nothing scores 0 and is excluded by the match floor below.
+ * How well a garment fits the chosen context. The exact-tag contract weights
+ * (destination +5, weather/season +4, mood +3) come first; type-derived style,
+ * weather practicality and gender fit add bounded refinements. A piece that
+ * matches nothing scores 0 and is excluded by the match floor below.
  */
 export function scoreItem(i: Item, ctx: ClothCtx): number {
   const ts = seasonsForWeather(ctx.weather);
@@ -311,14 +478,14 @@ export function scoreItem(i: Item, ctx: ClothCtx): number {
   if (i.tags.includes(ctx.destination)) s += DIRECT_DESTINATION_WEIGHT; // 場合（最重）
   else s += relatedTagScore(i.tags, ctx.destination, DESTINATION_TAG_AFFINITY);
 
-  if (i.seasons.some((x) => ts.includes(x))) s += DIRECT_WEATHER_WEIGHT; // 天氣/季節（軟加權）
+  if (i.seasons.some((x) => ts.includes(x))) s += DIRECT_WEATHER_WEIGHT; // 天氣/季節
 
   if (i.tags.includes(ctx.mood)) s += DIRECT_MOOD_WEIGHT; // 心情
   else s += relatedTagScore(i.tags, ctx.mood, MOOD_TAG_AFFINITY);
 
-  s += destinationStyleScore(i, ctx.destination);
-  s += moodStyleScore(i, ctx.mood);
-  s += weatherPracticalityScore(i, ctx.weather);
+  s += clampStyle(destinationStyleScore(i, ctx.destination));
+  s += clampStyle(moodStyleScore(i, ctx.mood));
+  s += clampStyle(weatherPracticalityScore(i, ctx.weather));
   s += genderStyleScore(i, ctx.gender);
 
   return Math.max(0, Math.round(s * 10) / 10);
@@ -327,7 +494,7 @@ export function scoreItem(i: Item, ctx: ClothCtx): number {
 type Scored = { i: Item; s: number };
 
 const COLOR_PREFIX_RE =
-  /^(白色|黑色|灰色|碳灰|麻灰|米色|米白色|奶油色|卡其色|裸色|銀色|金色|銅色|多色|紅色|紅格紋|鏽紅|蜜桃色|棕褐|古銅|咖啡色|橘色|焦糖色|黃色|芥末黃|綠色|墨綠|海綠|藍綠|土耳其藍|淡藍色|藍色|藏青|薰衣草紫|紫色|淺紫|粉色|洋紅|酒紅|勃根地紅)/;
+  /^(白色|黑色|灰色|碳灰|麻灰|米色|米白色|奶油色|卡其色|裸色|膚色|銀色|金色|金屬色|銅色|多色|紅色|紅格紋|鏽紅|蜜桃色|棕褐|古銅|咖啡色|橘色|焦糖色|黃色|芥末黃|綠色|萊姆綠|螢光綠|墨綠|海綠|藍綠|土耳其藍|淡藍色|鋼藍|藍色|藏青|薰衣草紫|紫色|淺紫|粉色|玫瑰粉|洋紅|酒紅|勃根地紅)/;
 
 function itemVariantKey(i: Item | null | undefined): string {
   return i ? `${i.name}|${i.colors.join("/")}` : "";
@@ -337,20 +504,66 @@ function itemTypeKey(i: Item | null | undefined): string {
   return i ? i.name.replace(COLOR_PREFIX_RE, "") : "";
 }
 
-/** Candidates in a category, gated by the match floor (score > 0), best first. */
-function rankCategory(closet: Item[], cat: Category, ctx: ClothCtx): Scored[] {
-  return closet
-    .filter((i) => i.category === cat)
-    .map((i) => ({ i, s: scoreItem(i, ctx) }))
-    .filter((x) => x.s > 0)
-    .sort((a, b) => b.s - a.s);
+/** Gumbel(0, 1) sample — adding T·gumbel to scores and sorting = sampling ∝ exp(s/T). */
+function gumbel(random: () => number): number {
+  return -Math.log(-Math.log(Math.max(1e-12, random())));
 }
 
-function uniqueRankedItems(pool: Scored[], limit: number, maxPerType = 3): Item[] {
+interface Ranker {
+  ctx: ClothCtx;
+  /** Memoized scoreItem for this context. */
+  score: (i: Item) => number;
+  recent: ReadonlySet<string>;
+}
+
+function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>): Ranker {
+  const cache = new Map<Item, number>();
+  return {
+    ctx,
+    recent,
+    score: (i) => {
+      let s = cache.get(i);
+      if (s === undefined) {
+        s = scoreItem(i, ctx);
+        cache.set(i, s);
+      }
+      return s;
+    },
+  };
+}
+
+/**
+ * Candidates in a category, best first: match-floored (score > 0) and passing
+ * the hard constraints; relaxed to the gender rule only, then to the whole
+ * category, so a slot is only empty when the closet has no such garment.
+ */
+function rankCategory(closet: Item[], cat: Category, r: Ranker): Scored[] {
+  const inCat = closet.filter((i) => i.category === cat);
+  const scored = (items: Item[]) =>
+    items
+      .map((i) => ({ i, s: Math.max(0.1, r.score(i) - (r.recent.has(i.id) ? RECENT_WEAR_PENALTY : 0)), raw: r.score(i) }))
+      .sort((a, b) => b.s - a.s);
+  const strict = scored(inCat.filter((i) => !violates(i, r.ctx))).filter((x) => x.raw > 0);
+  if (strict.length) return strict;
+  const genderOk = scored(inCat.filter((i) => !violatesGender(i, r.ctx)));
+  if (genderOk.length) return genderOk;
+  return scored(inCat);
+}
+
+/**
+ * Draw up to `limit` distinct garments from the ranked list: Gumbel-perturbed
+ * among the top `breadth`, so each generate explores different pieces while
+ * still strongly favouring the best fits. Caps near-identical types.
+ */
+function samplePool(ranked: Scored[], limit: number, random: () => number, maxPerType = 2, breadth = limit * 4): Item[] {
+  const perturbed = ranked
+    .slice(0, breadth)
+    .map((x) => ({ i: x.i, k: x.s + POOL_TEMPERATURE * gumbel(random) }))
+    .sort((a, b) => b.k - a.k);
   const seen = new Set<string>();
   const typeCounts = new Map<string, number>();
   const items: Item[] = [];
-  for (const x of pool) {
+  for (const x of perturbed) {
     const key = itemVariantKey(x.i);
     const type = itemTypeKey(x.i);
     if (seen.has(key)) continue;
@@ -365,14 +578,14 @@ function uniqueRankedItems(pool: Scored[], limit: number, maxPerType = 3): Item[
 
 /**
  * Weighted random over the top-K candidates, probability ∝ score² — biases hard
- * toward the best fit while keeping enough variety for "重新生成" to feel alive.
+ * toward the best fit while keeping enough variety for swaps to feel alive.
  */
-function weightedPick(pool: Scored[], k = 5): Item | null {
+function weightedPick<T>(pool: { i: T; s: number }[], k = 5, random: () => number = Math.random): T | null {
   if (!pool.length) return null;
   const top = pool.slice(0, k);
-  const w = top.map((x) => x.s * x.s);
+  const w = top.map((x) => Math.max(0.01, x.s) ** 2);
   const total = w.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
+  let r = random() * total;
   for (let n = 0; n < top.length; n++) {
     r -= w[n];
     if (r <= 0) return top[n].i;
@@ -380,39 +593,14 @@ function weightedPick(pool: Scored[], k = 5): Item | null {
   return top[0].i;
 }
 
-function bestEffortCategory(closet: Item[], cat: Category, ctx: ClothCtx, limit = 1): Item[] {
-  return closet
-    .filter((i) => i.category === cat)
-    .map((i) => ({ i, s: scoreItem(i, ctx) }))
-    .sort((a, b) => b.s - a.s)
-    .slice(0, limit)
-    .map((x) => x.i);
-}
-
 function outfitItems(outfit: Outfit): Item[] {
   return [outfit.top, outfit.bottom, outfit.outerwear, outfit.accessory].filter(Boolean) as Item[];
 }
 
 function sumProfiles(items: Item[]): StyleProfile {
-  return items.reduce<StyleProfile>(
-    (sum, item) => {
-      const p = profileFor(item);
-      return {
-        formal: sum.formal + p.formal,
-        casual: sum.casual + p.casual,
-        sporty: sum.sporty + p.sporty,
-        cozy: sum.cozy + p.cozy,
-        elegant: sum.elegant + p.elegant,
-        statement: sum.statement + p.statement,
-        utility: sum.utility + p.utility,
-        warmth: sum.warmth + p.warmth,
-        lightness: sum.lightness + p.lightness,
-        rainReady: sum.rainReady + p.rainReady,
-        coldRisk: sum.coldRisk + p.coldRisk,
-      };
-    },
-    { ...ZERO_PROFILE },
-  );
+  const sum = { ...ZERO_PROFILE };
+  for (const item of items) add(sum, profileFor(item));
+  return sum;
 }
 
 function styleGap(a: StyleProfile, b: StyleProfile): number {
@@ -425,8 +613,21 @@ function styleGap(a: StyleProfile, b: StyleProfile): number {
   );
 }
 
-function outfitFitScore(outfit: Outfit, ctx: ClothCtx): number {
-  return outfitItems(outfit).reduce((sum, item) => sum + scoreItem(item, ctx), 0);
+/**
+ * Fit of the garments to the context. Core slots (top/bottom, and outerwear
+ * when the weather calls for it) count in full; optional slots only add what
+ * they score above the core average, so an accessory or a cloudy-day layer is
+ * included when it genuinely improves the look rather than by default.
+ */
+function outfitFitScore(outfit: Outfit, r: Ranker, outerRequired: boolean): number {
+  const fit = (i: Item) => r.score(i) - (r.recent.has(i.id) ? RECENT_WEAR_PENALTY : 0);
+  const core = [outfit.top, outfit.bottom, outerRequired ? outfit.outerwear : null].filter(Boolean) as Item[];
+  const coreSum = core.reduce((sum, i) => sum + fit(i), 0);
+  const bar = core.length ? (coreSum / core.length) * 0.55 : 0;
+  let s = coreSum;
+  if (outfit.accessory) s += fit(outfit.accessory) - bar;
+  if (outfit.outerwear && !outerRequired) s += fit(outfit.outerwear) - bar;
+  return s;
 }
 
 function outfitCompatibilityScore(outfit: Outfit, ctx: ClothCtx): number {
@@ -436,20 +637,23 @@ function outfitCompatibilityScore(outfit: Outfit, ctx: ClothCtx): number {
   const bottom = profileFor(outfit.bottom);
   const outer = profileFor(outfit.outerwear);
   const accessory = profileFor(outfit.accessory);
-  const bottomText = itemText(outfit.bottom);
-  const accessoryText = itemText(outfit.accessory);
+  const topType = garmentType(outfit.top);
+  const accType = garmentType(outfit.accessory);
   let s = 0;
 
   if (outfit.top && outfit.bottom) {
     const gap = styleGap(top, bottom);
     s -= Math.min(9, gap * 0.8);
-    if (top.formal >= 2 && bottom.formal >= 2) s += 4;
+    if (top.formal >= 1.5 && bottom.formal >= 1.5) s += 4;
     if (top.casual >= 1 && bottom.casual >= 1) s += 3;
-    if (top.elegant >= 1.8 && bottom.elegant >= 1.2) s += 3;
-    if (top.sporty >= 1.5 && bottom.sporty >= 1.5) s += 3;
-    if (top.formal >= 2 && bottom.sporty >= 1.5) s -= 5;
-    if (top.sporty >= 1.5 && bottom.formal >= 2) s -= 4;
-    if (top.elegant >= 2 && bottom.sporty >= 1.5) s -= 5;
+    if (top.elegant >= 1 && bottom.elegant >= 1.2) s += 3;
+    if (top.sporty >= 1 && bottom.sporty >= 1.5) s += 3;
+    if (top.cozy >= 1.5 && bottom.cozy >= 1.5) s += 3;
+    if (top.formal >= 1.5 && bottom.sporty >= 1.5) s -= 5;
+    if (top.sporty >= 1.5 && bottom.formal >= 1.5) s -= 4;
+    if (top.elegant >= 1.5 && bottom.sporty >= 1.5) s -= 5;
+    // A long kurta / tunic already covers the hips — pair it with slim bottoms, not shorts.
+    if ((topType === "印度長衫" || topType === "長版上衣") && /短褲|裙/.test(garmentType(outfit.bottom))) s -= 6;
   }
 
   if (outfit.outerwear) {
@@ -457,20 +661,23 @@ function outfitCompatibilityScore(outfit: Outfit, ctx: ClothCtx): number {
     s -= Math.min(5, styleGap(core, outer) * 0.35);
     if (outer.formal >= 1 && core.formal >= 2) s += 2.5;
     if (outer.casual >= 1 && core.casual >= 2) s += 2;
+    // A hoodie / sweatshirt under a blazer reads as a mistake.
+    if (garmentType(outfit.outerwear) === "西裝外套" && top.sporty >= 1) s -= 6;
+  }
+
+  if (outfit.accessory) {
+    if (accType === "領帶" && topType !== "襯衫") s -= 25; // a tie needs a collar
+    s -= Math.min(4, styleGap(sumProfiles([outfit.top, outfit.bottom].filter(Boolean) as Item[]), accessory) * 0.2);
   }
 
   switch (ctx.destination) {
     case "工作":
       s += total.formal * 1.2 + total.utility * 0.35 - total.sporty * 0.6 - total.cozy * 0.35;
-      if (/短褲|運動長褲|內搭褲/.test(bottomText)) s -= 10;
       if (total.formal < 2) s -= 7;
       break;
     case "約會":
       s += total.elegant * 1.1 + total.statement * 0.45 + accessory.elegant * 0.5 - total.utility * 0.35;
-      if (/運動長褲|內搭褲/.test(bottomText)) s -= 9;
-      if (/旅行袋|電腦包|後背包|郵差包/.test(accessoryText)) s -= 14;
-      if (outfit.accessory && accessory.elegant + accessory.statement < 1) s -= 12;
-      if (outfit.accessory && accessory.utility > 1) s -= 8;
+      if (outfit.accessory && accessory.elegant + accessory.statement < 1) s -= 8;
       if (total.elegant < 2) s -= 5;
       break;
     case "休閒漫步":
@@ -478,8 +685,6 @@ function outfitCompatibilityScore(outfit: Outfit, ctx: ClothCtx): number {
       break;
     case "社交聚會":
       s += total.statement * 1.1 + total.elegant * 0.75 + accessory.statement * 0.5 - total.cozy * 0.55;
-      if (/運動長褲|內搭褲/.test(bottomText)) s -= 8;
-      if (/旅行袋|電腦包|後背包|郵差包/.test(accessoryText)) s -= 10;
       if (outfit.accessory && accessory.elegant + accessory.statement < 1) s -= 8;
       if (total.statement + total.elegant < 2.5) s -= 6;
       break;
@@ -506,71 +711,96 @@ function outfitCompatibilityScore(outfit: Outfit, ctx: ClothCtx): number {
       break;
   }
 
-  if (ctx.gender === "male") {
-    for (const item of items) {
-      const text = itemText(item);
-      if (/裙|洋裝|連衣裙/.test(text)) s -= 18;
-      if (/內搭褲/.test(text)) s -= 12;
-      if (/手提包|手拿包/.test(text)) s -= 14;
-      if (item.category === "accessories" && !/後背包|電腦包|郵差包|旅行袋/.test(text)) s -= 7;
-      if (/印度長衫/.test(text)) s -= 16;
-      if (/長版上衣/.test(text)) s -= 9;
-    }
-  }
+  // One outfit, one cut: mixing a women's top with men's trousers looks off
+  // even in a 不分性別 context.
+  const genders = new Set(items.map(itemGender).filter((g) => g !== "unisex"));
+  if (genders.size > 1) s -= 10;
+  if (ctx.gender === "male" && items.some((i) => itemGender(i) === "female")) s -= 30;
 
   return Math.round(s * 10) / 10;
 }
 
-function totalOutfitScore(outfit: Outfit, ctx: ClothCtx): number {
+function totalOutfitScore(outfit: Outfit, r: Ranker, outerRequired: boolean): number {
   const harmony = outfit.harmony ?? evaluateHarmony(outfit);
-  const harmonyPenalty = harmony.verdict === "clash" ? -35 : harmony.verdict === "caution" ? -12 : 0;
-  return outfitFitScore(outfit, ctx) * 10 + outfitCompatibilityScore(outfit, ctx) * 4 + harmony.score * 1.2 + harmonyPenalty;
+  const harmonyPenalty = harmony.verdict === "clash" ? -60 : harmony.verdict === "caution" ? -12 : 0;
+  return (
+    outfitFitScore(outfit, r, outerRequired) * 10 +
+    outfitCompatibilityScore(outfit, r.ctx) * 4 +
+    harmony.score * 1.2 +
+    harmonyPenalty
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAKEUP & PERFUME
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+interface LookCtx {
+  weather: Weather;
+  mood: string;
+  destination: string;
+  gender: Gender;
+}
+
+function lookGenderOk(g: Gender[], gender: Gender): boolean {
+  return gender === "unisex" ? true : g.includes(gender);
+}
+
+/** Shared scoring for makeup looks and perfumes (both carry gender/weather/tags). */
+function lookScore(look: { gender: Gender[]; weather: Weather[]; tags: string[] }, ctx: LookCtx): number {
+  let s = 0;
+  if (look.gender.includes(ctx.gender)) s += 4;
+  else if (look.gender.includes("unisex")) s += 1.5;
+  if (look.weather.includes(ctx.weather)) s += 4;
+  if (look.tags.includes(ctx.mood)) s += 3;
+  else s += relatedTagScore(look.tags, ctx.mood, MOOD_TAG_AFFINITY) * 0.5;
+  if (look.tags.includes(ctx.destination)) s += 2.5;
+  else s += relatedTagScore(look.tags, ctx.destination, DESTINATION_TAG_AFFINITY) * 0.4;
+  return s;
+}
+
+function rankLooks<T extends { id: string; gender: Gender[]; weather: Weather[]; tags: string[] }>(
+  book: T[],
+  ctx: LookCtx,
+): { i: T; s: number }[] {
+  // Gender-filtered first; if the lookbook has nothing for this gender (e.g. an
+  // admin deleted them all), fall back to the whole book rather than crash.
+  const valid = book.filter((m) => lookGenderOk(m.gender, ctx.gender));
+  return (valid.length ? valid : book).map((i) => ({ i, s: lookScore(i, ctx) })).sort((a, b) => b.s - a.s);
+}
+
+/**
+ * Pick one look per outfit: near-best candidates (within `margin` of the top
+ * score) are sampled, preferring looks not already used by an earlier outfit.
+ */
+function pickLooks<T extends { id: string }>(ranked: { i: T; s: number }[], count: number, random: () => number, margin = 2.5): T[] {
+  if (!ranked.length) return [];
+  const best = ranked[0].s;
+  const near = ranked.filter((x) => x.s >= best - margin);
+  const used = new Set<string>();
+  const out: T[] = [];
+  for (let n = 0; n < count; n++) {
+    const fresh = near.filter((x) => !used.has(x.i.id));
+    const pick = weightedPick(fresh.length ? fresh : near, 6, random) ?? ranked[0].i;
+    used.add(pick.id);
+    out.push(pick);
+  }
+  return out;
+}
+
+/** Best-matching makeup look for a context (gender-filtered, highest score). */
+export function bestMakeup(weather: Weather, mood: string, destination: string, gender: Gender): Makeup {
+  return rankLooks(MAKEUP_LOOKBOOK, { weather, mood, destination, gender })[0].i;
+}
+
+/** Best-matching perfume for a context (highest score). */
+export function bestPerfume(weather: Weather, mood: string, destination: string, gender: Gender): Perfume {
+  return rankLooks(PERFUME_LOOKBOOK, { weather, mood, destination, gender })[0].i;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RECOMMENDATION ENGINE
    ═══════════════════════════════════════════════════════════════════════════ */
-
-/** Best-matching makeup look for a context (gender-filtered, highest score). */
-export function bestMakeup(weather: Weather, mood: string, destination: string, gender: Gender): Makeup {
-  const genderMatches = (m: Makeup) =>
-    gender === "male"
-      ? m.gender.includes("male")
-      : gender === "female"
-        ? m.gender.includes("female")
-        : m.gender.includes("unisex") || m.gender.includes("female") || m.gender.includes("male");
-  const mScore = (m: Makeup) => {
-    let s = 0;
-    if (m.gender.includes(gender)) s += 4;
-    else if (m.gender.includes("unisex")) s += 1.5;
-    if (m.weather.includes(weather)) s += 4;
-    m.tags.forEach((t) => {
-      if (t === mood) s += 3;
-      if (t === destination) s += 2;
-    });
-    return s;
-  };
-  // 防止空陣列 reduce 崩潰：若某性別過濾後無妝容（admin 刪光該性別+unisex 妝容），
-  // 退回整本 lookbook 取最高分，避免 generateOOTDSet/picker 整個崩潰。
-  const valid = MAKEUP_LOOKBOOK.filter(genderMatches);
-  const pool = valid.length ? valid : MAKEUP_LOOKBOOK;
-  return pool.reduce((best, m) => (mScore(m) > mScore(best) ? m : best));
-}
-
-/** Best-matching perfume for a context (highest score). */
-export function bestPerfume(weather: Weather, mood: string, destination: string, gender: Gender): Perfume {
-  const pScore = (p: Perfume) => {
-    let s = 0;
-    if (p.gender.includes(gender) || p.gender.includes("unisex")) s += 5;
-    if (p.weather.includes(weather)) s += 3;
-    p.tags.forEach((t) => {
-      if (t === mood) s += 2;
-      if (t === destination) s += 1;
-    });
-    return s;
-  };
-  return PERFUME_LOOKBOOK.reduce((best, p) => (pScore(p) > pScore(best) ? p : best));
-}
 
 /**
  * Human-readable reasons for an outfit. Pure + idempotent, so it can be called
@@ -580,7 +810,7 @@ export function buildReasons(outfit: Outfit): Reason[] {
   const { weather, mood, destination, gender } = outfit.context;
   const ctx: ClothCtx = { weather, mood, destination, gender };
   const reasons: Reason[] = [];
-  const garments = [outfit.top, outfit.bottom, outfit.outerwear, outfit.accessory].filter(Boolean) as Item[];
+  const garments = outfitItems(outfit);
 
   // Weather / outerwear
   if (outfit.outerwear) {
@@ -606,12 +836,20 @@ export function buildReasons(outfit: Outfit): Reason[] {
   return reasons;
 }
 
+export interface GenerateOptions {
+  /** Garment ids worn recently (e.g. last 7 days) — down-weighted, not excluded. */
+  recentlyWornIds?: ReadonlySet<string>;
+  /** Injectable RNG (tests / evaluation); defaults to Math.random. */
+  random?: () => number;
+}
+
 /**
  * Generate several *distinct* outfits for the same context (A/B comparison).
- * Builds candidate combos from the best-fitting, match-floored garments per
- * category, ranks each full outfit by **selection-fit first, colour-harmony
- * second**, then greedily selects diverse combos. Returns fewer than `count`
- * when the wardrobe is too small to form distinct outfits.
+ * Builds candidate combos from stochastic, constraint-filtered pools per
+ * category, ranks each full outfit by fit + compatibility + colour harmony
+ * (with Gumbel noise so regenerations differ), then greedily selects combos
+ * that share at most one piece. Returns fewer than `count` when the wardrobe
+ * is too small to form distinct outfits.
  */
 export function generateOOTDSet(
   closet: Item[],
@@ -620,29 +858,32 @@ export function generateOOTDSet(
   destination: string,
   gender: Gender = "unisex",
   count = 3,
+  options: GenerateOptions = {},
 ): OOTDSet {
+  const random = options.random ?? Math.random;
   const context = { weather, mood, destination, gender };
   const ctx: ClothCtx = { weather, mood, destination, gender };
-
-  const rankedTops = rankCategory(closet, "tops", ctx);
-  const rankedBottoms = rankCategory(closet, "bottoms", ctx);
-  const accs = rankCategory(closet, "accessories", ctx); // optional — may be empty
-  const outers = rankCategory(closet, "outerwear", ctx); // optional — may be empty
-  const makeup = bestMakeup(weather, mood, destination, gender);
-  const perfume = bestPerfume(weather, mood, destination, gender);
+  const r = makeRanker(ctx, options.recentlyWornIds ?? new Set());
 
   const wantOuter = weather === "cold" || weather === "rainy";
-  // Pool sizes bound the combo space (top × bottom × accessory × outer); 8×8 is
-  // ample for picking `count` diverse outfits while keeping the work modest.
-  const topPool = rankedTops.length ? uniqueRankedItems(rankedTops, 8) : bestEffortCategory(closet, "tops", ctx);
-  const botPool = rankedBottoms.length ? uniqueRankedItems(rankedBottoms, 8) : bestEffortCategory(closet, "bottoms", ctx);
-  const accPool = uniqueRankedItems(accs, 6);
-  const outerPool = outers.length
-    ? uniqueRankedItems(outers, 5)
-    : wantOuter
-      ? bestEffortCategory(closet, "outerwear", ctx, 3)
-      : [];
-  const accessoryOptions: (Item | null)[] = accPool.length ? [null, ...accPool] : [null];
+  const rankedTops = rankCategory(closet, "tops", r);
+  const rankedBottoms = rankCategory(closet, "bottoms", r);
+  // Optional slots keep the strict filter: no accessory beats a wrong one.
+  const accs = closet.filter((i) => i.category === "accessories" && !violates(i, ctx) && r.score(i) > 0);
+  const rankedAccs = accs.map((i) => ({ i, s: r.score(i) })).sort((a, b) => b.s - a.s);
+  const rankedOuters = wantOuter
+    ? rankCategory(closet, "outerwear", r)
+    : closet
+        .filter((i) => i.category === "outerwear" && !violates(i, ctx) && r.score(i) > 0)
+        .map((i) => ({ i, s: r.score(i) }))
+        .sort((a, b) => b.s - a.s);
+
+  // Pool sizes bound the combo space (top × bottom × accessory × outer).
+  const topPool = samplePool(rankedTops, 10, random);
+  const botPool = samplePool(rankedBottoms, 10, random);
+  const accPool = samplePool(rankedAccs, 6, random);
+  const outerPool = samplePool(rankedOuters, 5, random);
+  const accessoryOptions: (Item | null)[] = [null, ...accPool];
   const outerOptions: (Item | null)[] = wantOuter
     ? outerPool.length
       ? outerPool
@@ -651,42 +892,45 @@ export function generateOOTDSet(
       ? [null, ...outerPool.slice(0, 3)]
       : [null];
 
-  // Build candidates WITHOUT reasons (harmony is needed for scoring; reasons are
-  // only attached to the few chosen outfits below — buildReasons on all ~thousands
-  // of discarded combos was pure waste).
+  const makeupRanked = rankLooks(MAKEUP_LOOKBOOK, context);
+  const perfumeRanked = rankLooks(PERFUME_LOOKBOOK, context);
+  const placeholderMakeup = makeupRanked[0].i;
+  const placeholderPerfume = perfumeRanked[0].i;
+
+  // Candidates are built WITHOUT reasons (harmony is needed for scoring;
+  // reasons are attached only to the few chosen outfits below).
   const assemble = (top: Item | null, bottom: Item | null, accessory: Item | null, outerwear: Item | null): Outfit => {
-    const o: Outfit = { top, bottom, outerwear, accessory, makeup, perfume, context };
+    const o: Outfit = { top, bottom, outerwear, accessory, makeup: placeholderMakeup, perfume: placeholderPerfume, context };
     o.harmony = evaluateHarmony(o);
     return o;
   };
 
-  // Build candidates from a wider high-fit pool. Full-outfit ranking handles
-  // style coherence, so we do not need to over-randomize the seed garments.
-  const combos: Outfit[] = [];
+  const combos: { outfit: Outfit; score: number }[] = [];
   const ti = topPool.length || 1;
   const bi = botPool.length || 1;
-  for (let i = 0; i < ti; i++) {
-    for (let j = 0; j < bi; j++) {
+  for (let a = 0; a < ti; a++) {
+    for (let b = 0; b < bi; b++) {
       for (const accessory of accessoryOptions) {
         for (const outerwear of outerOptions) {
-          combos.push(assemble(topPool[i] ?? null, botPool[j] ?? null, accessory, outerwear));
+          const o = assemble(topPool[a] ?? null, botPool[b] ?? null, accessory, outerwear);
+          combos.push({ outfit: o, score: totalOutfitScore(o, r, wantOuter) + OUTFIT_TEMPERATURE * gumbel(random) });
         }
       }
     }
   }
+  combos.sort((x, y) => y.score - x.score);
 
-  const total = (o: Outfit) => totalOutfitScore(o, ctx);
-
-  // Greedily pick diverse outfits (avoid near-duplicates).
-  const idsOf = (o: Outfit) => [o.top?.id, o.bottom?.id, o.outerwear?.id, o.accessory?.id];
-  const keysOf = (o: Outfit) => [itemVariantKey(o.top), itemVariantKey(o.bottom), itemVariantKey(o.outerwear), itemVariantKey(o.accessory)];
+  // Greedily pick diverse outfits: no shared top/bottom (by variant or by type
+  // pair), and at most one shared piece overall.
+  const keysOf = (o: Outfit) => [o.top, o.bottom, o.outerwear, o.accessory].map(itemVariantKey);
+  const overlap = (a: Outfit, b: Outfit) => {
+    const ak = keysOf(a);
+    const bk = keysOf(b);
+    return ak.filter((k, n) => k && k === bk[n]).length;
+  };
   const sameCore = (a: Outfit, b: Outfit) =>
-    Boolean(
-      itemVariantKey(a.top) &&
-        itemVariantKey(a.top) === itemVariantKey(b.top) &&
-        itemVariantKey(a.bottom) &&
-        itemVariantKey(a.bottom) === itemVariantKey(b.bottom),
-    );
+    Boolean(itemVariantKey(a.top) && itemVariantKey(a.top) === itemVariantKey(b.top)) ||
+    Boolean(itemVariantKey(a.bottom) && itemVariantKey(a.bottom) === itemVariantKey(b.bottom));
   const sameCoreType = (a: Outfit, b: Outfit) =>
     Boolean(
       itemTypeKey(a.top) &&
@@ -694,46 +938,38 @@ export function generateOOTDSet(
         itemTypeKey(a.bottom) &&
         itemTypeKey(a.bottom) === itemTypeKey(b.bottom),
     );
-  const overlap = (a: Outfit, b: Outfit) => {
-    const ai = idsOf(a);
-    const bi2 = idsOf(b);
-    const ak = keysOf(a);
-    const bk = keysOf(b);
-    return ai.filter((id, k) => (id && id === bi2[k]) || (ak[k] && ak[k] === bk[k])).length;
-  };
-  const sorted = combos
-    .map((outfit) => ({ outfit, score: total(outfit) + Math.random() * 2 }))
-    .sort((a, b) => b.score - a.score)
-    .map((x) => x.outfit);
   const chosen: Outfit[] = [];
-  for (const c of sorted) {
+  for (const { outfit: c } of combos) {
     if (chosen.length >= count) break;
-    if (!chosen.some((o) => sameCore(o, c) || sameCoreType(o, c) || overlap(o, c) >= 3)) chosen.push(c);
+    if (!chosen.some((o) => sameCore(o, c) || sameCoreType(o, c) || overlap(o, c) >= 2)) chosen.push(c);
   }
-  // Top up with remaining combos if diversity left us short.
-  for (const c of sorted) {
+  // Relax to the previous rule (distinct top+bottom pair), then top up.
+  for (const { outfit: c } of combos) {
+    if (chosen.length >= count) break;
+    if (!chosen.includes(c) && !chosen.some((o) => overlap(o, c) >= 3)) chosen.push(c);
+  }
+  for (const { outfit: c } of combos) {
     if (chosen.length >= count) break;
     if (!chosen.includes(c)) chosen.push(c);
   }
 
-  const fallback = assemble(
-    topPool[0] ?? null,
-    botPool[0] ?? null,
-    accPool[0] ?? null,
-    wantOuter ? (outerPool[0] ?? null) : null,
-  );
-  // Attach reasons only to the returned outfits.
-  const outfits = (chosen.length ? chosen : [fallback]).map((o) => {
-    o.reasons = buildReasons(o);
-    return o;
+  const result = chosen.length ? chosen : [assemble(topPool[0] ?? null, botPool[0] ?? null, null, wantOuter ? (outerPool[0] ?? null) : null)];
+  const makeups = pickLooks(makeupRanked, result.length, random);
+  const perfumes = pickLooks(perfumeRanked, result.length, random);
+  const outfits = result.map((o, n) => {
+    const withLooks: Outfit = { ...o, makeup: makeups[n] ?? placeholderMakeup, perfume: perfumes[n] ?? placeholderPerfume };
+    withLooks.reasons = buildReasons(withLooks);
+    return withLooks;
   });
   return { outfits, context };
 }
 
 /**
  * Pick a replacement garment for a slot, excluding the current one (powers the
- * item "swap" button). Same matching as the engine: match-floored + weighted by
- * fit, falling back to any other piece in the category so a swap always works.
+ * item "swap" button). Same constraints and scoring as the engine, weighted by
+ * fit and — when the current outfit is known — by how well it works with the
+ * rest of the look. Returns null when nothing suitable is left, so the UI can
+ * say so instead of swapping in something that breaks the rules.
  */
 export function swapClosetItem(
   cat: Category,
@@ -742,8 +978,14 @@ export function swapClosetItem(
   ctx: ClothCtx,
   currentOutfit?: Outfit,
 ): Item | null {
-  const ranked = rankCategory(closet, cat, ctx).filter((x) => x.i.id !== currentId);
-  if (currentOutfit && ranked.length) {
+  const r = makeRanker(ctx, new Set());
+  const current = closet.find((i) => i.id === currentId);
+  const currentKey = itemVariantKey(current);
+  const ranked = rankCategory(closet, cat, r).filter(
+    (x) => x.i.id !== currentId && (!currentKey || itemVariantKey(x.i) !== currentKey),
+  );
+  if (!ranked.length) return null;
+  if (currentOutfit) {
     const withItem = (item: Item): Outfit => {
       const base = { ...currentOutfit };
       if (cat === "tops") base.top = item;
@@ -754,6 +996,7 @@ export function swapClosetItem(
       return base;
     };
     const outfitAware = ranked
+      .slice(0, 60)
       .map((x) => {
         const next = withItem(x.i);
         return {
@@ -765,60 +1008,17 @@ export function swapClosetItem(
     const picked = weightedPick(outfitAware, 8);
     if (picked) return picked;
   }
-  const picked = weightedPick(ranked);
-  if (picked) return picked;
-  const others = closet.filter((i) => i.category === cat && i.id !== currentId);
-  return others.length ? others[Math.floor(Math.random() * others.length)] : null;
+  return weightedPick(ranked);
 }
 
 /** Pick a makeup look excluding the current one (powers the "swap" button). */
-export function swapMakeupLook(
-  current: Makeup,
-  ctx: { weather: Weather; mood: string; destination: string; gender: Gender },
-): Makeup {
-  const genderMatches = (m: Makeup) =>
-    ctx.gender === "male"
-      ? m.gender.includes("male")
-      : ctx.gender === "female"
-        ? m.gender.includes("female")
-        : m.gender.includes("unisex") || m.gender.includes("female") || m.gender.includes("male");
-  const mScore = (m: Makeup) => {
-    let s = 0;
-    if (m.gender.includes(ctx.gender)) s += 4;
-    else if (m.gender.includes("unisex")) s += 1.5;
-    if (m.weather.includes(ctx.weather)) s += 4;
-    m.tags.forEach((t) => {
-      if (t === ctx.mood) s += 3;
-      if (t === ctx.destination) s += 2;
-    });
-    return s;
-  };
-  const valid = MAKEUP_LOOKBOOK.filter(genderMatches);
-  const available = valid.filter((m) => m.id !== current.id).sort((a, b) => mScore(b) - mScore(a));
-  if (!available.length) return current;
-  const pool = available.slice(0, Math.min(3, available.length));
-  return pool[Math.floor(Math.random() * pool.length)];
+export function swapMakeupLook(current: Makeup, ctx: LookCtx): Makeup {
+  const available = rankLooks(MAKEUP_LOOKBOOK, ctx).filter((x) => x.i.id !== current.id);
+  return weightedPick(available, 4) ?? current;
 }
 
 /** Pick a perfume excluding the current one (powers the "swap" button). */
-export function swapPerfumePick(
-  current: Perfume,
-  ctx: { weather: Weather; mood: string; destination: string; gender: Gender },
-): Perfume {
-  const pScore = (p: Perfume) => {
-    let s = 0;
-    if (p.gender.includes(ctx.gender) || p.gender.includes("unisex")) s += 5;
-    if (p.weather.includes(ctx.weather)) s += 3;
-    p.tags.forEach((t) => {
-      if (t === ctx.mood) s += 2;
-      if (t === ctx.destination) s += 1;
-    });
-    return s;
-  };
-  const available = PERFUME_LOOKBOOK.filter(
-    (p) => p.id !== current.id && (ctx.gender === "unisex" || p.gender.includes(ctx.gender) || p.gender.includes("unisex")),
-  ).sort((a, b) => pScore(b) - pScore(a));
-  if (!available.length) return current;
-  const pool = available.slice(0, Math.min(3, available.length));
-  return pool[Math.floor(Math.random() * pool.length)];
+export function swapPerfumePick(current: Perfume, ctx: LookCtx): Perfume {
+  const available = rankLooks(PERFUME_LOOKBOOK, ctx).filter((x) => x.i.id !== current.id);
+  return weightedPick(available, 4) ?? current;
 }

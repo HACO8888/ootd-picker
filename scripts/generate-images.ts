@@ -13,6 +13,7 @@
  */
 import { mkdir, writeFile, access } from "node:fs/promises";
 import path from "node:path";
+import "../src/lib/catalog-source";
 import { getCatalog } from "../src/lib/catalog";
 import type { Item } from "../src/lib/types";
 

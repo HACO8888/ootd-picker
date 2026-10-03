@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/catalog-source";
 import Link from "next/link";
 import { useMemo } from "react";
 import { useUserCloset } from "@/hooks/useUserCloset";

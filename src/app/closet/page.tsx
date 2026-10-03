@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/catalog-source";
 import { useDeferredValue, useMemo, useReducer, useState } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { useChrome } from "@/components/chrome/ChromeProvider";
@@ -32,7 +33,7 @@ export default function ClosetPage() {
 
   const { category, seasons, tags, colors, brands, search } = filters;
   // Defer the typed search term so keystrokes stay responsive while the
-  // full-catalog (~3000 item) filter recomputes at lower priority.
+  // full-catalog (~5400 item) filter recomputes at lower priority.
   const deferredSearch = useDeferredValue(search);
 
   const counts = useMemo(() => {
@@ -139,7 +140,7 @@ export default function ClosetPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8 border-b border-outline">
           <div className="space-y-3">
             <Kicker className="text-primary">THE WARDROBE EDIT</Kicker>
-            <h2 className="font-headline-xl text-headline-xl text-[44px] md:text-[56px] text-on-surface">您的膠囊衣櫥</h2>
+            <h1 className="font-headline-xl text-headline-xl text-[44px] md:text-[56px] text-on-surface">您的膠囊衣櫥</h1>
             <p className="font-body-lg text-body-lg text-on-surface-variant max-w-md">
               共 {closet.length.toLocaleString()} 件單品。為您的日常靈感精心策劃的個人精品店。
             </p>

@@ -37,6 +37,7 @@ export const itemSchema = z.object({
   colors: strArr,
   tags: strArr,
   imageUrl: z.string().max(MAX_IMAGE),
+  gender: genderSchema.optional(),
   updatedAt: z.number().optional(),
 });
 

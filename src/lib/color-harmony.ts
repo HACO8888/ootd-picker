@@ -2,10 +2,12 @@
 // classifies an outfit's palette. No React, no I/O, so it's easy to test.
 import type { Outfit, HarmonyResult, HarmonyVerdict } from "./types";
 
-// Neutrals pair with anything and never count as a clash.
+// Neutrals pair with anything and never count as a clash. Navy and denim blue
+// are wardrobe neutrals in practice (a red top with blue jeans is a classic).
 const NEUTRALS = new Set([
+  "藏青", "丹寧藍",
   "白色", "黑色", "灰色", "碳灰", "麻灰", "米色", "米白色", "奶油色",
-  "卡其色", "裸色", "銀色", "金色", "銅色", "多色",
+  "卡其色", "裸色", "銀色", "金色", "銅色", "多色", "膚色", "金屬色",
 ]);
 
 // Chromatic colour name → representative hue angle (0–360 on the HSL wheel).
@@ -13,11 +15,13 @@ const NEUTRALS = new Set([
 const HUE: Record<string, number> = {
   紅色: 0, 紅格紋: 0, 鏽紅: 12, 蜜桃色: 20, 棕褐: 28, 古銅: 30, 咖啡色: 25,
   橘色: 30, 焦糖色: 30, 黃色: 50, 芥末黃: 50,
-  綠色: 120, 墨綠: 140, 海綠: 160, 藍綠: 175, 土耳其藍: 185,
-  淡藍色: 210, 藍色: 215, 藏青: 225,
+  萊姆綠: 90, 螢光綠: 100, 綠色: 120, 墨綠: 140, 海綠: 160, 藍綠: 175, 土耳其藍: 185,
+  淡藍色: 210, 鋼藍: 205, 藍色: 215, 藏青: 225,
   薰衣草紫: 265, 紫色: 275, 淺紫: 280,
-  粉色: 340, 洋紅: 330, 酒紅: 350, 勃根地紅: 345,
+  粉色: 340, 玫瑰粉: 345, 洋紅: 330, 酒紅: 350, 勃根地紅: 345,
 };
+
+const DENIM_BLUES = new Set(["藍色", "淡藍色", "藏青", "鋼藍"]);
 
 export function isNeutral(name: string): boolean {
   return NEUTRALS.has(name);
@@ -43,11 +47,18 @@ const LABEL: Record<HarmonyVerdict, string> = { harmonious: "協調", caution: "
 export function evaluateHarmony(outfit: Outfit): HarmonyResult {
   const garments = [outfit.top, outfit.bottom, outfit.outerwear, outfit.accessory].filter(Boolean);
 
-  // Collect distinct colour names across all garments.
+  // Collect distinct colour names across all garments; blue denim counts as
+  // the neutral 丹寧藍 rather than a chromatic blue.
   const names: string[] = [];
-  for (const g of garments) for (const c of g!.colors) if (!names.includes(c)) names.push(c);
+  for (const g of garments) {
+    const denim = /牛仔|丹寧/.test(g!.name);
+    for (const raw of g!.colors) {
+      const c = denim && DENIM_BLUES.has(raw) ? "丹寧藍" : raw;
+      if (!names.includes(c)) names.push(c);
+    }
+  }
 
-  const chromatic = names.filter((n) => colorToHue(n) !== null);
+  const chromatic = names.filter((n) => !isNeutral(n) && colorToHue(n) !== null);
   const hasNeutral = names.some(isNeutral);
 
   if (chromatic.length < 2) {

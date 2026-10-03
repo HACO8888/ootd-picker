@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/catalog-source";
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -99,7 +100,7 @@ export default function PickerPage() {
       setTimeout(() => {
         // Abandoned mid-generation (favorite applied / cancelled / reset)? Skip.
         if (genRef.current !== gen) return;
-        const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender);
+        const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender, 3, { recentlyWornIds });
         dispatch({ type: "setResultSet", outfits: set.outfits });
       }, 2500),
     );
@@ -111,7 +112,7 @@ export default function PickerPage() {
   };
 
   const regenerate = () => {
-    const set = generateOOTDSet(activeCloset(), weather as Weather, mood, destination, gender as Gender);
+    const set = generateOOTDSet(activeCloset(), weather as Weather, mood, destination, gender as Gender, 3, { recentlyWornIds });
     dispatch({ type: "setResultSet", outfits: set.outfits });
     showToast("已重新生成穿搭組合！");
   };
@@ -121,8 +122,7 @@ export default function PickerPage() {
     const slotToCat: Record<SlotKey, Item["category"]> = { top: "tops", bottom: "bottoms", outerwear: "outerwear", accessory: "accessories" };
     const dbCategory = slotToCat[slot];
     const currentId = rec[slot]?.id ?? "";
-    // Same matching as the engine: match-floored + weighted by fit, falling
-    // back to any other piece in the category so the swap always works.
+    // Same constraints + scoring as the engine; null when nothing suitable is left.
     const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context, rec);
     if (!next) {
       showToast("衣櫥中沒有其他單品可以更換了！");
@@ -159,6 +159,7 @@ export default function PickerPage() {
 
   return (
     <div className="max-w-content mx-auto px-container-padding-mobile md:px-container-padding-desktop py-12 md:py-16">
+      <h1 className="sr-only">OOTD 穿搭嚮導：依天氣、心情與場合生成今日穿搭</h1>
       {step === "results" && rec ? (
         <div className="relative min-h-[500px]">
           <ResultsView

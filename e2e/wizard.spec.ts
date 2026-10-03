@@ -18,4 +18,20 @@ test.describe("風格嚮導", () => {
     await page.getByRole("button", { name: "收藏組合" }).click();
     await expect(page.getByRole("button", { name: "已收藏" })).toBeVisible();
   });
+
+  test("男生情境的妝容卡一律是理容保養（多次重新生成）", async ({ page }) => {
+    await page.goto("/picker");
+
+    await page.getByRole("button", { name: "男生" }).click();
+    await page.getByRole("button", { name: "寒冷低溫" }).click();
+    await page.getByRole("button", { name: "溫暖舒適" }).click();
+    await page.getByRole("button", { name: "工作通勤" }).click();
+
+    await expect(page.getByText("您的今日風格企劃")).toBeVisible({ timeout: 15000 });
+    for (let n = 0; n < 5; n++) {
+      await expect(page.getByText("推薦理容保養")).toBeVisible();
+      await expect(page.getByText("推薦精緻妝容")).toHaveCount(0);
+      await page.getByRole("button", { name: "重新生成" }).click();
+    }
+  });
 });

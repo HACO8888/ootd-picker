@@ -759,13 +759,23 @@ function lookScore(look: { gender: Gender[]; weather: Weather[]; tags: string[] 
   return s;
 }
 
+/**
+ * Makeup for a male context must be grooming (male, not tagged female): the
+ * result card titles it 「推薦理容保養」 from the look's own gender, and
+ * all-gender looks are photographed as makeup.
+ */
+function makeupGenderOk(g: Gender[], gender: Gender): boolean {
+  return gender === "male" ? g.includes("male") && !g.includes("female") : lookGenderOk(g, gender);
+}
+
 function rankLooks<T extends { id: string; gender: Gender[]; weather: Weather[]; tags: string[] }>(
   book: T[],
   ctx: LookCtx,
+  genderOk: (g: Gender[], gender: Gender) => boolean = lookGenderOk,
 ): { i: T; s: number }[] {
   // Gender-filtered first; if the lookbook has nothing for this gender (e.g. an
   // admin deleted them all), fall back to the whole book rather than crash.
-  const valid = book.filter((m) => lookGenderOk(m.gender, ctx.gender));
+  const valid = book.filter((m) => genderOk(m.gender, ctx.gender));
   return (valid.length ? valid : book).map((i) => ({ i, s: lookScore(i, ctx) })).sort((a, b) => b.s - a.s);
 }
 
@@ -790,7 +800,7 @@ function pickLooks<T extends { id: string }>(ranked: { i: T; s: number }[], coun
 
 /** Best-matching makeup look for a context (gender-filtered, highest score). */
 export function bestMakeup(weather: Weather, mood: string, destination: string, gender: Gender): Makeup {
-  return rankLooks(MAKEUP_LOOKBOOK, { weather, mood, destination, gender })[0].i;
+  return rankLooks(MAKEUP_LOOKBOOK, { weather, mood, destination, gender }, makeupGenderOk)[0].i;
 }
 
 /** Best-matching perfume for a context (highest score). */
@@ -892,7 +902,7 @@ export function generateOOTDSet(
       ? [null, ...outerPool.slice(0, 3)]
       : [null];
 
-  const makeupRanked = rankLooks(MAKEUP_LOOKBOOK, context);
+  const makeupRanked = rankLooks(MAKEUP_LOOKBOOK, context, makeupGenderOk);
   const perfumeRanked = rankLooks(PERFUME_LOOKBOOK, context);
   const placeholderMakeup = makeupRanked[0].i;
   const placeholderPerfume = perfumeRanked[0].i;
@@ -1013,7 +1023,7 @@ export function swapClosetItem(
 
 /** Pick a makeup look excluding the current one (powers the "swap" button). */
 export function swapMakeupLook(current: Makeup, ctx: LookCtx): Makeup {
-  const available = rankLooks(MAKEUP_LOOKBOOK, ctx).filter((x) => x.i.id !== current.id);
+  const available = rankLooks(MAKEUP_LOOKBOOK, ctx, makeupGenderOk).filter((x) => x.i.id !== current.id);
   return weightedPick(available, 4) ?? current;
 }
 

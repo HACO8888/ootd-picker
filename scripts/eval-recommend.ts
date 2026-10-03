@@ -126,6 +126,7 @@ async function main() {
   const makeups = new Set<string>();
   const perfumes = new Set<string>();
   const makeupGenderMiss = { n: 0 };
+  const maleNotGrooming = { n: 0 };
   let regenJaccardSum = 0;
   let regenPairs = 0;
   let ctxUniqueSum = 0;
@@ -189,6 +190,8 @@ async function main() {
               perfumes.add(o.perfume.id);
               ctxMakeups.add(o.makeup.id);
               if (gender !== "unisex" && !o.makeup.gender.includes(gender)) makeupGenderMiss.n++;
+              // Male contexts must get grooming (card title 「推薦理容保養」).
+              if (gender === "male" && o.makeup.gender.includes("female")) maleNotGrooming.n++;
             }
             runs.push(runIds);
           }
@@ -237,6 +240,7 @@ async function main() {
     distinctPerfumes: perfumes.size,
     makeupVarietyPerContext: (ctxMakeupVarietySum / ctxCount).toFixed(2),
     makeupGenderMismatch: makeupGenderMiss.n,
+    maleNotGrooming: maleNotGrooming.n,
     perDestination: Object.fromEntries(
       Object.entries(perDest).map(([k, v]) => [k, { violation: pct(v.v, v.n), destTagInOutfit: pct(v.dest, v.n) }]),
     ),

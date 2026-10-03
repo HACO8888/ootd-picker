@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/site";
 import Image from "next/image";
 import Link from "next/link";
 import { Footer } from "@/components/nav/Footer";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "關於我們",
   description:
-    "OOTD Picker 融合膠囊衣櫥概念與美妝配色推薦，讓您自信、精緻地迎接每一天。",
-};
+    "OOTD Picker 融合膠囊衣櫥概念與美妝配色推薦，依天氣、心情與場合挑出整套穿搭，讓您自信、精緻地迎接每一天。",
+  path: "/about",
+});
 
 const PRINCIPLES = [
   {

@@ -4,6 +4,47 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { Footer } from "@/components/nav/Footer";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker, SectionRule } from "@/components/ui/Editorial";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
+// Structured data: the site + the web app it hosts (free, no sign-in needed).
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      alternateName: `${SITE_NAME} ${SITE_TAGLINE}`,
+      description: SITE_DESCRIPTION,
+      inLanguage: "zh-Hant-TW",
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${SITE_URL}/#app`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/picker`,
+      description: SITE_DESCRIPTION,
+      applicationCategory: "LifestyleApplication",
+      operatingSystem: "Web",
+      inLanguage: "zh-Hant-TW",
+      isAccessibleForFree: true,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "TWD" },
+      featureList: [
+        "依天氣、心情、目的地與性別生成整套穿搭",
+        "妝容／男士理容與香水建議",
+        "5,000+ 件單品的膠囊衣櫥",
+        "收藏、分享與穿搭日誌",
+      ],
+      isPartOf: { "@id": `${SITE_URL}/#website` },
+    },
+  ],
+};
 
 const CONTENTS = [
   {
@@ -71,6 +112,11 @@ const FEATURED = [
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        // JSON.stringify output, with "<" escaped so it can't close the tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }}
+      />
       <HomeHero />
 
       {/* Contents — editorial table-of-contents index */}

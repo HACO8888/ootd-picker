@@ -7,6 +7,7 @@ import { RuntimeDataLoader } from "@/components/RuntimeDataLoader";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
 import { TopNav } from "@/components/nav/TopNav";
 import { BottomNav } from "@/components/nav/BottomNav";
+import { IS_INDEXABLE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
 // Editorial high-contrast serif for headlines. CSS variable name is kept as
 // `--font-playfair` so the @theme `--font-headline-*` tokens need no change.
@@ -26,31 +27,48 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  // 由環境變數決定對外網址，避免 production OG/canonical 連到不可達的佔位網域。
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
+  // 對外網址由 src/lib/site.ts 決定（NEXT_PUBLIC_SITE_URL 可覆寫，預設 https://ootd.haco.tw）。
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "OOTD PICKER | 風格與妝容嚮導",
-    template: "%s | OOTD PICKER",
+    default: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "根據您的心情、天氣及目的地，提供個人化的每日穿搭、妝容與香水策展建議。",
-  keywords: ["OOTD", "穿搭", "妝容", "香水", "膠囊衣櫥", "風格推薦"],
-  applicationName: "OOTD PICKER",
-  authors: [{ name: "OOTD PICKER" }],
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "OOTD",
+    "今日穿搭",
+    "穿搭推薦",
+    "穿搭靈感",
+    "天氣穿搭",
+    "約會穿搭",
+    "上班穿搭",
+    "男生穿搭",
+    "女生穿搭",
+    "妝容推薦",
+    "香水推薦",
+    "膠囊衣櫥",
+    "穿搭日誌",
+  ],
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  category: "lifestyle",
   formatDetection: { telephone: false, address: false, email: false },
+  robots: IS_INDEXABLE
+    ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } }
+    : { index: false, follow: false },
   openGraph: {
-    title: "OOTD PICKER | 風格與妝容嚮導",
-    description: "根據您的心情、天氣及目的地，量身打造今日穿搭與妝容。",
-    siteName: "OOTD PICKER",
+    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    description: "根據您的心情、天氣及目的地，量身打造今日穿搭、妝容與香水。",
+    url: "/",
+    siteName: SITE_NAME,
     type: "website",
     locale: "zh_TW",
   },
   twitter: {
     card: "summary_large_image",
-    title: "OOTD PICKER | 風格與妝容嚮導",
-    description: "根據您的心情、天氣及目的地，量身打造今日穿搭與妝容。",
+    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    description: "根據您的心情、天氣及目的地，量身打造今日穿搭、妝容與香水。",
   },
 };
 

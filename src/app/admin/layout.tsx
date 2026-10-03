@@ -1,10 +1,16 @@
 // 管理員後台 layout。proxy.ts 已在邊緣擋一層，此處 server 端再驗證一次（縱深防禦）。
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { AdminNav } from "@/components/admin/AdminNav";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "後台",
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await auth();

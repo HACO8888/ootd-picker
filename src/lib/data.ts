@@ -1,6 +1,8 @@
 // Static catalog data — ported verbatim from the legacy app.js (v10).
-// 17 curated items (UNIQLO 6 · NET 6 · GU 5), 13 makeup looks, 10 perfumes.
+// 17 curated items (UNIQLO 6 · NET 6 · GU 5), 13 + 23 makeup looks, 10 + 17 perfumes
+// (extras in lookbook-extra.ts).
 import type { Item, Makeup, Perfume, Category, Gender, Season } from "./types";
+import { EXTRA_MAKEUP, EXTRA_PERFUME } from "./lookbook-extra";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    LOCAL IMAGE PATHS — AI-generated, 100% matched to item descriptions
@@ -60,7 +62,7 @@ export function buildCloset(): Item[] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MAKEUP LOOKBOOK — 13 looks
+   MAKEUP LOOKBOOK — 13 originals + EXTRA_MAKEUP
    ═══════════════════════════════════════════════════════════════════════════ */
 // 可被管理員後台覆寫：客戶端載入 DB 版本後以 setMakeupLookbook 重新賦值。
 // 因 ES module live binding，recommend.ts 內的引用會自動反映新值（seed 來源）。
@@ -78,10 +80,11 @@ export let MAKEUP_LOOKBOOK: Makeup[] = [
   { id: "m11", name: "清爽男士理容", gender: ["male", "unisex"], tags: ["專業", "工作", "休閒漫步"], weather: ["sunny", "cloudy", "rainy", "cold"], focus: "控油啞光，隱形毛孔，強調乾淨俐落感", eye: "修整眉型，透明定型眉膠梳理毛流", lip: "無色潤澤護唇膏", blush: "無腮紅，保留原生膚色", highlight: "霧面局部蜜粉定妝", colors: ["#e6d5c3", "#d9c4ad", "#bd9d82"], makeupImageUrl: "/looks/makeup-mens-clean.jpg" },
   { id: "m12", name: "自然偽素顏提亮", gender: ["male", "unisex"], tags: ["約會", "優雅", "放鬆"], weather: ["sunny", "cloudy"], focus: "輕薄素顏霜均勻膚色，自然提亮氣色", eye: "自然野生眉，深棕色填補眉尾", lip: "淡色潤唇膏，改善氣色", blush: "極淡修容加深鼻影與輪廓", highlight: "微透自然肌膚光澤", colors: ["#f2d8c9", "#e6c2ad", "#c79a81"], makeupImageUrl: "/looks/makeup-natural-bare.jpg" },
   { id: "m13", name: "立體深邃骨相妝", gender: ["male", "unisex"], tags: ["社交聚會", "活力", "專業"], weather: ["cloudy", "cold", "rainy"], focus: "強化臉部折疊度，展現深邃立體五官", eye: "灰棕色加深眼窩，濃密毛流感劍眉", lip: "啞光霧面裸色護唇膏", blush: "灰棕色側臉及下顎線修容", highlight: "霧面高光提亮眉骨與鼻樑", colors: ["#d6c8b8", "#ab9884", "#786857"], makeupImageUrl: "/looks/makeup-deep-contour.jpg" },
+  ...EXTRA_MAKEUP,
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PERFUME LOOKBOOK — 10 scents
+   PERFUME LOOKBOOK — 10 originals + EXTRA_PERFUME
    ═══════════════════════════════════════════════════════════════════════════ */
 export let PERFUME_LOOKBOOK: Perfume[] = [
   { id: "p1", name: "白茶禪意清透香", gender: ["female", "male", "unisex"], tags: ["放鬆", "舒適", "居家", "休閒漫步"], weather: ["sunny", "cloudy"], topNote: "白茶、清檸、薄荷葉", heartNote: "茉莉、鈴蘭、白玫瑰", baseNote: "白麝香、雪松木、琥珀", style: "清透淡雅，若有似無的禪意", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-white-tea.jpg" },
@@ -91,9 +94,10 @@ export let PERFUME_LOOKBOOK: Perfume[] = [
   { id: "p5", name: "柑橘薄荷元氣香", gender: ["female", "male", "unisex"], tags: ["活力", "放鬆", "休閒漫步", "工作"], weather: ["sunny"], topNote: "西西里檸檬、葡萄柚、薄荷", heartNote: "佛手柑、橙花、羅勒", baseNote: "白麝香、龍涎香、雪松", style: "活潑爽朗的柑橘果香", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-citrus-mint.jpg" },
   { id: "p6", name: "麝香絲絨慵懶香", gender: ["female", "unisex"], tags: ["放鬆", "舒適", "居家"], weather: ["cloudy", "cold", "rainy"], topNote: "梨子、白桃、洋梨", heartNote: "玫瑰木、麝香玫瑰、鳶尾", baseNote: "白麝香、香草、檀香木", style: "極度貼膚、慵懶而令人安心", intensity: "淡香精 (EDP)", perfumeImageUrl: "/looks/perfume-musk-velvet.jpg" },
   { id: "p7", name: "雪松皮革商務香", gender: ["male"], tags: ["專業", "工作", "優雅"], weather: ["cloudy", "rainy", "cold"], topNote: "佛手柑、黑胡椒、薑", heartNote: "藏紅花、天竺葵、玫瑰木", baseNote: "雪松、皮革、廣藿香", style: "乾燥俐落的木質皮革調", intensity: "淡香精 (EDP)", perfumeImageUrl: "/looks/perfume-cedar-leather.jpg" },
-  { id: "p8", name: "蜜桃茉莉少女香", gender: ["female"], tags: ["放鬆", "優雅", "約會", "休閒漫步"], weather: ["sunny", "cloudy"], topNote: "白桃、覆盆子、荔枝", heartNote: "茉莉、玉蘭花、梔子花", baseNote: "香草、麝香、白檀", style: "清新而溫柔，充滿少女靈氣", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-white-tea.jpg" },
-  { id: "p9", name: "廣藿大地森林香", gender: ["male", "unisex"], tags: ["活力", "放鬆", "休閒漫步"], weather: ["rainy", "cold", "cloudy"], topNote: "尤加利、羅勒、薄荷", heartNote: "廣藿香、雪松、絲柏", baseNote: "苔蘚、橡木、龍涎香", style: "雨後森林的泥土芬芳", intensity: "淡香精 (EDP)", perfumeImageUrl: "/looks/perfume-ocean-blue.jpg" },
+  { id: "p8", name: "蜜桃茉莉少女香", gender: ["female"], tags: ["放鬆", "優雅", "約會", "休閒漫步"], weather: ["sunny", "cloudy"], topNote: "白桃、覆盆子、荔枝", heartNote: "茉莉、玉蘭花、梔子花", baseNote: "香草、麝香、白檀", style: "清新而溫柔，充滿少女靈氣", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-peach-jasmine.jpg" },
+  { id: "p9", name: "廣藿大地森林香", gender: ["male", "unisex"], tags: ["活力", "放鬆", "休閒漫步"], weather: ["rainy", "cold", "cloudy"], topNote: "尤加利、羅勒、薄荷", heartNote: "廣藿香、雪松、絲柏", baseNote: "苔蘚、橡木、龍涎香", style: "雨後森林的泥土芬芳", intensity: "淡香精 (EDP)", perfumeImageUrl: "/looks/perfume-patchouli-forest.jpg" },
   { id: "p10", name: "薰衣草香草晚安香", gender: ["female", "male", "unisex"], tags: ["舒適", "居家", "放鬆"], weather: ["cloudy", "cold", "rainy"], topNote: "薰衣草、迷迭香、香檸檬", heartNote: "玫瑰、鳶尾根、香草蘭", baseNote: "香草、零陵香豆、白麝香", style: "溫柔舒眠的薰衣草香草調", intensity: "淡香水 (EDT)", perfumeImageUrl: "/looks/perfume-lavender.jpg" },
+  ...EXTRA_PERFUME,
 ];
 
 /** 以 DB 版本覆寫妝容/香水 lookbook（管理員後台編輯後，客戶端載入時呼叫）。 */
@@ -127,15 +131,15 @@ export const TRANSLATE = {
  */
 export const COLOR_HEX: Record<string, string> = {
   黑色: "#1a1a1a", 白色: "#f4f4f2", 灰色: "#9ca3af", 碳灰: "#36393f", 麻灰: "#b6b1a8",
-  藍色: "#2f5fb0", 淡藍色: "#a9c7e8", 藏青: "#1f2d50", 藍綠: "#1f8a8a", 土耳其藍: "#1ca9c9",
+  藍色: "#2f5fb0", 淡藍色: "#a9c7e8", 鋼藍: "#4a6f8a", 藏青: "#1f2d50", 藍綠: "#1f8a8a", 土耳其藍: "#1ca9c9",
   紅色: "#c0392b", 紅格紋: "#b23a3a", 酒紅: "#6e1f2a", 勃根地紅: "#5c1a2b", 鏽紅: "#9c4a2f", 洋紅: "#c2186a",
-  粉色: "#f4b6c2", 蜜桃色: "#ffc2a3",
-  綠色: "#3a9d5d", 墨綠: "#14532d", 海綠: "#2e8b76",
+  粉色: "#f4b6c2", 玫瑰粉: "#e8a0b0", 蜜桃色: "#ffc2a3",
+  綠色: "#3a9d5d", 萊姆綠: "#9bcf3a", 螢光綠: "#7cf03a", 墨綠: "#14532d", 海綠: "#2e8b76",
   紫色: "#7d4fa0", 淺紫: "#c9b6e4", 薰衣草紫: "#b39ddb",
   黃色: "#f2c744", 芥末黃: "#c9a227",
   橘色: "#e8853a", 焦糖色: "#b5712b",
   咖啡色: "#6f4e37", 棕褐: "#8a6d52", 古銅: "#7a5230",
-  米色: "#e6d8bf", 米白色: "#f0ebe0", 奶油色: "#f5ecd2", 卡其色: "#b8a172", 裸色: "#e3c4ad",
+  米色: "#e6d8bf", 膚色: "#e8c4a8", 金屬色: "#b9b4ab", 米白色: "#f0ebe0", 奶油色: "#f5ecd2", 卡其色: "#b8a172", 裸色: "#e3c4ad",
   金色: "#c8a24a", 銀色: "#c8ccce", 銅色: "#b06b3a",
   多色: "#a8a29e",
 };

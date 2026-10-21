@@ -1,0 +1,570 @@
+<meta charset="utf-8">
+<title>OOTD 推薦引擎架構</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: one editorial column in OOTD Picker's own system (ink, paper, vermilion, hairlines); figures widen into their own scroll boxes */
+:root {
+  --paper: #faf9f6;
+  --panel: #ffffff;
+  --ink: #161514;
+  --muted: #5d5a55;
+  --rule: #d9d5ce;
+  --accent: #c8352b;
+  --accent-soft: #fbeceb;
+  --style: #8b8780;
+  --ok: #2f6b45;
+  --neg: #9a3412;
+  --display: "Fraunces", "Noto Serif TC", "Songti TC", Georgia, serif;
+  --body: "Inter", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141312; --panel: #1c1b19; --ink: #f1eee8; --muted: #a9a49b; --rule: #34312d;
+    --accent: #ef6a5e; --accent-soft: #2c1a18; --style: #8d887f; --ok: #7cc496; --neg: #f0936b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #141312; --panel: #1c1b19; --ink: #f1eee8; --muted: #a9a49b; --rule: #34312d;
+  --accent: #ef6a5e; --accent-soft: #2c1a18; --style: #8d887f; --ok: #7cc496; --neg: #f0936b; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 48px 80px;
+}
+.wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 60px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0; max-width: 70ch; }
+.kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.1rem; color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 20px; }
+.head { display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--ink); padding-bottom: 12px; }
+.masthead { display: flex; flex-direction: column; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 28px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.85rem; color: var(--muted); }
+code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); border: 1px solid var(--rule); padding: 0 4px; }
+b { font-weight: 600; }
+
+/* key figures */
+.figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.fig { padding: 14px 14px 16px 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fig + .fig { border-left: 1px solid var(--rule); padding-left: 14px; }
+.fig .n { font-family: var(--display); font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fig .n small { font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+.fig .l { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+
+/* figures */
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+.scroll svg { display: block; width: 100%; height: auto; min-width: 760px; color: var(--ink); }
+figcaption { font-size: 0.88rem; color: var(--muted); max-width: 75ch; }
+svg text { font-family: var(--body); fill: currentColor; }
+svg .t-title { font-size: 15px; font-weight: 700; }
+svg .t-box { font-size: 13px; font-weight: 600; }
+svg .t-sub { font-size: 11px; fill: var(--muted); }
+svg .t-arrow { font-size: 11px; fill: var(--muted); }
+svg .t-acc { fill: var(--accent); }
+svg .col { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+svg .box { fill: var(--paper); stroke: var(--rule); stroke-width: 1; }
+svg .box-acc { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+svg .ln { stroke: var(--muted); stroke-width: 1.3; fill: none; }
+svg .ln-acc { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+svg .ln-dash { stroke: var(--muted); stroke-width: 1.2; fill: none; stroke-dasharray: 4 4; }
+svg .ah { fill: var(--muted); }
+svg .ah-acc { fill: var(--accent); }
+svg .seg-c { fill: var(--accent); }
+svg .seg-s { fill: var(--style); }
+svg .seg-g { fill: var(--ok); }
+svg .seg-n { fill: var(--ink); }
+svg .t-in { font-size: 11px; font-weight: 600; fill: var(--paper); }
+svg .grid { stroke: var(--rule); stroke-width: 1; }
+svg .zero { stroke: var(--ink); stroke-width: 1.4; }
+
+/* pipeline */
+.pipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; counter-reset: st; margin: 0; padding: 0; list-style: none; }
+.pipe li { border: 1px solid var(--rule); background: var(--panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; counter-increment: st; }
+.pipe li::before { content: counter(st, decimal-leading-zero); font-family: var(--display); color: var(--accent); font-weight: 700; font-size: 1.1rem; }
+.pipe li p { font-size: 0.92rem; }
+.pipe .data { font-size: 0.82rem; color: var(--muted); border-top: 1px dashed var(--rule); padding-top: 6px; font-variant-numeric: tabular-nums; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom-color: var(--ink); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.sum td { border-top: 1px solid var(--ink); font-weight: 600; }
+.arrowcell { color: var(--accent); }
+
+.formula { font-family: var(--mono); font-size: 0.9rem; background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--accent); padding: 12px 16px; overflow-x: auto; white-space: pre; line-height: 1.8; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.box2 { border: 1px solid var(--rule); background: var(--panel); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box2 ul { margin: 0; padding-left: 1.1em; font-size: 0.93rem; }
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; font-size: 0.86rem; }
+.node { border: 1px solid var(--ink); background: var(--panel); padding: 9px 11px; flex: 1 1 120px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.node small { color: var(--muted); font-size: 0.76rem; line-height: 1.4; }
+.node.ai { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { align-self: center; color: var(--muted); }
+.say { background: var(--panel); border-left: 2px solid var(--ink); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.say p { font-size: 0.98rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.82rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.legend .c::before { background: var(--accent); }
+.legend .s::before { background: var(--style); }
+.legend .g::before { background: var(--ok); }
+.legend .n::before { background: var(--ink); }
+
+@media (max-width: 720px) {
+  .figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fig:nth-child(3) { border-left: 0; padding-left: 0; }
+  .fig:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .pipe, .two { grid-template-columns: minmax(0, 1fr); }
+  .arrow { transform: rotate(90deg); flex-basis: 100%; text-align: center; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="kicker">OOTD Picker · 技術說明</span>
+    <h1>推薦引擎架構與演算法</h1>
+    <p class="lede">給簡報和評審問答用：系統由哪些部分組成、推薦一套穿搭的完整計算過程，以及每一步背後的實際數字。數字都來自 repo 的程式碼、離線評估（<code>pnpm eval:recommend</code>）和正式站實測。</p>
+    <div class="meta"><span>資料版本：目錄 5,403 件 · 妝容 36 款 · 香水 27 款</span><span>2026-10-21</span></div>
+  </header>
+
+  <section aria-label="關鍵數字">
+    <div class="figs">
+      <div class="fig"><span class="n">5,403<small> 件</small></span><span class="l">真實商品目錄，上衣 1,735、下著 1,432、外套 306、配件 1,930</span></div>
+      <div class="fig"><span class="n">3,500<small> 套</small></span><span class="l">雨天上班時，每按一次會評分的整套組合數</span></div>
+      <div class="fig"><span class="n">2.7<small> ms</small></span><span class="l">產生 3 套推薦的時間中位數，全部在瀏覽器裡計算</span></div>
+      <div class="fig"><span class="n">0<small> %</small></span><span class="l">不合理搭配率（4,500 套評估結果中一套都沒有）</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">一 · 系統架構</span><h2>推薦在瀏覽器算，伺服器只做 AI、同步和後台</h2></div>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1040 640" role="img" aria-label="系統架構圖：推薦引擎在瀏覽器執行；伺服器提供 AI、同步、後台資料與登入 API；外部服務有 AI 閘道、PostgreSQL、Google 登入、Infisical，天氣由瀏覽器直接查 Open-Meteo">
+          <defs>
+            <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah"/></marker>
+            <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah-acc"/></marker>
+          </defs>
+
+          <!-- columns -->
+          <rect class="col" x="20" y="30" width="280" height="482"/>
+          <text class="t-title" x="40" y="58">使用者瀏覽器</text>
+          <rect class="col" x="420" y="30" width="260" height="482"/>
+          <text class="t-title" x="440" y="58">伺服器 · Next.js</text>
+          <text class="t-sub" x="580" y="58">Dokploy 容器</text>
+          <rect class="col" x="780" y="30" width="240" height="482"/>
+          <text class="t-title" x="800" y="58">外部服務</text>
+          <text class="t-sub" x="360" y="58" text-anchor="middle">HTTPS · Cloudflare</text>
+
+          <!-- browser -->
+          <rect class="box" x="40" y="80" width="240" height="56"/>
+          <text class="t-box" x="56" y="104">頁面（靜態預渲染）</text>
+          <text class="t-sub" x="56" y="122">/、picker、closet、insights…</text>
+          <rect class="box" x="40" y="150" width="240" height="56"/>
+          <text class="t-box" x="56" y="174">上傳表單 · 結果頁 AI 按鈕</text>
+          <text class="t-sub" x="56" y="192">使用者按下才呼叫 AI</text>
+          <rect class="box" x="40" y="220" width="240" height="56"/>
+          <text class="t-box" x="56" y="244">本機資料 store.ts</text>
+          <text class="t-sub" x="56" y="262">衣櫥 · 收藏 · 穿搭日誌（localStorage）</text>
+          <rect class="box" x="40" y="290" width="240" height="56"/>
+          <text class="t-box" x="56" y="314">RuntimeDataLoader</text>
+          <text class="t-sub" x="56" y="332">啟動時套用後台改過的資料</text>
+          <rect class="box-acc" x="40" y="360" width="240" height="64"/>
+          <text class="t-box t-acc" x="56" y="384">推薦引擎 recommend.ts</text>
+          <text class="t-sub" x="56" y="402">＋ 偏好學習 · 色彩和諧</text>
+          <text class="t-sub" x="56" y="416">讀本機衣櫥、收藏、日誌，不連伺服器</text>
+          <rect class="box" x="40" y="440" width="240" height="56"/>
+          <text class="t-box" x="56" y="464">天氣偵測 weather.ts</text>
+          <text class="t-sub" x="56" y="482">定位後查今天天氣</text>
+
+          <!-- store feeds engine -->
+          <path class="ln" d="M40 248 H28 V392 H38" marker-end="url(#a)"/>
+
+          <!-- server -->
+          <rect class="box" x="440" y="80" width="220" height="56"/>
+          <text class="t-box" x="456" y="104">proxy.ts ＋ Auth.js</text>
+          <text class="t-sub" x="456" y="122">登入、守 /admin</text>
+          <rect class="box-acc" x="440" y="150" width="220" height="56"/>
+          <text class="t-box t-acc" x="456" y="174">/api/ai/tag · stylist</text>
+          <text class="t-sub" x="456" y="192">驗證輸入 · 每 IP 限流</text>
+          <rect class="box" x="440" y="220" width="220" height="56"/>
+          <text class="t-box" x="456" y="244">/api/sync/*</text>
+          <text class="t-sub" x="456" y="262">衣櫥 · 收藏 · 日誌</text>
+          <rect class="box" x="440" y="290" width="220" height="56"/>
+          <text class="t-box" x="456" y="314">/api/looks · catalog</text>
+          <text class="t-sub" x="456" y="332">妝容 · 香水 · 目錄修改</text>
+          <rect class="box" x="440" y="360" width="220" height="56"/>
+          <text class="t-box" x="456" y="384">/api/admin/*</text>
+          <text class="t-sub" x="456" y="402">每個請求再驗一次管理員</text>
+          <text class="t-sub" x="456" y="470">環境變數於部署時注入</text>
+
+          <!-- external -->
+          <rect class="box" x="800" y="80" width="200" height="56"/>
+          <text class="t-box" x="816" y="104">Google 登入</text>
+          <text class="t-sub" x="816" y="122">OAuth · JWT session</text>
+          <rect class="box-acc" x="800" y="150" width="200" height="56"/>
+          <text class="t-box t-acc" x="816" y="174">AI 閘道 ai.onc.tw</text>
+          <text class="t-sub" x="816" y="192">gemini-3.8-flash</text>
+          <rect class="box" x="800" y="220" width="200" height="196"/>
+          <text class="t-box" x="816" y="244">PostgreSQL</text>
+          <text class="t-sub" x="816" y="262">Drizzle ORM</text>
+          <text class="t-sub" x="816" y="280">使用者資料、妝容、香水、</text>
+          <text class="t-sub" x="816" y="296">目錄修改、上傳審核</text>
+          <rect class="box" x="800" y="440" width="200" height="56"/>
+          <text class="t-box" x="816" y="464">Infisical</text>
+          <text class="t-sub" x="816" y="482">API key、DB 密碼等機密</text>
+
+          <!-- browser → server -->
+          <line class="ln" x1="280" y1="108" x2="438" y2="108" marker-end="url(#a)"/>
+          <text class="t-arrow" x="360" y="100" text-anchor="middle">登入</text>
+          <line class="ln-acc" x1="280" y1="178" x2="438" y2="178" marker-end="url(#aa)"/>
+          <text class="t-arrow" x="360" y="170" text-anchor="middle">照片 / 整套摘要</text>
+          <line class="ln" x1="280" y1="248" x2="438" y2="248" marker-end="url(#a)"/>
+          <text class="t-arrow" x="360" y="240" text-anchor="middle">登入後才同步</text>
+          <line class="ln" x1="438" y1="318" x2="282" y2="318" marker-end="url(#a)"/>
+          <text class="t-arrow" x="360" y="310" text-anchor="middle">載入</text>
+
+          <!-- server → external -->
+          <line class="ln" x1="660" y1="108" x2="798" y2="108" marker-end="url(#a)"/>
+          <text class="t-arrow" x="720" y="100" text-anchor="middle">OAuth</text>
+          <line class="ln-acc" x1="660" y1="178" x2="798" y2="178" marker-end="url(#aa)"/>
+          <text class="t-arrow" x="720" y="170" text-anchor="middle">生成請求</text>
+          <line class="ln" x1="660" y1="248" x2="798" y2="248" marker-end="url(#a)" marker-start="url(#a)"/>
+          <text class="t-arrow" x="720" y="240" text-anchor="middle">讀寫</text>
+          <line class="ln" x1="660" y1="318" x2="798" y2="318" marker-start="url(#a)"/>
+          <text class="t-arrow" x="720" y="310" text-anchor="middle">讀取</text>
+          <line class="ln" x1="660" y1="388" x2="798" y2="388" marker-end="url(#a)" marker-start="url(#a)"/>
+          <text class="t-arrow" x="720" y="380" text-anchor="middle">讀寫</text>
+          <line class="ln-dash" x1="798" y1="466" x2="662" y2="466" marker-end="url(#a)"/>
+          <text class="t-arrow" x="720" y="458" text-anchor="middle">部署時</text>
+
+          <!-- open-meteo below browser -->
+          <rect class="box" x="40" y="560" width="240" height="56"/>
+          <text class="t-box" x="56" y="584">Open-Meteo 天氣 API</text>
+          <text class="t-sub" x="56" y="602">免金鑰，瀏覽器直接查詢</text>
+          <line class="ln" x1="160" y1="496" x2="160" y2="558" marker-end="url(#a)"/>
+          <text class="t-arrow" x="168" y="532">經緯度</text>
+        </svg>
+      </div>
+      <figcaption>紅色是 AI 的路徑，只有使用者按下 AI 按鈕時才會經過伺服器。推薦本身沒有任何一條線連出瀏覽器，所以訪客不登入也能完整使用，每次推薦不用等網路，也不花 AI 費用。</figcaption>
+    </figure>
+    <div class="two">
+      <div class="box2">
+        <h3>這樣分工的好處</h3>
+        <ul>
+          <li>推薦只要幾毫秒，按「重新生成」馬上有結果</li>
+          <li>訪客模式完整可用，資料存在自己的瀏覽器</li>
+          <li>AI 只在按按鈕時呼叫，費用可控；沒設定 AI 時網站照常運作</li>
+        </ul>
+      </div>
+      <div class="box2">
+        <h3>技術選型</h3>
+        <ul>
+          <li>Next.js 16 · React 19 · TypeScript · Tailwind CSS v4</li>
+          <li>Auth.js v5（Google）· Drizzle ORM · PostgreSQL</li>
+          <li>Dokploy 自動部署 · Cloudflare · Infisical 管機密</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">二 · 演算法總覽</span><h2>推薦一套穿搭的 6 個步驟</h2></div>
+    <p>下面每一步都附上「女生／雨天／專業／工作」這個情境的實際數字。</p>
+    <ol class="pipe">
+      <li>
+        <h3>硬性排除</h3>
+        <p>先刪掉一定不能穿的：性別不符、天氣不對（冷天的短褲、晴天的厚外套）、場合不對（上班穿運動長褲、約會背後背包）。</p>
+        <span class="data">下著 1,432 → 718 件（刪掉一半）</span>
+      </li>
+      <li>
+        <h3>單品評分</h3>
+        <p>每件依場合、季節、心情的契約權重，加上由品類推得的風格分數、性別適配和個人偏好打分。0 分的單品不進下一步。</p>
+        <span class="data">上衣 1,735 → 1,142 件有分數</span>
+      </li>
+      <li>
+        <h3>機率抽樣候選池</h3>
+        <p>每類從前段班用 Gumbel 雜訊抽樣：上衣、下著各 10 件，配件 6 件，雨天外套 5 件。同品類最多 2 件。</p>
+        <span class="data">上衣從前 40 名抽 10 件</span>
+      </li>
+      <li>
+        <h3>組合整套</h3>
+        <p>候選池交叉組合，每一套都算一次色彩和諧。</p>
+        <span class="data">10 × 10 × (6+1) × 5 = 3,500 套</span>
+      </li>
+      <li>
+        <h3>整套評分並挑 3 套</h3>
+        <p>合身分、相容分、色彩分加上雜訊後排序，依序挑出彼此不重複的 3 套。</p>
+        <span class="data">3 套之間不共用上衣或下著，最多共用 1 件</span>
+      </li>
+      <li>
+        <h3>配妝容與香水</h3>
+        <p>依性別、天氣、心情、場合評分，從接近最佳的候選中抽，3 套盡量不同。男生只配理容保養。</p>
+        <span class="data">每個情境平均出現 5.1 款妝容</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">三 · 硬性排除</span><h2>規則先於分數</h2></div>
+    <p>評分再高也救不回不該出現的單品，所以先過濾再評分。下表是同一個情境（女生／雨天／專業／工作）每一層剩下的數量。</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>類別</th><th class="num">目錄</th><th class="num">通過規則</th><th class="num">分數 &gt; 0</th><th class="num">進候選池</th></tr></thead>
+        <tbody>
+          <tr><td>上衣</td><td class="num">1,735</td><td class="num">1,735</td><td class="num">1,142</td><td class="num">10</td></tr>
+          <tr><td>下著</td><td class="num">1,432</td><td class="num">718</td><td class="num">561</td><td class="num">10</td></tr>
+          <tr><td>外套（雨天必備）</td><td class="num">306</td><td class="num">306</td><td class="num">107</td><td class="num">5</td></tr>
+          <tr><td>配件（可不配）</td><td class="num">1,930</td><td class="num">1,441</td><td class="num">1,356</td><td class="num">6</td></tr>
+          <tr class="sum"><td>整套組合</td><td class="num">5,403</td><td class="num">4,200</td><td class="num">3,166</td><td class="num">3,500 套</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>下著被砍掉一半，是因為「工作」排除短褲、運動長褲、內搭褲、居家褲和七分褲。全部 300 個情境平均下來，規則刪掉的比例依天氣不同：寒冷 47.3%、晴天 42.4%、雨天 32.7%、多雲 30.9%。</p>
+    <p>如果衣櫥太小、規則刪完沒東西可選，會先放寬到「只保留性別規則」，再放寬到整個類別，保證上衣和下著一定有結果。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">四 · 單品評分</span><h2>每件衣服怎麼算分</h2></div>
+    <div class="formula">單品分數 = 場合 +5 ＋ 季節 +4 ＋ 心情 +3            ← 契約權重（標籤命中）
+         ＋ 場合風格 ＋ 心情風格 ＋ 天氣實穿     ← 由品類推得，各限 ±4
+         ＋ 性別適配（+1.5 / −6 / −12）
+         ＋ 個人偏好（0 ~ +2，只加給已有分數的單品）</div>
+    <p>標籤沒直接命中時，相關標籤仍可拿部分分數，例如「優雅」的單品對「約會」可得 +3。風格分數來自每種品類的 11 維風格輪廓（正式、休閒、運動、舒適、優雅、搶眼、機能、保暖、輕薄、防雨、怕冷）。例如西裝外套的「正式」是 3，風雨衣的「防雨」是 3。目錄 5,403 件全部都能辨識出品類。</p>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 860 300" role="img" aria-label="三件襯衫在雨天上班情境的分數拆解：女款粉色襯衫 19.4 分，男款藍色襯衫 11.9 分，沒有工作標籤的白色襯衫 9.8 分；黑色運動長褲被規則排除">
+          <!-- scale: zero at x=330, 20px per point; axis −6..20 -->
+          <line class="grid" x1="210" y1="34" x2="210" y2="244"/>
+          <line class="grid" x1="430" y1="34" x2="430" y2="244"/>
+          <line class="grid" x1="530" y1="34" x2="530" y2="244"/>
+          <line class="grid" x1="630" y1="34" x2="630" y2="244"/>
+          <line class="grid" x1="730" y1="34" x2="730" y2="244"/>
+          <line class="zero" x1="330" y1="34" x2="330" y2="244"/>
+          <text class="t-sub" x="210" y="262" text-anchor="middle">−6</text>
+          <text class="t-sub" x="330" y="262" text-anchor="middle">0</text>
+          <text class="t-sub" x="430" y="262" text-anchor="middle">5</text>
+          <text class="t-sub" x="530" y="262" text-anchor="middle">10</text>
+          <text class="t-sub" x="630" y="262" text-anchor="middle">15</text>
+          <text class="t-sub" x="730" y="262" text-anchor="middle">20</text>
+          <text class="t-sub" x="330" y="286" text-anchor="middle">分數（情境：女生／雨天／專業／工作）</text>
+
+          <!-- row 1: 粉色襯衫 女款: 5,4,3 | 3.3, 2.6 | +1.5 = 19.4 -->
+          <text class="t-box" x="20" y="60">粉色襯衫</text>
+          <text class="t-sub" x="20" y="76">女款 · 標籤含工作、專業</text>
+          <rect class="seg-c" x="330" y="46" width="100" height="26"/><text class="t-in" x="380" y="63" text-anchor="middle">場合 5</text>
+          <rect class="seg-c" x="431" y="46" width="79" height="26"/><text class="t-in" x="470" y="63" text-anchor="middle">季節 4</text>
+          <rect class="seg-c" x="511" y="46" width="59" height="26"/><text class="t-in" x="540" y="63" text-anchor="middle">心情 3</text>
+          <rect class="seg-s" x="571" y="46" width="65" height="26"/><text class="t-in" x="603" y="63" text-anchor="middle">3.3</text>
+          <rect class="seg-s" x="637" y="46" width="51" height="26"/><text class="t-in" x="662" y="63" text-anchor="middle">2.6</text>
+          <rect class="seg-g" x="689" y="46" width="29" height="26"/><text class="t-in" x="703" y="63" text-anchor="middle">1.5</text>
+          <text class="t-box" x="728" y="64">19.4</text>
+
+          <!-- row 2: 藍色襯衫 男款: 5,4,3 | 3.3,2.6 | −6 = 11.9 -->
+          <text class="t-box" x="20" y="120">藍色襯衫</text>
+          <text class="t-sub" x="20" y="136">男款 · 同樣的標籤</text>
+          <rect class="seg-n" x="210" y="106" width="119" height="26"/><text class="t-in" x="270" y="123" text-anchor="middle">性別 −6</text>
+          <rect class="seg-c" x="330" y="106" width="100" height="26"/><text class="t-in" x="380" y="123" text-anchor="middle">場合 5</text>
+          <rect class="seg-c" x="431" y="106" width="79" height="26"/><text class="t-in" x="470" y="123" text-anchor="middle">季節 4</text>
+          <rect class="seg-c" x="511" y="106" width="59" height="26"/><text class="t-in" x="540" y="123" text-anchor="middle">心情 3</text>
+          <rect class="seg-s" x="571" y="106" width="65" height="26"/><text class="t-in" x="603" y="123" text-anchor="middle">3.3</text>
+          <rect class="seg-s" x="637" y="106" width="51" height="26"/><text class="t-in" x="662" y="123" text-anchor="middle">2.6</text>
+          <text class="t-box" x="698" y="124">11.9</text>
+
+          <!-- row 3: 白色襯衫 女款, no work tag: 0,4,0 | 2.4,1.9 | 1.5 = 9.8 -->
+          <text class="t-box" x="20" y="180">白色襯衫</text>
+          <text class="t-sub" x="20" y="196">女款 · 只有休閒、約會標籤</text>
+          <rect class="seg-c" x="330" y="166" width="79" height="26"/><text class="t-in" x="370" y="183" text-anchor="middle">季節 4</text>
+          <rect class="seg-s" x="410" y="166" width="48" height="26"/><text class="t-in" x="434" y="183" text-anchor="middle">2.4</text>
+          <rect class="seg-s" x="459" y="166" width="37" height="26"/><text class="t-in" x="477" y="183" text-anchor="middle">1.9</text>
+          <rect class="seg-g" x="497" y="166" width="29" height="26"/><text class="t-in" x="511" y="183" text-anchor="middle">1.5</text>
+          <text class="t-box" x="536" y="184">9.8</text>
+
+          <!-- row 4: excluded -->
+          <text class="t-box" x="20" y="230">黑色運動長褲</text>
+          <text class="t-sub" x="20" y="246">女款</text>
+          <text class="t-box t-acc" x="340" y="234">規則排除：上班不穿運動長褲，不參與評分</text>
+        </svg>
+      </div>
+      <div class="legend"><span class="c">契約權重（標籤命中）</span><span class="s">場合風格、心情風格（由品類推得）</span><span class="g">性別相符</span><span class="n">性別不符</span></div>
+      <figcaption>同樣是有「工作」標籤的襯衫，男款在女生情境被扣 6 分。白色襯衫雖然沒有工作標籤，品類本身的「正式」輪廓仍讓它拿到風格分數，這就是不完全依賴標籤的原因。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">五 · 整套評分</span><h2>單品好，整套也要配得起來</h2></div>
+    <div class="formula">整套分數 = 合身分 × 10 ＋ 相容分 × 4 ＋ 色彩分 × 1.2 ＋ 撞色懲罰 ＋ 隨機雜訊
+撞色懲罰 = 撞色 −60 ／ 互補需注意 −12 ／ 協調 0</div>
+    <div class="two">
+      <div class="box2">
+        <h3>合身分</h3>
+        <ul>
+          <li>上衣、下著（雨天和冷天加外套）的分數全額計入</li>
+          <li>配件和多雲天的外套，只算比主件平均 55% 多出的部分，有加分才會放進來</li>
+          <li>近 7 天穿過的單品每件 −3，降權但不排除</li>
+        </ul>
+      </div>
+      <div class="box2">
+        <h3>相容分</h3>
+        <ul>
+          <li>上衣和下著的風格差距越大扣越多（最多 −9）</li>
+          <li>正式配正式 +4；正式上衣配運動褲 −5</li>
+          <li>領帶配非襯衫 −25；帽T 外搭西裝外套 −6</li>
+          <li>冷天沒外套 −24、雨天沒外套 −20、晴天穿外套 −8</li>
+          <li>男款女款混搭 −10</li>
+        </ul>
+      </div>
+    </div>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 860 210" role="img" aria-label="色彩和諧規則：兩個顏色的色相差 0 到 60 度為同色系協調，60 到 150 度為撞色，150 到 180 度為互補需注意；中性色不參與判斷">
+          <!-- hue difference axis 0..180 deg, x=60..780 (4px per degree) -->
+          <rect x="60" y="40" width="240" height="34" style="fill: var(--ok)"/>
+          <rect x="300" y="40" width="360" height="34" style="fill: var(--neg)"/>
+          <rect x="660" y="40" width="120" height="34" style="fill: var(--style)"/>
+          <text class="t-in" x="180" y="62" text-anchor="middle">同色系 · 協調</text>
+          <text class="t-in" x="480" y="62" text-anchor="middle">色相落差大 · 撞色</text>
+          <text class="t-in" x="720" y="62" text-anchor="middle">互補 · 需注意</text>
+          <text class="t-sub" x="60" y="92" text-anchor="middle">0°</text>
+          <text class="t-sub" x="300" y="92" text-anchor="middle">60°</text>
+          <text class="t-sub" x="660" y="92" text-anchor="middle">150°</text>
+          <text class="t-sub" x="780" y="92" text-anchor="middle">180°</text>
+          <text class="t-sub" x="420" y="22" text-anchor="middle">兩個顏色在色相環上的角度差</text>
+
+          <!-- examples: red 0 + pink 340 → 20 ; red 0 + green 120 → 120 ; blue 215 + orange 30 → 175 -->
+          <line class="ln" x1="140" y1="74" x2="140" y2="122"/>
+          <circle cx="128" cy="138" r="9" style="fill: #c0392b"/><circle cx="152" cy="138" r="9" style="fill: #f4b6c2"/>
+          <text class="t-sub" x="140" y="166" text-anchor="middle">紅＋粉 · 20°</text>
+          <text class="t-sub" x="140" y="182" text-anchor="middle">分數 100</text>
+          <line class="ln" x1="540" y1="74" x2="540" y2="122"/>
+          <circle cx="528" cy="138" r="9" style="fill: #c0392b"/><circle cx="552" cy="138" r="9" style="fill: #3a9d5d"/>
+          <text class="t-sub" x="540" y="166" text-anchor="middle">紅＋綠 · 120°</text>
+          <text class="t-sub" x="540" y="182" text-anchor="middle">分數 75</text>
+          <line class="ln" x1="760" y1="74" x2="760" y2="122"/>
+          <circle cx="748" cy="138" r="9" style="fill: #2f5fb0"/><circle cx="772" cy="138" r="9" style="fill: #e8853a"/>
+          <text class="t-sub" x="760" y="166" text-anchor="middle">藍＋橘 · 175°</text>
+          <text class="t-sub" x="760" y="182" text-anchor="middle">分數 90</text>
+        </svg>
+      </div>
+      <figcaption>色彩分 = 100 − 25 × 撞色組數 − 10 × 互補組數。黑、白、灰、米、卡其、藏青、丹寧藍等中性色不參與判斷，所以「紅上衣＋牛仔褲」不算撞色。全目錄評估的平均色彩分是 97.0，撞色率 1.4%。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">六 · 隨機但不亂</span><h2>Gumbel 抽樣與多樣性</h2></div>
+    <p>如果每次都取最高分，按「重新生成」只會得到同一套。所以每個分數加上一點 Gumbel 雜訊再排序，效果等於「分數越高越容易被抽到」，但不是每次都同一件。</p>
+    <div class="formula">排序鍵 = 分數 ＋ T × G，  G = −ln(−ln U)，U 為 0~1 隨機數
+被選中的機率 ∝ e^(分數 / T)
+候選池 T = 1.2（幾乎照分數）    整套 T = 6（讓前段班輪流出線）</div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>多樣性指標（300 情境 × 5 次重新生成）</th><th class="num">舊版</th><th class="num">現在</th></tr></thead>
+        <tbody>
+          <tr><td>連續兩次重新生成的單品重疊率</td><td class="num">0.68</td><td class="num">0.10</td></tr>
+          <tr><td>每個情境出現過的不同單品數</td><td class="num">11</td><td class="num">29.9</td></tr>
+          <tr><td>每個情境出現過的不同妝容數</td><td class="num">1</td><td class="num">5.1</td></tr>
+          <tr><td>目錄中至少被推薦過一次的比例</td><td class="num">—</td><td class="num">31.0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>3 套之間另有多樣性規則：不共用同一件上衣或下著、上衣加下著的品類組合不重複、整套最多共用 1 件。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">七 · 偏好學習</span><h2>越用越懂你</h2></div>
+    <div class="formula">偏好次數：收藏過的單品 ×1，實際穿過的 ×1.5，分別累計「顏色」與「品類」
+親和度 = 次數 ÷ 最常出現的次數（0 ~ 1）
+偏好加分 = 2 × (0.5 × 最喜歡的顏色親和度 ＋ 0.5 × 品類親和度)    只加給分數 &gt; 0 的單品
+累積少於 3 件時不啟用</div>
+    <p>偏好記的是屬性而不是單品，所以會推薦沒穿過、但顏色或品類相近的衣服，也不會和「近 7 天穿過降權」互相抵消。加分上限 +2，比心情權重 +3 還小，只會在合適的候選之間調整順序，不會讓不合場合的衣服出線。</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>固定使用者輪廓（常收藏藏青、卡其色與長褲）</th><th class="num">未個人化</th><th class="num">個人化</th></tr></thead>
+        <tbody>
+          <tr><td>整套至少一件符合偏好</td><td class="num">41.8%</td><td class="num">78.5%</td></tr>
+          <tr><td>單品符合偏好</td><td class="num">13.0%</td><td class="num">34.1%</td></tr>
+          <tr><td>不合理搭配率</td><td class="num">0%</td><td class="num">0%</td></tr>
+          <tr><td>場合標籤命中率</td><td class="num">82.9%</td><td class="num">82.3%</td></tr>
+          <tr><td>色彩分平均</td><td class="num">97.0</td><td class="num">97.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">八 · AI 的位置</span><h2>AI 負責看懂與說明，推薦交給引擎</h2></div>
+    <div class="two">
+      <div class="box2">
+        <h3>拍照建檔</h3>
+        <div class="flow">
+          <div class="node"><b>上傳照片</b><small>瀏覽器先縮到最長邊 800px</small></div>
+          <span class="arrow">→</span>
+          <div class="node ai"><b>視覺模型</b><small>辨識類別、品類、顏色、季節、風格</small></div>
+          <span class="arrow">→</span>
+          <div class="node"><b>收斂詞彙</b><small>只留引擎認得的值，再回填表單</small></div>
+        </div>
+        <ul>
+          <li>可選的品類 46 種、顏色 46 種、風格標籤 7 種</li>
+          <li>名稱一定包含品類詞，引擎才能算風格分數</li>
+          <li>正式站實測 4.8～9.6 秒（3 次）</li>
+        </ul>
+      </div>
+      <div class="box2">
+        <h3>AI 造型師</h3>
+        <div class="flow">
+          <div class="node"><b>引擎結果</b><small>單品、情境、色彩判定、推薦理由</small></div>
+          <span class="arrow">→</span>
+          <div class="node ai"><b>語言模型</b><small>寫造型標題、解說與穿法技巧</small></div>
+          <span class="arrow">→</span>
+          <div class="node"><b>格式驗證</b><small>不合格式就不顯示</small></div>
+        </div>
+        <ul>
+          <li>不傳照片，只傳單品名稱和顏色</li>
+          <li>提示詞禁止虛構其他單品、品牌或價格</li>
+          <li>正式站實測 16.4～17.6 秒（3 次）</li>
+        </ul>
+      </div>
+    </div>
+    <p>兩個 AI 端點都會先驗證輸入、每個 IP 每 10 分鐘限流（建檔 20 次、解說 30 次），沒設定 AI 時回「AI 功能尚未啟用」，網站其他功能不受影響。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">九 · 怎麼證明它有效</span><h2>離線評估</h2></div>
+    <p><code>pnpm eval:recommend</code> 把 4 種天氣 × 5 種心情 × 5 種目的地 × 3 種性別 = 300 個情境各跑 5 次，共 4,500 套，逐套檢查規則並統計品質。每次修改演算法或資料都用同一套評估比較。</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>指標</th><th class="num">舊版</th><th class="num">現在</th></tr></thead>
+        <tbody>
+          <tr><td>不合理搭配率（任一規則違反）</td><td class="num">26.7%</td><td class="num">0%</td></tr>
+          <tr><td>男生情境出現女裝</td><td class="num">63%</td><td class="num">0%</td></tr>
+          <tr><td>女生情境出現男裝</td><td class="num">40%</td><td class="num">0%</td></tr>
+          <tr><td>場合標籤命中率</td><td class="num">39%</td><td class="num">82.9%</td></tr>
+          <tr><td>季節相符</td><td class="num">—</td><td class="num">100%</td></tr>
+          <tr><td>有搭配件的比例</td><td class="num">—</td><td class="num">96.1%</td></tr>
+          <tr><td>生成時間 p50 ／ p95</td><td class="num">3.5 ms ／ —</td><td class="num">2.7 ms ／ 18 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>已知限制：小衣櫥（20 件、上傳的單品沒有標籤）時場合標籤命中率是 49.3%，因為規則把不合場合的單品都排除了，剩下可選的本來就少。生成時間是在開發筆電上量的。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">上台版</span><h2>30 秒講完演算法</h2></div>
+    <div class="say">
+      <p>「我們的推薦分三步。第一，先用規則刪掉一定不能穿的，像上班穿運動褲、冷天穿短褲，這一步就刪掉三到五成。第二，剩下的每件衣服依場合、天氣、心情打分，再把上衣、下著、外套、配件組成 3,500 種整套，檢查風格是否相配、顏色會不會撞色。第三，用機率抽樣挑出 3 套不重複的，所以每次重新生成都不一樣。</p>
+      <p>整個過程在瀏覽器裡只要幾毫秒。我們用 300 個情境、4,500 套結果驗證，不合理搭配率是 0%。」</p>
+    </div>
+  </section>
+
+</div>

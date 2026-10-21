@@ -116,7 +116,7 @@ ol.steps li::marker { font-family: var(--display); color: var(--accent); font-we
     <span class="kicker">OOTD Picker · 簡報準備</span>
     <h1>技術創新性要講什麼</h1>
     <p class="lede">這一項佔總分 40%，審查重點是「利用 AI 等創新技術應用來解決問題」。這份文件列出要放進簡報的內容、每張投影片的數字、demo 流程，以及評審可能會追問的地方。</p>
-    <div class="meta"><span>依據：repo 程式碼與 <code>pnpm eval:recommend</code> 實測</span><span>2026-10-21</span></div>
+    <div class="meta"><span>依據：repo 程式碼與 <code>pnpm eval:recommend</code> 實測</span><span>演算法與架構圖：<code>docs/architecture.html</code></span><span>2026-10-21</span></div>
   </header>
 
   <section>
@@ -174,7 +174,7 @@ ol.steps li::marker { font-family: var(--display); color: var(--accent); font-we
         <dl class="fields">
           <dt>畫面</dt><dd>上傳表單截圖：照片 → 按「AI 自動辨識」 → 名稱、類別、季節、主色、風格標籤自動填好</dd>
           <dt>技術點</dt><dd>視覺語言模型；輸出限制在引擎認得的詞彙（品類、色名、風格標籤），名稱一定包含品類詞；使用者確認後才存檔</dd>
-          <dt>數字</dt><dd>辨識約 3～8 秒；5 個欄位一次填好</dd>
+          <dt>數字</dt><dd>正式站實測約 5～10 秒；5 個欄位一次填好</dd>
         </dl>
         <p class="say">「手動建衣櫥是這類 App 最大的流失點。我們讓 AI 直接看照片建檔，而且輸出的格式是推薦引擎能直接使用的。」</p>
       </div>
@@ -248,7 +248,7 @@ ol.steps li::marker { font-family: var(--display); color: var(--accent); font-we
         <dl class="fields">
           <dt>畫面</dt><dd>結果頁按「請 AI 解說這套」後出現的造型標題、解說與 2～3 條穿法技巧</dd>
           <dt>技術點</dt><dd>只把引擎算好的結構化結果（單品、情境、色彩判定、推薦理由）交給語言模型，限制它不能虛構其他單品或品牌；不傳照片</dd>
-          <dt>數字</dt><dd>約 10 秒產生；換任何單品後解說自動重置</dd>
+          <dt>數字</dt><dd>正式站實測約 16～18 秒；換任何單品後解說自動重置</dd>
         </dl>
         <p class="say">「引擎負責挑，AI 負責說明。使用者得到的是造型師式的建議，不只是一張清單。」</p>
       </div>

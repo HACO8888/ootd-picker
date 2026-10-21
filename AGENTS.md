@@ -16,7 +16,7 @@
   - `pnpm eval:recommend`　推薦引擎離線評估（違規率／命中率／多樣性／速度）
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
-- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
+- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）。正式環境變數存在 Infisical「OOTD Picker」專案的 `prod` 環境（AI 變數另有 `dev` 副本）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
 - **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
 - **SEO**：網域與公開路由集中在 `src/lib/site.ts`（`NEXT_PUBLIC_SITE_URL` 覆寫，預設 https://ootd.haco.tw）；新增公開頁要加進 `PUBLIC_ROUTES` 並用 `pageMetadata()` 設 canonical。client 頁的 metadata 放同目錄的 server `layout.tsx`。
 

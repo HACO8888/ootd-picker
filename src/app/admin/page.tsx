@@ -1,5 +1,8 @@
-// 後台總覽 — 直接在 server component 讀取統計（已由 layout + proxy 雙重守門）。
+// 後台總覽 — 直接在 server component 讀取統計。
+// 讀資料前自己再驗一次 admin：Next 在 client 導航時不保證重跑 layout，不能只靠它守門。
+import { redirect } from "next/navigation";
 import { getStats } from "@/lib/server/admin-repo";
+import { getAdminUser } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +20,7 @@ function Stat({ label, value, accent }: { label: string; value: number; accent?:
 }
 
 export default async function AdminHome() {
+  if (!(await getAdminUser())) redirect("/");
   const s = await getStats();
   return (
     <div>

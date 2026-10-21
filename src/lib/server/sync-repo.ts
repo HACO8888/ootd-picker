@@ -117,7 +117,11 @@ export async function saveCloset(userId: string, d: ClosetDeltas): Promise<void>
             updatedAt: i.updatedAt ?? now,
           };
         }),
-      );
+      )
+      // id 是全域主鍵：已被其他使用者佔用（或同一包重複）的 id 直接略過，
+      // 否則一筆衝突就讓整包交易回滾、該 collection 永遠同步失敗。
+      // 治本是改成 (user_id, id) 複合主鍵（需 migration，另案處理）。
+      .onConflictDoNothing();
     }
     if (d.hidden.length) {
       await tx.insert(hiddenCatalogItems).values(
@@ -188,7 +192,8 @@ export async function saveFavorites(userId: string, list: Favorite[]): Promise<v
           outfit: f.outfit,
           updatedAt: f.updatedAt ?? now,
         })),
-      );
+      )
+      .onConflictDoNothing(); // 同 saveCloset：略過他人佔用的全域 id
     }
   });
 }
@@ -251,7 +256,8 @@ export async function saveWearLogs(userId: string, list: WearLog[]): Promise<voi
           createdAt: l.createdAt,
           updatedAt: l.updatedAt ?? now,
         })),
-      );
+      )
+      .onConflictDoNothing(); // 同 saveCloset：略過他人佔用的全域 id
     }
   });
 }

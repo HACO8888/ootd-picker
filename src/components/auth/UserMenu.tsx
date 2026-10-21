@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { Icon } from "@/components/ui/Icon";
-import { LOGIN_PENDING_KEY } from "@/lib/sync";
+import { LOGIN_PENDING_KEY, clearLocalAccountOnSignOut } from "@/lib/sync";
 
 /** 標記為主動登入後再導向 Google，讓同步完成時才提示（重整不提示）。 */
 function loginWithGoogle() {
@@ -119,7 +119,7 @@ export function UserMenu() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                signOut();
+                void clearLocalAccountOnSignOut().finally(() => signOut());
               }}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-on-surface hover:bg-outline-variant/40 transition-colors text-left"
             >

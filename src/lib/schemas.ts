@@ -18,6 +18,9 @@ export const MAX_WEARLOGS = 5000;
 /** Raw request-body byte cap (Next 16 route handlers have no default limit). */
 export const MAX_BODY_BYTES = 8_000_000;
 
+/** ms timestamp that fits the bigint columns (fractional / huge values made the insert throw a 500). */
+const timestamp = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+
 /* ─── enums ───────────────────────────────────────────────────────────────── */
 export const categorySchema = z.enum(["tops", "bottoms", "outerwear", "accessories"]);
 export const seasonSchema = z.enum(["spring", "summer", "autumn", "winter"]);
@@ -38,7 +41,7 @@ export const itemSchema = z.object({
   tags: strArr,
   imageUrl: z.string().max(MAX_IMAGE),
   gender: genderSchema.optional(),
-  updatedAt: z.number().optional(),
+  updatedAt: timestamp.optional(),
 });
 
 /* ─── makeup / perfume (full — used by admin CRUD) ───────────────────────── */
@@ -110,7 +113,7 @@ export const favoriteSchema = z.object({
   date: z.string().max(MAX_TEXT),
   name: z.string().max(MAX_TEXT).optional(),
   outfit: outfitSchema,
-  updatedAt: z.number().optional(),
+  updatedAt: timestamp.optional(),
 });
 
 export const wearLogSchema = z.object({
@@ -119,8 +122,8 @@ export const wearLogSchema = z.object({
   outfit: outfitSchema,
   note: z.string().max(2000).optional(),
   favoriteId: z.string().max(MAX_ID).optional(),
-  createdAt: z.number(),
-  updatedAt: z.number().optional(),
+  createdAt: timestamp,
+  updatedAt: timestamp.optional(),
 });
 
 export const favoritesArraySchema = z.array(favoriteSchema).max(MAX_FAVORITES);
@@ -132,7 +135,12 @@ const overridePatchSchema = itemSchema.partial();
 export const closetDeltasSchema = z.object({
   userItems: z.array(itemSchema).max(MAX_CLOSET_ITEMS),
   hidden: z.array(z.string().max(MAX_ID)).max(MAX_CLOSET_ITEMS),
-  overrides: z.record(z.string().max(MAX_ID), overridePatchSchema).optional(),
+  // 與 userItems/hidden 同樣設上限：沒有上限時一個 8 MB body 可塞約 60 萬筆，
+  // 在共用 event loop 上同步跑完驗證與 SQL 組裝才失敗。
+  overrides: z
+    .record(z.string().max(MAX_ID), overridePatchSchema)
+    .refine((o) => Object.keys(o).length <= MAX_CLOSET_ITEMS)
+    .optional(),
 });
 
 /* ─── admin payloads ─────────────────────────────────────────────────────── */

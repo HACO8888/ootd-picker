@@ -56,25 +56,74 @@ export async function chatJson<T>(messages: ChatMessage[], schema: ZodType<T>): 
 /* ─── rate limiting ─────────────────────────────────────────────────────────
    AI calls cost money and the routes are public (guests can use them), so each
    client IP gets a small sliding-window budget per route. In-memory: per server
-   instance, which is enough to stop casual abuse on a single deployment. */
+   instance, which is enough to stop casual abuse on a single deployment.
+
+   - Client IP comes from the X-Forwarded-For entry added by our own proxy
+     (TRUSTED_PROXY_HOPS from the right, default 1). The leftmost entry is
+     whatever the client sent, so keying on it let callers mint a fresh budget
+     per request.
+   - A per-route global ceiling caps total spend no matter how many identities
+     a caller can produce (many real IPs, IPv6 rotation, a misconfigured proxy).
+   - The key map is size-capped and swept at most once a minute, so neither
+     memory nor per-request work grows with the number of distinct callers. */
 const WINDOW_MS = 10 * 60 * 1000;
+const GLOBAL_FACTOR = 15; // global ceiling = per-IP max × this, per route
+const MAX_KEYS = 10_000;
+const SWEEP_MS = 60 * 1000;
 const hits = new Map<string, number[]>();
+const globalHits = new Map<string, number[]>(); // per route; separate so eviction never resets it
+let lastSweep = 0;
+
+const trustedHops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS) || 1);
 
 function clientIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "local";
+  const chain = (req.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ip = chain[chain.length - trustedHops] ?? chain[0] ?? req.headers.get("x-real-ip") ?? "local";
+  return ip.slice(0, 64);
 }
+
+/** Sliding-window check-and-count for one key; true when the hit is allowed. */
+function take(key: string, max: number, now: number): boolean {
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= max) {
+    hits.set(key, recent);
+    return false;
+  }
+  recent.push(now);
+  if (!hits.has(key) && hits.size >= MAX_KEYS) {
+    // Map iterates in insertion order: evict the oldest key without a full scan.
+    const oldest = hits.keys().next().value;
+    if (oldest !== undefined) hits.delete(oldest);
+  }
+  hits.set(key, recent);
+  return true;
+}
+
+function sweep(now: number): void {
+  if (now - lastSweep < SWEEP_MS) return;
+  lastSweep = now;
+  for (const [k, v] of hits) if (!v.some((t) => now - t < WINDOW_MS)) hits.delete(k);
+}
+
+const limited = () =>
+  NextResponse.json({ error: "rate_limited", message: "AI 使用次數過多，請稍後再試。" }, { status: 429 });
 
 /** null when allowed; otherwise a ready 429 response. */
 export function rateLimit(req: Request, route: string, max: number): NextResponse | null {
-  const key = `${route}:${clientIp(req)}`;
   const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= max) {
-    return NextResponse.json({ error: "rate_limited", message: "AI 使用次數過多，請稍後再試。" }, { status: 429 });
+  sweep(now);
+  // Global first so a caller rejected here does not also burn a per-IP slot.
+  const global = (globalHits.get(route) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (global.length >= max * GLOBAL_FACTOR) {
+    globalHits.set(route, global);
+    return limited();
   }
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 5000) for (const [k, v] of hits) if (!v.some((t) => now - t < WINDOW_MS)) hits.delete(k);
+  if (!take(`${route}:${clientIp(req)}`, max, now)) return limited();
+  global.push(now);
+  globalHits.set(route, global);
   return null;
 }
 

@@ -16,7 +16,7 @@
   - `pnpm eval:recommend`　推薦引擎離線評估（違規率／命中率／多樣性／速度）
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
-- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）。正式環境變數存在 Infisical「OOTD Picker」專案的 `prod` 環境（AI 變數另有 `dev` 副本）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
+- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）、`TRUSTED_PROXY_HOPS`（AI 限流取 `X-Forwarded-For` 從右數第幾段，預設 1）。正式環境變數存在 Infisical「OOTD Picker」專案的 `prod` 環境（AI 變數另有 `dev` 副本）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
 - **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
 - **SEO**：網域與公開路由集中在 `src/lib/site.ts`（`NEXT_PUBLIC_SITE_URL` 覆寫，預設 https://ootd.haco.tw）；新增公開頁要加進 `PUBLIC_ROUTES` 並用 `pageMetadata()` 設 canonical。client 頁的 metadata 放同目錄的 server `layout.tsx`。
 
@@ -55,8 +55,9 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
 - 推薦演算法為核心契約（引擎 `generateOOTDSet`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加以單品類型推得的語意分數（上限 ±4）、天氣實穿性、性別；評分前先過硬性排除 `violates`（性別/天氣/場合），整套再以 `totalOutfitScore` 比對相容性、色彩和諧，並以 Gumbel 抽樣 + 多樣性挑選三套；設計見 PRD §8 D-REC-2）。**改動演算法或資料後必跑 `pnpm eval:recommend`（另加 `--small` 測小衣櫥）**，與 PRD 記錄的指標比較，並確認對 USER_STORY 的影響。
 - **AI 輔助**：LLM 一律經 `src/lib/server/ai.ts`（OpenAI 相容、`server-only`、每 IP 限流）；AI 輸出必須收斂到引擎詞彙（`GARMENT_TYPES`／`COLOR_NAMES`／`STYLE_TAGS`），且只回填表單或顯示文字，**不得**取代推薦引擎的硬性規則。e2e 一律 mock `/api/ai/*`。個人化（`personalize.ts`）只在單品已符合情境時加分，上限 +2；設計與成效見 PRD §8 D-AI-1。
-- **雲端同步**：唯一切入點是 `src/lib/store.ts` mutator 末端的 `enqueueSync`（訪客 no-op）；登入合併在 `src/lib/sync.ts` `mergeOnLogin`。新增使用者資料表時，需同步 `sync-repo.ts` 的 load/save 與型別的 `updatedAt?`。push=整包取代，故 `saveCloset` 要保留既有 `moderation_status`。
-- **認證**：session 帶 `id/role/status`。`auth.config.ts` 必須 edge-safe（不可 import db / `server-only`），`proxy.ts` 只用它解碼 JWT；完整流程（adapter/bootstrap）在 `auth.ts`。JWT 型別因 pnpm 無法 augment `@auth/core/jwt`，callback 內以 `auth.types.ts` 的 `Role/AccountStatus` 轉型。
+- **雲端同步**：唯一切入點是 `src/lib/store.ts` mutator 末端的 `enqueueSync`（訪客 no-op）；登入合併在 `src/lib/sync.ts` `mergeOnLogin`。新增使用者資料表時，需同步 `sync-repo.ts` 的 load/save 與型別的 `updatedAt?`。push=整包取代，故 `saveCloset` 要保留既有 `moderation_status`。sync 的 insert 用 `onConflictDoNothing`（id 為全域主鍵）。登出走 `clearLocalAccountOnSignOut()` 再 `signOut()`，不可直接呼叫 `signOut()`。
+- **認證**：session 帶 `id/role/status`。`auth.config.ts` 必須 edge-safe（不可 import db / `server-only`），`proxy.ts` 只用它解碼 JWT；完整流程（adapter/bootstrap）在 `auth.ts`。JWT 型別因 pnpm 無法 augment `@auth/core/jwt`，callback 內以 `auth.types.ts` 的 `Role/AccountStatus` 轉型。jwt callback 查不到使用者列時回 `null`（刪除即撤銷）；HTTPS 下 session cookie 名稱為 `__Host-authjs.session-token`。server component 讀取 admin 資料前要自己呼叫 `getAdminUser()`，不能只靠 layout。
+- **API 請求**：寫入型 handler 一律用 `parseBody`，它只收 `application/json`（否則 415）、拒絕跨站的 `Sec-Fetch-Site`、串流計算 byte 上限。前端 `fetch` 必須帶 `content-type: application/json`。
 - **後台**：所有 `/api/admin/*` handler 內**再驗證一次** `getAdminUser()`（proxy 之外的縱深防禦）；db 存取一律走 `src/lib/server/*`（`server-only`）。
 - **妝容/香水/目錄**：前台用 ES module live-binding 套用 DB 版本（`data.ts` 的 `setMakeupLookbook`/`setPerfumeLookbook`、`catalog.ts` 的 `setCatalogOverlay`），由 `RuntimeDataLoader` 於啟動載入；catalog（>10000）不入庫。
 

@@ -8,7 +8,7 @@ import { useChrome } from "@/components/chrome/ChromeProvider";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Icon } from "@/components/ui/Icon";
-import { LOGIN_PENDING_KEY } from "@/lib/sync";
+import { LOGIN_PENDING_KEY, clearLocalAccountOnSignOut } from "@/lib/sync";
 
 const LINKS = [
   { href: "/", label: "首頁" },
@@ -150,7 +150,7 @@ export function TopNav() {
                   type="button"
                   onClick={() => {
                     setDrawerOpen(false);
-                    signOut();
+                    void clearLocalAccountOnSignOut().finally(() => signOut());
                   }}
                   className="font-headline-lg text-headline-lg text-on-surface-variant py-3 border-b border-outline-variant text-left flex items-center gap-3"
                 >

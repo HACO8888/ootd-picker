@@ -148,7 +148,7 @@
     - 偏好以屬性記錄而非單品 id，可推廣到沒穿過的單品，也不會和「近 7 天降權」互相抵消。
     - 累積少於 3 件單品時不啟用。結果頁會顯示「個人化」標籤與「延續你常收藏、常穿的…」理由。
   - **供應商**：與 TPSJ11-AI 相同的 OpenAI 相容閘道（`https://ai.onc.tw/v1`），以 `AI_API_BASE_URL`／`AI_API_KEY`／`AI_TEXT_MODEL` 設定，預設 `gemini-3.8-flash`；不使用 `openrouter/` 模型。
-    - 未設定時回 503，前台照常運作；每 IP 每 10 分鐘限流（建檔 20 次、解說 30 次）。
+    - 未設定時回 503，前台照常運作；每 IP 每 10 分鐘限流（建檔 20 次、解說 30 次），另有每條路由的全域上限（見 D-SEC-1）。
     - 實測延遲：建檔約 3～8 秒、解說約 10 秒。
   - **個人化成效**（`pnpm eval:recommend --taste`，固定 persona：常收藏藏青／卡其色與長褲；300 情境 × 5 次）：
 
@@ -167,6 +167,14 @@
   - 每頁自帶 canonical 與 OG／Twitter 文案；client 頁改由 segment `layout.tsx` 提供 metadata。
   - `/share` 與 `/admin` 設為 noindex；首頁加 WebSite＋WebApplication JSON-LD；每頁只有一個 `h1`。
   - catalog JSON（約 1.2 MB）改為只在 picker、closet、insights、share 載入（`@/lib/catalog-source`），首頁、關於、日誌不再下載。
+- **D-SEC-1 安全強化（第 9 輪）**：依原始碼安全稽核修補認證、CSRF 與資源上限。
+  - **帳號生命週期**：jwt callback 查不到使用者列時回 `null`，Auth.js 會清除 cookie，刪除帳號即撤銷 session。後台 layout 與總覽頁改用 `getAdminUser()`，停權的管理員也會被擋下。
+  - **Session cookie**：HTTPS 下改名為 `__Host-authjs.session-token`（不得帶 Domain），同站的 `*.haco.tw` 子網域無法植入同名 cookie。部署後所有人需重新登入一次。
+  - **CSRF**：`parseBody` 只接受 `Content-Type: application/json`（否則 415），並拒絕 `Sec-Fetch-Site` 不是 `same-origin`／`none` 的請求（403）。跨來源請求因此都需要 preflight，而本站不回 CORS header。
+  - **請求大小**：body 上限改為串流讀取時計算 byte 數，超過 `MAX_BODY_BYTES` 立即中止，不再先整包載入記憶體。
+  - **AI 限流**：client IP 取 `X-Forwarded-For` 從右數第 `TRUSTED_PROXY_HOPS` 個（預設 1，即自家 proxy 加上的那段）；每條路由另有全域上限（每 IP 上限 ×15／10 分鐘）；key 表上限 1 萬筆，且最多每分鐘清理一次。
+  - **同步**：`overrides` 與其他 collection 一樣上限 `MAX_CLOSET_ITEMS`；時間戳必須是非負安全整數。insert 改為 `ON CONFLICT DO NOTHING`，他人已佔用的全域 id 會被略過，不再讓整包同步失敗。治本做法（改成 `(user_id, id)` 複合主鍵）另案處理。
+  - **登出**：先送出尚未同步的變更，再清除本機帳號資料。localStorage 記錄資料擁有者（`ootd_picker_owner_v1`），`mergeOnLogin` 遇到其他帳號的本機資料時以雲端為準、不合併；訪客資料仍會在首次登入時併入。
 
 ## 9. 里程碑（對齊 PM 時程，見 AGENTS.md §時程）
 

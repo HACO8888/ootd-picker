@@ -54,10 +54,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             .select({ role: users.role, status: users.status })
             .from(users)
             .where(eq(users.id, token.id as string));
-          if (row) {
-            token.role = row.role;
-            token.status = row.status;
-          }
+          // 使用者列已刪除：回 null 讓 Auth.js 清除 session cookie。否則被刪的帳號
+          // 會沿用 token 內舊的 role/status（例如被刪的 admin 仍能進後台）。
+          if (!row) return null;
+          token.role = row.role;
+          token.status = row.status;
         } catch (err) {
           // 短暫 DB 故障時保留既有 token claims（fail-safe，不阻斷請求）。
           console.error("jwt role/status refresh failed:", err);

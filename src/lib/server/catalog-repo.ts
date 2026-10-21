@@ -11,8 +11,33 @@ import {
 import { SEED_MAKEUP, SEED_PERFUME } from "@/lib/data";
 import type { Makeup, Perfume, Item } from "@/lib/types";
 
+/* ─── 公開讀取快取 ─────────────────────────────────────────────────────────
+   /api/looks 與 /api/catalog/global 每次頁面載入都會呼叫（訪客也是），直接查 DB
+   會讓匿名流量和登入使用者搶同一個 5 條連線池。資料只由 admin 修改，故在記憶體
+   快取 60 秒，admin 寫入時清除（單一 instance；多 instance 時最多延遲 60 秒）。
+   快取 Promise 本身，同時進來的請求共用同一次查詢。 */
+const CACHE_TTL_MS = 60_000;
+const cache = new Map<string, { at: number; value: Promise<unknown> }>();
+
+function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value as Promise<T>;
+  const value = load();
+  cache.set(key, { at: Date.now(), value });
+  value.catch(() => cache.delete(key));
+  return value;
+}
+
+function invalidate(): void {
+  cache.clear();
+}
+
 /* ─── Makeup ─────────────────────────────────────────────────────────────── */
-export async function listMakeup(): Promise<Makeup[]> {
+export function listMakeup(): Promise<Makeup[]> {
+  return cached("makeup", loadMakeup);
+}
+
+async function loadMakeup(): Promise<Makeup[]> {
   let rows = await db.select().from(makeupTable);
   if (rows.length === 0) {
     // 首次存取：以 data.ts 為 seed 灌入 DB。
@@ -33,14 +58,20 @@ export async function upsertMakeup(item: Makeup): Promise<void> {
       target: makeupTable.id,
       set: { data: item, updatedAt: Date.now() },
     });
+  invalidate();
 }
 
 export async function deleteMakeup(id: string): Promise<void> {
   await db.delete(makeupTable).where(eq(makeupTable.id, id));
+  invalidate();
 }
 
 /* ─── Perfume ────────────────────────────────────────────────────────────── */
-export async function listPerfume(): Promise<Perfume[]> {
+export function listPerfume(): Promise<Perfume[]> {
+  return cached("perfume", loadPerfume);
+}
+
+async function loadPerfume(): Promise<Perfume[]> {
   let rows = await db.select().from(perfumeTable);
   if (rows.length === 0) {
     await db
@@ -60,10 +91,12 @@ export async function upsertPerfume(item: Perfume): Promise<void> {
       target: perfumeTable.id,
       set: { data: item, updatedAt: Date.now() },
     });
+  invalidate();
 }
 
 export async function deletePerfume(id: string): Promise<void> {
   await db.delete(perfumeTable).where(eq(perfumeTable.id, id));
+  invalidate();
 }
 
 /* ─── 全域 catalog 調整（覆蓋既有項 + 新增全域項）────────────────────────── */
@@ -73,7 +106,11 @@ export interface GlobalCatalog {
   extras: Item[];
 }
 
-export async function getGlobalCatalog(): Promise<GlobalCatalog> {
+export function getGlobalCatalog(): Promise<GlobalCatalog> {
+  return cached("global", loadGlobalCatalog);
+}
+
+async function loadGlobalCatalog(): Promise<GlobalCatalog> {
   const [overrides, extras] = await Promise.all([
     db.select().from(catalogOverrides),
     db.select().from(catalogExtras),
@@ -124,10 +161,12 @@ export async function upsertExtra(item: Item): Promise<void> {
         updatedAt: Date.now(),
       },
     });
+  invalidate();
 }
 
 export async function deleteExtra(id: string): Promise<void> {
   await db.delete(catalogExtras).where(eq(catalogExtras.id, id));
+  invalidate();
 }
 
 export async function setOverride(
@@ -141,8 +180,10 @@ export async function setOverride(
       target: catalogOverrides.catalogId,
       set: { patch, updatedAt: Date.now() },
     });
+  invalidate();
 }
 
 export async function removeOverride(catalogId: string): Promise<void> {
   await db.delete(catalogOverrides).where(eq(catalogOverrides.catalogId, catalogId));
+  invalidate();
 }

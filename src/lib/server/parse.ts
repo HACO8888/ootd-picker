@@ -1,5 +1,7 @@
 // Request-body parsing + zod validation for route handlers (server-only).
-// Reads the raw body with a size cap (Next 16 route handlers impose none),
+// Reads the raw body with a byte cap enforced while streaming (Next 16 route
+// handlers impose none, so the old read-all-then-check let any public route
+// buffer an arbitrarily large body),
 // JSON-parses it, then validates shape with a zod schema. On success returns
 // the ORIGINAL parsed object (cast to T) so no field is dropped on round-trip;
 // the schema is purely an accept/reject gate.
@@ -39,19 +41,22 @@ export async function parseBody<T = unknown>(
     };
   }
 
+  const tooLarge = (): ParseResult<T> => ({
+    ok: false,
+    res: NextResponse.json({ error: "請求內容過大" }, { status: 413 }),
+  });
+  const declared = Number(req.headers.get("content-length"));
+  if (declared > MAX_BODY_BYTES) return tooLarge();
+
   let text: string;
   try {
-    text = await req.text();
+    const read = await readCapped(req, MAX_BODY_BYTES);
+    if (read === null) return tooLarge();
+    text = read;
   } catch {
     return {
       ok: false,
       res: NextResponse.json({ error: "讀取請求內容失敗" }, { status: 400 }),
-    };
-  }
-  if (text.length > MAX_BODY_BYTES) {
-    return {
-      ok: false,
-      res: NextResponse.json({ error: "請求內容過大" }, { status: 413 }),
     };
   }
   let json: unknown;
@@ -72,4 +77,29 @@ export async function parseBody<T = unknown>(
   }
   // 通過驗證後回傳原始物件（保留所有欄位，避免 zod 預設剝除未知鍵造成資料遺失）。
   return { ok: true, data: json as T };
+}
+
+/** 串流讀取 body，累計 byte 數超過 max 即中止並回 null（不先整包載入記憶體）。 */
+async function readCapped(req: Request, max: number): Promise<string | null> {
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    buf.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(buf);
 }

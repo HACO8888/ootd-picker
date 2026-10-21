@@ -16,7 +16,7 @@
   - `pnpm eval:recommend`　推薦引擎離線評估（違規率／命中率／多樣性／速度）
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
-- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
+- **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
 - **改動後必須**：`pnpm lint` 與 `pnpm build` 皆綠燈才算完成。
 - **SEO**：網域與公開路由集中在 `src/lib/site.ts`（`NEXT_PUBLIC_SITE_URL` 覆寫，預設 https://ootd.haco.tw）；新增公開頁要加進 `PUBLIC_ROUTES` 並用 `pageMetadata()` 設 canonical。client 頁的 metadata 放同目錄的 server `layout.tsx`。
 
@@ -25,14 +25,15 @@
 ```
 src/app/        前台：/ · /picker · /closet · /insights · /journal · /share · /about
                 admin/  後台：總覽 · users · catalog · makeup · perfume · moderation（proxy + layout 雙重守門）
-                api/    auth · sync/{closet,favorites,wearlogs} · looks · catalog/global · admin/*
+                api/    auth · sync/{closet,favorites,wearlogs} · looks · catalog/global · admin/* · ai/{tag,stylist}
 src/auth.ts · auth.config.ts   Auth.js v5（完整 / edge-safe 拆分；proxy.ts 用後者解碼 JWT）
 src/proxy.ts    Next 16 middleware：守 /admin 與 /api/admin（JWT role=admin）
 src/db/         schema.ts（Drizzle）· client.ts（postgres.js 單例，"server-only"）
 src/components/  nav · picker · results · closet · favorites · insights · journal · share · ui · chrome · home · auth · admin
 src/hooks/       useCloset · useFavorites · useUserCloset · useWearLog（皆包 useSyncExternalStore）
 src/lib/         types · data · catalog · catalog-data.json · recommend · storage · store · weather · sync · auth.types
-                 server/  server-only repo：sync-repo · admin-repo · catalog-repo · session
+                 garment-vocab（品類詞彙，引擎與 AI 建檔共用）· personalize（偏好學習）· ai-client（前端呼叫 /api/ai）
+                 server/  server-only repo：sync-repo · admin-repo · catalog-repo · session · ai（LLM client＋限流）
                  catalog = Fashion Product Images 資料集(MIT)~5400 件，每件一張白底商品照，
                  名稱由資料集的顏色＋品類標籤產生（文字與圖對應、不重複），帶原生 gender。
                  重新抓取：pnpm fetch:fashion；只重推標籤/季節：pnpm derive:catalog（離線）
@@ -53,6 +54,7 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
 - 推薦演算法為核心契約（引擎 `generateOOTDSet`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加以單品類型推得的語意分數（上限 ±4）、天氣實穿性、性別；評分前先過硬性排除 `violates`（性別/天氣/場合），整套再以 `totalOutfitScore` 比對相容性、色彩和諧，並以 Gumbel 抽樣 + 多樣性挑選三套；設計見 PRD §8 D-REC-2）。**改動演算法或資料後必跑 `pnpm eval:recommend`（另加 `--small` 測小衣櫥）**，與 PRD 記錄的指標比較，並確認對 USER_STORY 的影響。
+- **AI 輔助**：LLM 一律經 `src/lib/server/ai.ts`（OpenAI 相容、`server-only`、每 IP 限流）；AI 輸出必須收斂到引擎詞彙（`GARMENT_TYPES`／`COLOR_NAMES`／`STYLE_TAGS`），且只回填表單或顯示文字，**不得**取代推薦引擎的硬性規則。e2e 一律 mock `/api/ai/*`。個人化（`personalize.ts`）只在單品已符合情境時加分，上限 +2；設計與成效見 PRD §8 D-AI-1。
 - **雲端同步**：唯一切入點是 `src/lib/store.ts` mutator 末端的 `enqueueSync`（訪客 no-op）；登入合併在 `src/lib/sync.ts` `mergeOnLogin`。新增使用者資料表時，需同步 `sync-repo.ts` 的 load/save 與型別的 `updatedAt?`。push=整包取代，故 `saveCloset` 要保留既有 `moderation_status`。
 - **認證**：session 帶 `id/role/status`。`auth.config.ts` 必須 edge-safe（不可 import db / `server-only`），`proxy.ts` 只用它解碼 JWT；完整流程（adapter/bootstrap）在 `auth.ts`。JWT 型別因 pnpm 無法 augment `@auth/core/jwt`，callback 內以 `auth.types.ts` 的 `Role/AccountStatus` 轉型。
 - **後台**：所有 `/api/admin/*` handler 內**再驗證一次** `getAdminUser()`（proxy 之外的縱深防禦）；db 存取一律走 `src/lib/server/*`（`server-only`）。

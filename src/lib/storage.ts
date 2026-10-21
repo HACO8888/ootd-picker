@@ -231,12 +231,28 @@ export function setFavorites(list: Favorite[]): Favorite[] {
   return persistFavorites(list);
 }
 
-/** A garment slot must be null/absent or a minimally Item-shaped object. */
+const isStr = (v: unknown) => typeof v === "string";
+/** Absent, or an array of strings (UI code calls .join / .includes on these). */
+const isOptStrArr = (v: unknown) => v === undefined || (Array.isArray(v) && v.every(isStr));
+const isOptStr = (v: unknown) => v === undefined || isStr(v);
+
+/** A garment slot must be null/absent or an Item-shaped object whose fields have
+ *  the types the renderers assume (a non-string imageUrl crashed SmartImage and,
+ *  once synced, broke the importer's views for good). */
 function isItemLike(s: unknown): boolean {
   if (s == null) return true;
   if (typeof s !== "object") return false;
   const o = s as Record<string, unknown>;
-  return typeof o.id === "string" && typeof o.name === "string" && typeof o.category === "string";
+  return (
+    isStr(o.id) &&
+    isStr(o.name) &&
+    isStr(o.category) &&
+    isOptStr(o.imageUrl) &&
+    isOptStr(o.brand) &&
+    isOptStrArr(o.colors) &&
+    isOptStrArr(o.seasons) &&
+    isOptStrArr(o.tags)
+  );
 }
 
 /** Validate an imported outfit so consumers (drawers/calendar) never crash
@@ -245,11 +261,13 @@ function isValidOutfit(outfit: unknown): boolean {
   if (!outfit || typeof outfit !== "object") return false;
   const o = outfit as Record<string, unknown>;
   const ctx = o.context as Record<string, unknown> | undefined;
-  if (!ctx || typeof ctx.weather !== "string") return false;
+  if (!ctx || typeof ctx !== "object" || !isStr(ctx.weather)) return false;
+  if (!isOptStr(ctx.mood) || !isOptStr(ctx.destination) || !isOptStr(ctx.gender)) return false;
   const mk = o.makeup as Record<string, unknown> | undefined;
-  if (!mk || typeof mk.name !== "string") return false;
+  if (!mk || typeof mk !== "object" || !isStr(mk.name)) return false;
+  if (!isOptStr(mk.imageUrl) || !isOptStrArr(mk.colors)) return false;
   const pf = o.perfume as Record<string, unknown> | undefined;
-  if (!pf || typeof pf.name !== "string") return false;
+  if (!pf || typeof pf !== "object" || !isStr(pf.name) || !isOptStr(pf.imageUrl)) return false;
   return (["top", "bottom", "outerwear", "accessory"] as const).every((k) => isItemLike(o[k]));
 }
 
@@ -259,7 +277,7 @@ export function parseFavoritesJSON(raw: string): Favorite[] {
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
   for (const f of data) {
-    if (!f || typeof f.id !== "string" || !isValidOutfit(f.outfit)) {
+    if (!f || !isStr(f.id) || !isOptStr(f.name) || !isOptStr(f.date) || !isValidOutfit(f.outfit)) {
       throw new Error("格式錯誤：缺少或不正確的必要欄位");
     }
   }
@@ -328,7 +346,7 @@ export function parseWearLogsJSON(raw: string): WearLog[] {
   const data = JSON.parse(raw);
   if (!Array.isArray(data)) throw new Error("格式錯誤：根節點需為陣列");
   for (const l of data) {
-    if (!l || typeof l.id !== "string" || typeof l.date !== "string" || !isValidOutfit(l.outfit)) {
+    if (!l || !isStr(l.id) || !isStr(l.date) || !isOptStr(l.note) || !isValidOutfit(l.outfit)) {
       throw new Error("格式錯誤：缺少或不正確的必要欄位");
     }
   }

@@ -26,12 +26,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   }),
   callbacks: {
     ...authConfig.callbacks,
-    async jwt({ token, user }) {
+    async jwt({ token, user, profile }) {
       // 初次登入：user 為 adapter 的 DB 使用者；記下 id 並做 admin bootstrap。
       if (user?.id) {
         token.id = user.id;
         const email = user.email?.toLowerCase();
-        if (email && adminEmails.includes(email)) {
+        // 只認 Google 已驗證的 email，避免未驗證的地址冒用 ADMIN_EMAILS 名單取得 admin。
+        if (email && adminEmails.includes(email) && profile?.email_verified === true) {
           // 包 try/catch：輔助寫入失敗不應阻斷登入（下次登入會重試）。
           try {
             await db

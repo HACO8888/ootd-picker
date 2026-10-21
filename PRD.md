@@ -181,6 +181,14 @@
   - **連線時限**：每條 DB 連線設 `statement_timeout` 15 秒、`lock_timeout` 5 秒、`idle_in_transaction_session_timeout` 15 秒，單一請求無法無限期佔住共用的 5 條連線。
   - **同步序列化**：同一使用者、同一 collection 的儲存依序執行（記憶體內排隊、不佔連線）；同時超過兩個時回 429，client 視為暫時性錯誤並重試。
   - **公開讀取快取**：`/api/looks`、`/api/catalog/global` 在記憶體快取 60 秒，admin 寫入時清除。
+- **D-SEC-3 強化項目（第 9 輪）**：
+  - **原型鍵**：`TRANSLATE` 與引擎的目的地／心情／場合／色相對照表都去掉原型。`/share?mood=__proto__` 這類連結原本會讓頁面崩潰，現在只是查不到。推薦指標維持不變（`pnpm eval:recommend`，含 `--small`，差異在抽樣誤差內）。
+  - **匯入檢查**：收藏、日誌的 JSON 匯入會檢查渲染端依賴的欄位型別（`imageUrl` 為字串、`colors` 等為字串陣列等）。前端刻意不打包 zod，所以沿用手寫檢查。
+  - **管理員 bootstrap**：`ADMIN_EMAILS` 只在 Google 回報 `email_verified` 為 true 時升級。
+  - **審核**：已刪除或不存在的衣物回 404；公開目錄只輸出 `approved` 的 catalog extra。
+  - **圖片**：上傳拒收 SVG；分享卡只載入同源、`data:`、`blob:` 圖片。
+  - **CI**：actions 釘 commit SHA、`permissions: contents: read`。
+  - **CSP**：production 移除 `'unsafe-eval'`；`connect-src` 限 `'self'` 與 Open-Meteo，`img-src` 限 `'self'`、`data:`、`blob:` 與 Google 頭像。不採用 nonce：每次請求產生 nonce 會讓所有頁面變成動態，失去靜態預渲染。`Permissions-Policy` 改為 `geolocation=(self)`，「偵測今天天氣」才能取得定位。
 
 ## 9. 里程碑（對齊 PM 時程，見 AGENTS.md §時程）
 

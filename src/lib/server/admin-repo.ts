@@ -168,16 +168,19 @@ export async function moderateItem(
   id: string,
   action: "approved" | "rejected",
   reason?: string,
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const rows = await db
     .update(closetItems)
     .set({
       moderationStatus: action,
       moderatedAt: Date.now(),
       rejectReason: action === "rejected" ? (reason ?? null) : null,
     })
-    // id 只在同一使用者內唯一（主鍵為 user_id + id），須連同擁有者比對。
-    .where(and(eq(closetItems.userId, userId), eq(closetItems.id, id)));
+    // id 只在同一使用者內唯一（主鍵為 user_id + id），須連同擁有者比對；
+    // 已刪除的衣物不再審核。回傳是否真的改到一列（否則路由回 404）。
+    .where(and(eq(closetItems.userId, userId), eq(closetItems.id, id), isNull(closetItems.deletedAt)))
+    .returning({ id: closetItems.id });
+  return rows.length > 0;
 }
 
 export async function getStats(): Promise<AdminStats> {

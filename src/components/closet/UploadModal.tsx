@@ -148,8 +148,10 @@ export function UploadModal({
 
   const handleFile = (file: File) => {
     setError("");
-    if (!file.type.startsWith("image/")) {
-      setError("請上傳圖片檔案！");
+    // SVG 可內嵌 script：目前雖只以 <img> 顯示，但下方 canvas 失敗時會原樣保存 data URL，
+    // 一律拒收，避免日後換了顯示方式就成為 XSS 載體。
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
+      setError("請上傳 JPG、PNG、WebP 等點陣圖片！");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {

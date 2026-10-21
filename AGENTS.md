@@ -51,7 +51,8 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - 設計系統：全站採**編輯感 / VOGUE 風**（黑白基底 + 朱砂紅 accent、Fraunces serif + Inter、直角 + 細墨線；見 DESIGN.md）。改色／字體一律改 `globals.css` `@theme` token 的**值**、**勿改 token 名**（元件全用語義 class）；換字體沿用 `--font-playfair` / `--font-dm-sans` 變數名。共用編輯式元件在 `src/components/ui/Editorial.tsx`（Kicker / IndexNumber / SectionRule / EditorialHeading）。
 - 資料與 UI 分離：推薦/儲存邏輯放 `src/lib`，畫面只組裝。
 - localStorage 一律走 `src/lib/store.ts`（`useSyncExternalStore`）以跨元件同步；**勿**用 effect 直接 `setState` 讀取（會觸發 `react-hooks/set-state-in-effect`）。
-- 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。
+- 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。新增任何遠端資源（API、圖片、字型）時要同步更新 `next.config.ts` 的 CSP 白名單，否則 production 會被擋（dev 不套 CSP，看不出來）。
+- 以外部輸入（URL、localStorage、匯入檔、DB）當 key 查常數表時，表要去掉原型（`TRANSLATE` 用 `dict()`，其他用 `Object.setPrototypeOf(表, null)`），避免 `__proto__` 取到 `Object.prototype`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。
 - 推薦演算法為核心契約（引擎 `generateOOTDSet`，單品評分集中於 `scoreItem`：目的地 +5、天氣/季節 +4、心情 +3，外加以單品類型推得的語意分數（上限 ±4）、天氣實穿性、性別；評分前先過硬性排除 `violates`（性別/天氣/場合），整套再以 `totalOutfitScore` 比對相容性、色彩和諧，並以 Gumbel 抽樣 + 多樣性挑選三套；設計見 PRD §8 D-REC-2）。**改動演算法或資料後必跑 `pnpm eval:recommend`（另加 `--small` 測小衣櫥）**，與 PRD 記錄的指標比較，並確認對 USER_STORY 的影響。
 - **AI 輔助**：LLM 一律經 `src/lib/server/ai.ts`（OpenAI 相容、`server-only`、每 IP 限流）；AI 輸出必須收斂到引擎詞彙（`GARMENT_TYPES`／`COLOR_NAMES`／`STYLE_TAGS`），且只回填表單或顯示文字，**不得**取代推薦引擎的硬性規則。e2e 一律 mock `/api/ai/*`。個人化（`personalize.ts`）只在單品已符合情境時加分，上限 +2；設計與成效見 PRD §8 D-AI-1。

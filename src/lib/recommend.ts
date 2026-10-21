@@ -80,6 +80,8 @@ const DESTINATION_TAG_AFFINITY: Record<string, WeightedTag[]> = {
     { tag: "放鬆", score: 2.6 },
   ],
 };
+// 以 destination / mood（可能來自分享連結或匯入檔）查表：去掉原型，讓 "__proto__"、"constructor" 查不到東西而非取到 Object.prototype。
+Object.setPrototypeOf(DESTINATION_TAG_AFFINITY, null);
 
 const MOOD_TAG_AFFINITY: Record<string, WeightedTag[]> = {
   活力: [
@@ -106,6 +108,7 @@ const MOOD_TAG_AFFINITY: Record<string, WeightedTag[]> = {
     { tag: "休閒漫步", score: 1.1 },
   ],
 };
+Object.setPrototypeOf(MOOD_TAG_AFFINITY, null);
 
 interface StyleProfile {
   formal: number;
@@ -427,6 +430,7 @@ const VENUE_EXCLUDES: Record<string, Partial<Record<Category, string[]>>> = {
     accessories: ["手提包", "手拿包", "電腦包", "旅行袋", "郵差包", "後背包", "背包", "領帶", "皮帶", "披肩", "太陽眼鏡", "棒球帽"],
   },
 };
+Object.setPrototypeOf(VENUE_EXCLUDES, null);
 
 /** Gender rule only — the one constraint that is never relaxed. */
 function violatesGender(i: Item, ctx: ClothCtx): boolean {

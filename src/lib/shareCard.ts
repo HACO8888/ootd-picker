@@ -44,7 +44,13 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
 const IMAGE_TIMEOUT_MS = 4000;
 const FONTS_TIMEOUT_MS = 3000;
 
+/** 只載入同源路徑或 data:/blob: 圖片；其他 URL（admin 設定或匯入檔帶入）不向第三方主機發請求。 */
+function isLocalImage(src: string): boolean {
+  return (src.startsWith("/") && !src.startsWith("//")) || src.startsWith("data:image/") || src.startsWith("blob:");
+}
+
 function loadImage(src: string): Promise<HTMLImageElement | null> {
+  if (typeof src !== "string" || !isLocalImage(src)) return Promise.resolve(null);
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";

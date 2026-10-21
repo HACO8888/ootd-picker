@@ -20,6 +20,25 @@ export async function parseBody<T = unknown>(
   req: Request,
   schema: ZodType,
 ): Promise<ParseResult<T>> {
+  // CSRF：只收 application/json。text/plain 等「簡單請求」不需 CORS preflight，
+  // 同站的 *.haco.tw 子網域可帶著 SameSite=Lax 的 session cookie 直接送出；
+  // 要求 JSON 後跨來源請求都得先 preflight，而本站不回 CORS header，因此會被擋下。
+  const contentType = req.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: "Content-Type 必須為 application/json" }, { status: 415 }),
+    };
+  }
+  // 縱深防禦：瀏覽器有送 Fetch Metadata 時，只接受同源或使用者直接發起的請求。
+  const fetchSite = req.headers.get("sec-fetch-site");
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: "不允許跨來源請求" }, { status: 403 }),
+    };
+  }
+
   let text: string;
   try {
     text = await req.text();

@@ -8,6 +8,7 @@ const ICON: Record<Reason["kind"], string> = {
   destination: "place",
   mood: "mood",
   color: "palette",
+  personal: "favorite",
 };
 
 /** "Why this look" — a short, grouped list of recommendation reasons. */

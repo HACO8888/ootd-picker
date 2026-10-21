@@ -96,7 +96,8 @@ export const verificationTokens = pgTable(
 export const closetItems = pgTable(
   "closet_item",
   {
-    id: text("id").primaryKey(), // "c_…"
+    // 主鍵為 (user_id, id)：id 由 client 產生，只在同一使用者內唯一。
+    id: text("id").notNull(), // "c_…"
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -116,6 +117,7 @@ export const closetItems = pgTable(
     deletedAt: bigint("deleted_at", { mode: "number" }),
   },
   (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
     index("closet_item_user_idx").on(t.userId),
     index("closet_item_user_updated_idx").on(t.userId, t.updatedAt),
     index("closet_item_moderation_idx").on(t.moderationStatus),
@@ -155,7 +157,7 @@ export const overrides = pgTable(
 export const favorites = pgTable(
   "favorite",
   {
-    id: text("id").primaryKey(), // "f_…"
+    id: text("id").notNull(), // "f_…"；主鍵 (user_id, id)
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -165,13 +167,16 @@ export const favorites = pgTable(
     updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
     deletedAt: bigint("deleted_at", { mode: "number" }),
   },
-  (t) => [index("favorite_user_updated_idx").on(t.userId, t.updatedAt)],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
+    index("favorite_user_updated_idx").on(t.userId, t.updatedAt),
+  ],
 );
 
 export const wearLogs = pgTable(
   "wear_log",
   {
-    id: text("id").primaryKey(), // "w_…"
+    id: text("id").notNull(), // "w_…"；主鍵 (user_id, id)
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -183,7 +188,10 @@ export const wearLogs = pgTable(
     updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
     deletedAt: bigint("deleted_at", { mode: "number" }),
   },
-  (t) => [index("wear_log_user_date_idx").on(t.userId, t.date)],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.id] }),
+    index("wear_log_user_date_idx").on(t.userId, t.date),
+  ],
 );
 
 /* ─── 目錄管理（全域，由 admin 維護）──────────────────────────────────────── */

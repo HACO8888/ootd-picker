@@ -10,6 +10,7 @@ interface Row {
   category: string;
   tags: string[];
   imageUrl: string;
+  ownerId: string;
   ownerEmail: string | null;
   ownerName: string | null;
 }
@@ -32,7 +33,10 @@ export default function ModerationPage() {
     };
   }, []);
 
-  async function act(id: string, action: "approved" | "rejected") {
+  // 衣物 id 只在同一擁有者內唯一，列表與操作都以 ownerId + id 識別。
+  const keyOf = (r: Pick<Row, "ownerId" | "id">) => `${r.ownerId}:${r.id}`;
+
+  async function act(row: Row, action: "approved" | "rejected") {
     let reason: string | undefined;
     if (action === "rejected") {
       const r = await promptText({
@@ -45,12 +49,13 @@ export default function ModerationPage() {
       if (r === null) return; // 取消 → 中止拒絕
       reason = r || undefined;
     }
-    setBusy(id);
+    const key = keyOf(row);
+    setBusy(key);
     try {
       const res = await fetch("/api/admin/moderation", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, action, reason }),
+        body: JSON.stringify({ userId: row.ownerId, id: row.id, action, reason }),
       });
       if (!res.ok) {
         // Only remove the row on a confirmed server-side change; otherwise the
@@ -58,7 +63,7 @@ export default function ModerationPage() {
         showToast("操作失敗，請重試");
         return;
       }
-      setRows((rs) => rs.filter((r) => r.id !== id));
+      setRows((rs) => rs.filter((r) => keyOf(r) !== key));
       showToast(action === "approved" ? "已通過" : "已拒絕");
     } catch {
       showToast("操作失敗，請檢查網路");
@@ -92,7 +97,7 @@ export default function ModerationPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {rows.map((r) => (
-            <div key={r.id} className="border border-outline-variant p-3 flex gap-3">
+            <div key={keyOf(r)} className="border border-outline-variant p-3 flex gap-3">
               <div className="w-20 h-24 shrink-0 bg-outline-variant/30 overflow-hidden">
                 {r.imageUrl?.startsWith("data:") ? (
                   // 僅內嵌渲染 data: 上傳圖。遠端 URL 不自動載入，避免未審內容
@@ -127,16 +132,16 @@ export default function ModerationPage() {
                 <div className="flex gap-3 mt-2">
                   <button
                     type="button"
-                    disabled={busy === r.id}
-                    onClick={() => act(r.id, "approved")}
+                    disabled={busy === keyOf(r)}
+                    onClick={() => act(r, "approved")}
                     className="kicker text-on-surface hover:text-primary disabled:opacity-40"
                   >
                     通過
                   </button>
                   <button
                     type="button"
-                    disabled={busy === r.id}
-                    onClick={() => act(r.id, "rejected")}
+                    disabled={busy === keyOf(r)}
+                    onClick={() => act(r, "rejected")}
                     className="kicker text-primary hover:opacity-70 disabled:opacity-40"
                   >
                     拒絕

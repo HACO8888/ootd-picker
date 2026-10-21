@@ -163,6 +163,7 @@ export const catalogOverrideSchema = z.object({
 });
 
 export const moderationSchema = z.object({
+  userId: z.string().min(1).max(MAX_ID),
   id: z.string().min(1).max(MAX_ID),
   action: z.enum(["approved", "rejected"]),
   reason: z.string().max(500).optional(),

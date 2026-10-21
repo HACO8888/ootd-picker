@@ -16,12 +16,13 @@ export async function PATCH(req: Request) {
   const admin = await getAdminUser();
   if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = await parseBody<{
+    userId: string;
     id: string;
     action: "approved" | "rejected";
     reason?: string;
   }>(req, moderationSchema);
   if (!parsed.ok) return parsed.res;
-  const { id, action, reason } = parsed.data;
-  await moderateItem(id, action, reason);
+  const { userId, id, action, reason } = parsed.data;
+  await moderateItem(userId, id, action, reason);
   return NextResponse.json({ ok: true });
 }

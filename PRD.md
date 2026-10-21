@@ -147,7 +147,7 @@
   - **偏好學習**（`src/lib/personalize.ts`）：從收藏與穿搭日誌（實際穿過的權重 ×1.5）學習偏好的顏色與品類，引擎對已符合情境的單品加分，上限 +2。
     - 偏好以屬性記錄而非單品 id，可推廣到沒穿過的單品，也不會和「近 7 天降權」互相抵消。
     - 累積少於 3 件單品時不啟用。結果頁會顯示「個人化」標籤與「延續你常收藏、常穿的…」理由。
-  - **供應商**：與 TPSJ11-AI 相同的 OpenAI 相容閘道（`https://ai-api.on-cloud.tw/gemini-antigravity/v1`），以 `AI_API_BASE_URL`／`AI_API_KEY`／`AI_TEXT_MODEL` 設定，預設 `gemini-flash-latest`。
+  - **供應商**：與 TPSJ11-AI 相同的 OpenAI 相容閘道（`https://ai.onc.tw/v1`），以 `AI_API_BASE_URL`／`AI_API_KEY`／`AI_TEXT_MODEL` 設定，預設 `gemini-3.8-flash`；不使用 `openrouter/` 模型。
     - 未設定時回 503，前台照常運作；每 IP 每 10 分鐘限流（建檔 20 次、解說 30 次）。
     - 實測延遲：建檔約 3～8 秒、解說約 10 秒。
   - **個人化成效**（`pnpm eval:recommend --taste`，固定 persona：常收藏藏青／卡其色與長褲；300 情境 × 5 次）：

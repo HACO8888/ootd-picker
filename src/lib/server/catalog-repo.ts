@@ -113,7 +113,8 @@ export function getGlobalCatalog(): Promise<GlobalCatalog> {
 async function loadGlobalCatalog(): Promise<GlobalCatalog> {
   const [overrides, extras] = await Promise.all([
     db.select().from(catalogOverrides),
-    db.select().from(catalogExtras),
+    // 目前只有 admin 能寫入（一律 approved）；仍過濾，避免日後新增的投稿路徑把未審內容推給所有訪客。
+    db.select().from(catalogExtras).where(eq(catalogExtras.moderationStatus, "approved")),
   ]);
   return {
     overrides: Object.fromEntries(overrides.map((r) => [r.catalogId, r.patch])),

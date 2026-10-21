@@ -23,6 +23,8 @@ export async function PATCH(req: Request) {
   }>(req, moderationSchema);
   if (!parsed.ok) return parsed.res;
   const { userId, id, action, reason } = parsed.data;
-  await moderateItem(userId, id, action, reason);
+  if (!(await moderateItem(userId, id, action, reason))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   return NextResponse.json({ ok: true });
 }

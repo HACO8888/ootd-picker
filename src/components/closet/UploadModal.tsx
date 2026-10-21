@@ -1,8 +1,10 @@
 "use client";
 
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { Category, Season } from "@/lib/types";
 import { STYLE_TAGS } from "@/lib/tags";
+import { COLOR_HEX } from "@/lib/data";
+import { AiError, requestAutoTag } from "@/lib/ai-client";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -24,7 +26,7 @@ const SEASONS: { value: Season; label: string }[] = [
   { value: "winter", label: "冬季" },
 ];
 
-const COLORS: { value: string; label: string; swatch: string; border?: boolean }[] = [
+const COLORS: { value: string; label: string; swatch: string; border?: boolean; hex?: string }[] = [
   { value: "白色", label: "白色", swatch: "bg-white", border: true },
   { value: "鼠尾草綠", label: "鼠尾草綠", swatch: "bg-[#54643b]" },
   { value: "焦糖色", label: "焦糖色", swatch: "bg-[#7d562d]" },
@@ -105,7 +107,44 @@ export function UploadModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
+  const [ai, setAi] = useState<{ status: "idle" | "loading" | "done" } | { status: "error"; message: string }>({ status: "idle" });
+  const aiAbort = useRef<AbortController | null>(null);
   useDialogA11y(panelRef, true, onClose);
+  useEffect(() => () => aiAbort.current?.abort(), []);
+
+  // A colour the AI picked outside the five preset swatches still gets a chip.
+  const palette =
+    !color || COLORS.some((c) => c.value === color)
+      ? COLORS
+      : [...COLORS, { value: color, label: color, swatch: "", border: true, hex: COLOR_HEX[color] ?? "#9ca3af" }];
+
+  /** Vision model reads the photo and pre-fills the form; the user still reviews and submits. */
+  const autoTag = async () => {
+    if (!image || ai.status === "loading") return;
+    aiAbort.current?.abort();
+    const ctrl = new AbortController();
+    aiAbort.current = ctrl;
+    setError("");
+    setAi({ status: "loading" });
+    try {
+      const r = await requestAutoTag(image, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      dispatch({
+        type: "set",
+        patch: {
+          name: r.name,
+          category: r.category,
+          ...(r.seasons.length ? { seasons: r.seasons } : {}),
+          ...(r.colors[0] ? { color: r.colors[0] } : {}),
+          ...(r.tags.length ? { tags: r.tags } : {}),
+        },
+      });
+      setAi({ status: "done" });
+    } catch (e) {
+      if (ctrl.signal.aborted) return;
+      setAi({ status: "error", message: e instanceof AiError ? e.message : "AI 辨識失敗，請手動填寫。" });
+    }
+  };
 
   const handleFile = (file: File) => {
     setError("");
@@ -141,6 +180,7 @@ export function UploadModal({
       }
       ctx.drawImage(img, 0, 0, w, h);
       dispatch({ type: "set", patch: { image: canvas.toDataURL("image/webp", 0.85) } });
+      setAi({ status: "idle" });
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -234,6 +274,27 @@ export function UploadModal({
             )}
           </div>
 
+          {image && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-outline-variant bg-surface-container-low px-5 py-4" aria-live="polite">
+              <button
+                type="button"
+                onClick={autoTag}
+                disabled={ai.status === "loading"}
+                className="inline-flex items-center justify-center gap-2 bg-on-surface text-background px-5 py-2.5 kicker hover:bg-primary transition-colors disabled:opacity-60 disabled:cursor-wait shrink-0"
+              >
+                <Icon name={ai.status === "loading" ? "progress_activity" : "auto_awesome"} className={`text-[18px] ${ai.status === "loading" ? "animate-spin" : ""}`} />
+                {ai.status === "loading" ? "AI 辨識中…" : "AI 自動辨識"}
+              </button>
+              <p className={`font-body-md text-body-md text-[13px] ${ai.status === "error" ? "text-primary" : "text-on-surface-variant"}`}>
+                {ai.status === "error"
+                  ? ai.message
+                  : ai.status === "done"
+                    ? "已依照片填入名稱、類別、季節、顏色與風格，請確認後再上傳。"
+                    : "讓 AI 看照片，自動填好名稱、類別、季節、主色與風格標籤。"}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label htmlFor="up-name" className="block kicker text-on-surface-variant">衣物名稱</label>
@@ -299,15 +360,16 @@ export function UploadModal({
           </div>
 
           <div className="space-y-3">
-            <span className="block kicker text-on-surface-variant">主色調</span>
+            <span className="block kicker text-on-surface-variant">主色調{color && <span className="ml-2 text-on-surface">· {color}</span>}</span>
             <div className="flex flex-wrap gap-3">
-              {COLORS.map((c) => (
+              {palette.map((c) => (
                 <button
                   type="button"
                   key={c.value}
                   onClick={() => dispatch({ type: "set", patch: { color: c.value } })}
                   title={c.label}
                   aria-label={c.label}
+                  style={c.hex ? { backgroundColor: c.hex } : undefined}
                   className={`w-8 h-8 rounded-[9999px] ${c.swatch} ${c.border ? "border border-outline-variant" : ""} ring-offset-2 transition-transform hover:scale-110 ${
                     color === c.value ? "ring-2 ring-on-surface" : ""
                   }`}

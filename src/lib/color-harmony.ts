@@ -20,6 +20,8 @@ const HUE: Record<string, number> = {
   薰衣草紫: 265, 紫色: 275, 淺紫: 280,
   粉色: 340, 玫瑰粉: 345, 洋紅: 330, 酒紅: 350, 勃根地紅: 345,
 };
+// 顏色名稱來自使用者資料：去掉原型，讓 `name in HUE` 不會命中 "constructor" 等繼承屬性。
+Object.setPrototypeOf(HUE, null);
 
 const DENIM_BLUES = new Set(["藍色", "淡藍色", "藏青", "鋼藍"]);
 

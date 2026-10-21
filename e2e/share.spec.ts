@@ -26,6 +26,21 @@ test.describe("造型分享", () => {
     await expect(page.getByRole("button", { name: "已收藏" })).toBeVisible();
   });
 
+  test("mood/dest 為原型鍵時不會讓頁面崩潰", async ({ page }) => {
+    const params = new URLSearchParams({
+      w: "sunny",
+      m: "m1",
+      p: "p1",
+      g: "female",
+      mood: "__proto__",
+      dest: "constructor",
+      t: "uq01",
+    });
+    await page.goto(`/share?${params.toString()}`);
+    await expect(page.getByRole("heading", { name: "一套分享給你的穿搭" })).toBeVisible();
+    await expect(page.getByText("白色棉質圓領短袖T恤")).toBeVisible();
+  });
+
   test("無效連結顯示失效空狀態", async ({ page }) => {
     await page.goto("/share?w=sunny"); // 缺 makeup / perfume → 無法解碼
     await expect(page.getByRole("heading", { name: "這個分享連結無法開啟" })).toBeVisible();

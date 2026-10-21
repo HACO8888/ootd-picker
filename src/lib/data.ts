@@ -115,13 +115,20 @@ export const SEED_PERFUME: Perfume[] = [...PERFUME_LOOKBOOK];
 /* ═══════════════════════════════════════════════════════════════════════════
    TRANSLATION DICTIONARIES
    ═══════════════════════════════════════════════════════════════════════════ */
+/** Null-prototype lookup table: keys come from URLs / localStorage / imports, so
+ *  "__proto__" or "constructor" must miss (→ undefined) instead of returning
+ *  Object.prototype members (rendering one as a React child crashes the page). */
+function dict<T extends Record<string, string>>(entries: T): T {
+  return Object.assign(Object.create(null) as T, entries);
+}
+
 export const TRANSLATE = {
-  category: { tops: "上衣", bottoms: "下著", outerwear: "外套", accessories: "配件" } as Record<Category, string>,
-  season: { spring: "春", summer: "夏", autumn: "秋", winter: "冬" } as Record<Season, string>,
-  weather: { sunny: "晴天 ☀️", cloudy: "多雲 ☁️", rainy: "雨天 🌧️", cold: "寒冷 ❄️" } as Record<string, string>,
-  mood: { 活力: "活力 ⚡", 放鬆: "放鬆 ☕", 專業: "專業 💼", 優雅: "優雅 🌹", 舒適: "舒適 🧸" } as Record<string, string>,
-  destination: { 工作: "工作 💻", 約會: "約會 💕", 休閒漫步: "休閒漫步 🚶", 社交聚會: "社交聚會 🎉", 居家: "居家 🏡" } as Record<string, string>,
-  gender: { female: "女生 👩", male: "男生 👨", unisex: "不分性別 🌈" } as Record<Gender, string>,
+  category: dict({ tops: "上衣", bottoms: "下著", outerwear: "外套", accessories: "配件" }) as Record<Category, string>,
+  season: dict({ spring: "春", summer: "夏", autumn: "秋", winter: "冬" }) as Record<Season, string>,
+  weather: dict({ sunny: "晴天 ☀️", cloudy: "多雲 ☁️", rainy: "雨天 🌧️", cold: "寒冷 ❄️" }) as Record<string, string>,
+  mood: dict({ 活力: "活力 ⚡", 放鬆: "放鬆 ☕", 專業: "專業 💼", 優雅: "優雅 🌹", 舒適: "舒適 🧸" }) as Record<string, string>,
+  destination: dict({ 工作: "工作 💻", 約會: "約會 💕", 休閒漫步: "休閒漫步 🚶", 社交聚會: "社交聚會 🎉", 居家: "居家 🏡" }) as Record<string, string>,
+  gender: dict({ female: "女生 👩", male: "男生 👨", unisex: "不分性別 🌈" }) as Record<Gender, string>,
 };
 
 /**

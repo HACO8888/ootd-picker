@@ -13,6 +13,8 @@ const HIDDEN_KEY = "ootd_picker_hidden_v11";
 const OVERRIDE_KEY = "ootd_picker_overrides_v11";
 const FAVORITES_KEY = "ootd_picker_favorites_v10";
 const WEAR_LOG_KEY = "ootd_picker_wear_log_v1";
+/** 本機資料目前屬於哪個帳號（雲端 user id）；訪客資料為 null。 */
+const OWNER_KEY = "ootd_picker_owner_v1";
 
 const hasWindow = () => typeof window !== "undefined";
 
@@ -336,4 +338,24 @@ export function parseWearLogsJSON(raw: string): WearLog[] {
     createdAt: typeof l.createdAt === "number" ? l.createdAt : now,
     updatedAt: now,
   }));
+}
+
+/* ─── Account ownership of local data ───────────────────────────────────────── */
+export function getLocalOwner(): string | null {
+  if (!hasWindow()) return null;
+  return localStorage.getItem(OWNER_KEY);
+}
+
+export function setLocalOwner(userId: string): void {
+  if (!hasWindow()) return;
+  localStorage.setItem(OWNER_KEY, userId);
+}
+
+/** 登出時清掉帳號資料（衣櫥 deltas、收藏、日誌），避免下一位使用者看到或併入其他帳號。
+ *  LEGACY_CLOSET_KEY 一併清除，否則 migrate() 會把舊版單品重新搬回來。 */
+export function clearAccountData(): void {
+  if (!hasWindow()) return;
+  for (const key of [LEGACY_CLOSET_KEY, USER_KEY, HIDDEN_KEY, OVERRIDE_KEY, FAVORITES_KEY, WEAR_LOG_KEY, OWNER_KEY]) {
+    localStorage.removeItem(key);
+  }
 }

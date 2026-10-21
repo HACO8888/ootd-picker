@@ -14,6 +14,9 @@ import {
   setFavorites,
   getWearLogs,
   setWearLogs,
+  getLocalOwner,
+  setLocalOwner,
+  clearAccountData,
   type ClosetDeltas,
 } from "./storage";
 import type { Favorite, Item, WearLog } from "./types";
@@ -106,6 +109,23 @@ async function pushCollection(c: Collection): Promise<void> {
   }
 }
 
+/**
+ * 登出前呼叫：先把 debounce 中尚未送出的變更推上雲（盡力而為），再清掉本機帳號資料，
+ * 讓同一瀏覽器的下一位使用者看不到、也不會把這些資料併入其他帳號。
+ * 資料已在雲端，重新登入時 mergeOnLogin 會拉回來。
+ */
+export async function clearLocalAccountOnSignOut(): Promise<void> {
+  const pending = (Object.keys(timers) as Collection[]).filter((c) => timers[c]);
+  for (const c of pending) {
+    clearTimeout(timers[c]);
+    delete timers[c];
+  }
+  await Promise.all(pending.map((c) => pushCollection(c)));
+  currentUserId = null;
+  clearAccountData();
+  storeRefresh?.();
+}
+
 /* ─── 登入合併 ───────────────────────────────────────────────────────────── */
 
 /** 刪除墓碑：id + 刪除時間（server 軟刪除後回傳）。 */
@@ -175,14 +195,21 @@ export async function mergeOnLogin(): Promise<void> {
       { items: WearLog[]; deleted?: Tombstone[] },
     ];
 
-    const mergedCloset = mergeCloset(getClosetDeltas(), remoteCloset);
+    // 本機資料屬於另一個帳號（例：舊版登出未清除、同瀏覽器換帳號）時不合併，
+    // 直接以雲端為準，避免把別人的資料推進目前帳號。訪客資料（owner=null）照舊併入。
+    const owner = getLocalOwner();
+    const foreign = owner !== null && owner !== currentUserId;
+    const mergedCloset = mergeCloset(
+      foreign ? { userItems: [], hidden: [], overrides: {} } : getClosetDeltas(),
+      remoteCloset,
+    );
     const mergedFavs = mergeById<Favorite>(
-      getFavorites(),
+      foreign ? [] : getFavorites(),
       remoteFavs.items ?? [],
       remoteFavs.deleted,
     );
     const mergedLogs = mergeById<WearLog>(
-      getWearLogs(),
+      foreign ? [] : getWearLogs(),
       remoteLogs.items ?? [],
       remoteLogs.deleted,
     );
@@ -191,6 +218,7 @@ export async function mergeOnLogin(): Promise<void> {
     setClosetDeltas(mergedCloset);
     setFavorites(mergedFavs);
     setWearLogs(mergedLogs);
+    setLocalOwner(currentUserId);
     storeRefresh?.();
 
     // 把合併結果整包推回雲端，讓兩端一致。

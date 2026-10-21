@@ -5,6 +5,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
+import { clientIp } from "./client-ip";
 
 // Read lazily (per call, not at import) so `next build` needs no secrets and
 // runtime-injected env (Docker / Zeabur variables) is always picked up.
@@ -58,10 +59,10 @@ export async function chatJson<T>(messages: ChatMessage[], schema: ZodType<T>): 
    client IP gets a small sliding-window budget per route. In-memory: per server
    instance, which is enough to stop casual abuse on a single deployment.
 
-   - Client IP comes from the X-Forwarded-For entry added by our own proxy
-     (TRUSTED_PROXY_HOPS from the right, default 1). The leftmost entry is
-     whatever the client sent, so keying on it let callers mint a fresh budget
-     per request.
+   - Client IP comes from clientIp() (./client-ip): the proxy-added
+     X-Forwarded-For entry, or CF-Connecting-IP when that peer is a Cloudflare
+     edge. The leftmost XFF entry is whatever the client sent, so keying on it
+     would let callers mint a fresh budget per request.
    - A per-route global ceiling caps total spend no matter how many identities
      a caller can produce (many real IPs, IPv6 rotation, a misconfigured proxy).
    - The key map is size-capped and swept at most once a minute, so neither
@@ -73,17 +74,6 @@ const SWEEP_MS = 60 * 1000;
 const hits = new Map<string, number[]>();
 const globalHits = new Map<string, number[]>(); // per route; separate so eviction never resets it
 let lastSweep = 0;
-
-const trustedHops = Math.max(1, Number(process.env.TRUSTED_PROXY_HOPS) || 1);
-
-function clientIp(req: Request): string {
-  const chain = (req.headers.get("x-forwarded-for") ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const ip = chain[chain.length - trustedHops] ?? chain[0] ?? req.headers.get("x-real-ip") ?? "local";
-  return ip.slice(0, 64);
-}
 
 /** Sliding-window check-and-count for one key; true when the hit is allowed. */
 function take(key: string, max: number, now: number): boolean {

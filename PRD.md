@@ -173,8 +173,14 @@
   - **CSRF**：`parseBody` 只接受 `Content-Type: application/json`（否則 415），並拒絕 `Sec-Fetch-Site` 不是 `same-origin`／`none` 的請求（403）。跨來源請求因此都需要 preflight，而本站不回 CORS header。
   - **請求大小**：body 上限改為串流讀取時計算 byte 數，超過 `MAX_BODY_BYTES` 立即中止，不再先整包載入記憶體。
   - **AI 限流**：client IP 取 `X-Forwarded-For` 從右數第 `TRUSTED_PROXY_HOPS` 個（預設 1，即 Traefik 寫入的直接連線者）；若該連線者落在 Cloudflare 官方 IP 段，改用 `CF-Connecting-IP`（真實訪客 IP），直接連 origin 的請求不採信此 header（`src/lib/server/client-ip.ts`）；每條路由另有全域上限（每 IP 上限 ×15／10 分鐘）；key 表上限 1 萬筆，且最多每分鐘清理一次。
-  - **同步**：`overrides` 與其他 collection 一樣上限 `MAX_CLOSET_ITEMS`；時間戳必須是非負安全整數。insert 改為 `ON CONFLICT DO NOTHING`，他人已佔用的全域 id 會被略過，不再讓整包同步失敗。治本做法（改成 `(user_id, id)` 複合主鍵）另案處理。
+  - **同步**：`overrides` 與其他 collection 一樣上限 `MAX_CLOSET_ITEMS`；時間戳必須是非負安全整數。insert 改為 `ON CONFLICT DO NOTHING`，他人已佔用的全域 id 會被略過，不再讓整包同步失敗（治本見 D-SEC-2）。
   - **登出**：先送出尚未同步的變更，再清除本機帳號資料。localStorage 記錄資料擁有者（`ootd_picker_owner_v1`），`mergeOnLogin` 遇到其他帳號的本機資料時以雲端為準、不合併；訪客資料仍會在首次登入時併入。
+- **D-SEC-2 資料表與連線池（第 9 輪，需套用 migration `0001_composite_user_pks`）**：
+  - **複合主鍵**：`closet_item`、`favorite`、`wear_log` 的主鍵由全域 `id` 改為 `(user_id, id)`，不同帳號可擁有相同 id。後台審核改以 `userId + id` 指定衣物。程式碼在新舊 schema 下都能運作，可先部署再套用 migration。
+  - **墓碑**：軟刪除時清空圖片與穿搭內容，只保留 `id + deleted_at`；migration 一併瘦身既有墓碑；每次儲存時硬刪除超過 90 天的墓碑。
+  - **連線時限**：每條 DB 連線設 `statement_timeout` 15 秒、`lock_timeout` 5 秒、`idle_in_transaction_session_timeout` 15 秒，單一請求無法無限期佔住共用的 5 條連線。
+  - **同步序列化**：同一使用者、同一 collection 的儲存依序執行（記憶體內排隊、不佔連線）；同時超過兩個時回 429，client 視為暫時性錯誤並重試。
+  - **公開讀取快取**：`/api/looks`、`/api/catalog/global` 在記憶體快取 60 秒，admin 寫入時清除。
 
 ## 9. 里程碑（對齊 PM 時程，見 AGENTS.md §時程）
 

@@ -100,8 +100,8 @@ async function pushCollection(c: Collection): Promise<void> {
       retryCount[c] = 0;
       return;
     }
-    // 4xx = payload 問題，重試無益（記錄即可）；5xx = 暫態，退避重試。
-    if (res.status >= 500) scheduleRetry(c);
+    // 4xx = payload 問題，重試無益（記錄即可）；5xx 與 429（同一帳號同步排隊中）= 暫態，退避重試。
+    if (res.status >= 500 || res.status === 429) scheduleRetry(c);
     else console.error(`sync ${c} rejected with ${res.status}`);
   } catch {
     // 離線/網路錯誤：退避重試（有上限），逾限後靠下次 mutation 修復。

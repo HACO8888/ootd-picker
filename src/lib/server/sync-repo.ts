@@ -1,7 +1,7 @@
 // 同步資料存取層（server-only）。每個 collection 提供 load(讀快照) 與
 // save(整包取代) — push=replace 語意，登入合併在 client 端先 union 後再整包推上來。
 import "server-only";
-import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, notInArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   closetItems,
@@ -10,8 +10,13 @@ import {
   favorites as favoritesTable,
   wearLogs as wearLogsTable,
 } from "@/db/schema";
-import type { Item, Favorite, WearLog } from "@/lib/types";
+import type { Item, Favorite, WearLog, Outfit } from "@/lib/types";
 import type { ClosetDeltas } from "@/lib/storage";
+
+/** 墓碑保留天數：足夠讓久未開啟的裝置同步到刪除，之後硬刪除，避免資料無限累積。 */
+const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+/** 墓碑只需 id + deletedAt；內容欄位寫成最小值（圖片、穿搭可達數 MB）。 */
+const EMPTY_OUTFIT = {} as Outfit;
 
 /* ─── Closet deltas (user items + hidden + overrides) ────────────────────── */
 /** 刪除墓碑：id + 刪除時間，供 client 合併時據此剔除（避免跨裝置「復活」）。 */
@@ -78,12 +83,21 @@ export async function saveCloset(userId: string, d: ClosetDeltas): Promise<void>
     // 而非 hard delete。被推上來的 id 才 hard-replace 成最新值。
     await tx
       .update(closetItems)
-      .set({ deletedAt: now, updatedAt: now })
+      .set({ deletedAt: now, updatedAt: now, imageUrl: "" })
       .where(
         and(
           eq(closetItems.userId, userId),
           isNull(closetItems.deletedAt),
           pushedIds.length ? notInArray(closetItems.id, pushedIds) : undefined,
+        ),
+      );
+    await tx
+      .delete(closetItems)
+      .where(
+        and(
+          eq(closetItems.userId, userId),
+          isNotNull(closetItems.deletedAt),
+          lt(closetItems.deletedAt, now - TOMBSTONE_TTL_MS),
         ),
       );
     if (pushedIds.length) {
@@ -118,9 +132,8 @@ export async function saveCloset(userId: string, d: ClosetDeltas): Promise<void>
           };
         }),
       )
-      // id 是全域主鍵：已被其他使用者佔用（或同一包重複）的 id 直接略過，
-      // 否則一筆衝突就讓整包交易回滾、該 collection 永遠同步失敗。
-      // 治本是改成 (user_id, id) 複合主鍵（需 migration，另案處理）。
+      // 主鍵為 (user_id, id)；仍保留 DO NOTHING：同一包內重複 id 時略過後者而非整包回滾，
+      // 也相容尚未套用 0001 migration（全域主鍵）的資料庫。
       .onConflictDoNothing();
     }
     if (d.hidden.length) {
@@ -171,12 +184,21 @@ export async function saveFavorites(userId: string, list: Favorite[]): Promise<v
     // client 已不再持有者改寫墓碑；被推上來的 id 才 hard-replace。
     await tx
       .update(favoritesTable)
-      .set({ deletedAt: now, updatedAt: now })
+      .set({ deletedAt: now, updatedAt: now, outfit: EMPTY_OUTFIT })
       .where(
         and(
           eq(favoritesTable.userId, userId),
           isNull(favoritesTable.deletedAt),
           ids.length ? notInArray(favoritesTable.id, ids) : undefined,
+        ),
+      );
+    await tx
+      .delete(favoritesTable)
+      .where(
+        and(
+          eq(favoritesTable.userId, userId),
+          isNotNull(favoritesTable.deletedAt),
+          lt(favoritesTable.deletedAt, now - TOMBSTONE_TTL_MS),
         ),
       );
     if (ids.length) {
@@ -193,7 +215,7 @@ export async function saveFavorites(userId: string, list: Favorite[]): Promise<v
           updatedAt: f.updatedAt ?? now,
         })),
       )
-      .onConflictDoNothing(); // 同 saveCloset：略過他人佔用的全域 id
+      .onConflictDoNothing(); // 同 saveCloset
     }
   });
 }
@@ -233,12 +255,21 @@ export async function saveWearLogs(userId: string, list: WearLog[]): Promise<voi
   await db.transaction(async (tx) => {
     await tx
       .update(wearLogsTable)
-      .set({ deletedAt: now, updatedAt: now })
+      .set({ deletedAt: now, updatedAt: now, outfit: EMPTY_OUTFIT, note: null })
       .where(
         and(
           eq(wearLogsTable.userId, userId),
           isNull(wearLogsTable.deletedAt),
           ids.length ? notInArray(wearLogsTable.id, ids) : undefined,
+        ),
+      );
+    await tx
+      .delete(wearLogsTable)
+      .where(
+        and(
+          eq(wearLogsTable.userId, userId),
+          isNotNull(wearLogsTable.deletedAt),
+          lt(wearLogsTable.deletedAt, now - TOMBSTONE_TTL_MS),
         ),
       );
     if (ids.length) {
@@ -257,7 +288,7 @@ export async function saveWearLogs(userId: string, list: WearLog[]): Promise<voi
           updatedAt: l.updatedAt ?? now,
         })),
       )
-      .onConflictDoNothing(); // 同 saveCloset：略過他人佔用的全域 id
+      .onConflictDoNothing(); // 同 saveCloset
     }
   });
 }

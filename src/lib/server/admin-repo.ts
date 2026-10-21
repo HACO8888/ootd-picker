@@ -1,6 +1,6 @@
 // 管理員後台資料存取（server-only）。
 import "server-only";
-import { eq, sql, desc, count, isNull } from "drizzle-orm";
+import { and, eq, sql, desc, count, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   users,
@@ -164,6 +164,7 @@ export async function listPendingModeration(): Promise<ModerationRow[]> {
 }
 
 export async function moderateItem(
+  userId: string,
   id: string,
   action: "approved" | "rejected",
   reason?: string,
@@ -175,7 +176,8 @@ export async function moderateItem(
       moderatedAt: Date.now(),
       rejectReason: action === "rejected" ? (reason ?? null) : null,
     })
-    .where(eq(closetItems.id, id));
+    // id 只在同一使用者內唯一（主鍵為 user_id + id），須連同擁有者比對。
+    .where(and(eq(closetItems.userId, userId), eq(closetItems.id, id)));
 }
 
 export async function getStats(): Promise<AdminStats> {

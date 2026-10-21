@@ -1,0 +1,337 @@
+<meta charset="utf-8">
+<title>OOTD 技術創新簡報</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: one editorial column (OOTD Picker's own VOGUE system: ink, paper, vermilion, hairlines), slide cards stacked in presenting order */
+:root {
+  --paper: #faf9f6;
+  --panel: #ffffff;
+  --ink: #161514;
+  --muted: #5d5a55;
+  --rule: #d9d5ce;
+  --accent: #c8352b;
+  --accent-soft: #fbeceb;
+  --ok: #2f6b45;
+  --warn: #8a5a12;
+  --display: "Fraunces", "Noto Serif TC", "Songti TC", Georgia, serif;
+  --body: "Inter", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141312; --panel: #1c1b19; --ink: #f1eee8; --muted: #a9a49b; --rule: #34312d;
+    --accent: #ef6a5e; --accent-soft: #2c1a18; --ok: #7cc496; --warn: #e0b064; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #141312; --panel: #1c1b19; --ink: #f1eee8; --muted: #a9a49b; --rule: #34312d;
+  --accent: #ef6a5e; --accent-soft: #2c1a18; --ok: #7cc496; --warn: #e0b064; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.7;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 48px 80px;
+}
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; }
+h3 { font-size: 1.2rem; }
+p { margin: 0; max-width: 68ch; }
+.kicker { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.1rem; color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 20px; }
+.head { display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--ink); padding-bottom: 12px; }
+.masthead { display: flex; flex-direction: column; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 28px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.85rem; color: var(--muted); }
+.thesis { font-family: var(--display); font-size: clamp(1.3rem, 3.4vw, 1.75rem); line-height: 1.45; border-left: 3px solid var(--accent); padding-left: 18px; max-width: 40ch; }
+.thesis em { font-style: normal; color: var(--accent); }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+.tbl { overflow-x: auto; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom-color: var(--ink); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.hl td { background: var(--accent-soft); font-weight: 600; }
+.up { color: var(--ok); font-weight: 600; }
+
+.layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.layer { border: 1px solid var(--rule); background: var(--panel); padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.layer .tag { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; color: var(--muted); }
+.layer.ai { border-color: var(--accent); }
+.layer.ai .tag { color: var(--accent); }
+.layer ul { margin: 0; padding-left: 1.1em; font-size: 0.92rem; }
+
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; font-size: 0.88rem; }
+.node { border: 1px solid var(--ink); background: var(--panel); padding: 10px 12px; flex: 1 1 130px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.node b { font-weight: 600; }
+.node small { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+.node.ai { border-color: var(--accent); background: var(--accent-soft); }
+.arrow { align-self: center; color: var(--muted); font-size: 1.1rem; }
+.loop { font-size: 0.85rem; color: var(--muted); border-top: 1px dashed var(--rule); padding-top: 10px; }
+
+.slide { border: 1px solid var(--rule); background: var(--panel); display: grid; grid-template-columns: 56px minmax(0, 1fr); }
+.slide .no { border-right: 1px solid var(--rule); font-family: var(--display); font-size: 1.5rem; color: var(--accent); text-align: center; padding-top: 18px; font-variant-numeric: tabular-nums; }
+.slide .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.slide .weight { font-size: 0.75rem; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+.fields { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 6px 14px; font-size: 0.93rem; }
+.fields dt { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); padding-top: 3px; }
+.fields dd { margin: 0; }
+.say { background: var(--paper); border-left: 2px solid var(--ink); padding: 8px 12px; font-size: 0.93rem; }
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85em; background: var(--paper); border: 1px solid var(--rule); padding: 0 4px; }
+
+ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; }
+ol.steps li::marker { font-family: var(--display); color: var(--accent); font-weight: 700; }
+.time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; margin-left: 6px; }
+
+.qa { display: flex; flex-direction: column; gap: 14px; }
+.qa div { border-bottom: 1px solid var(--rule); padding-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
+.qa b { font-weight: 600; }
+
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.box { border: 1px solid var(--rule); background: var(--panel); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box h3 { font-size: 1rem; }
+.box ul { margin: 0; padding-left: 1.1em; font-size: 0.93rem; }
+.box.no h3 { color: var(--accent); }
+.box.yes h3 { color: var(--ok); }
+.note { border: 1px solid var(--warn); padding: 14px 16px; font-size: 0.93rem; display: flex; flex-direction: column; gap: 6px; }
+.note b { color: var(--warn); }
+
+@media (max-width: 680px) {
+  .layers, .two { grid-template-columns: minmax(0, 1fr); }
+  .slide { grid-template-columns: minmax(0, 1fr); }
+  .slide .no { border-right: 0; border-bottom: 1px solid var(--rule); text-align: left; padding: 10px 20px; }
+  .fields { grid-template-columns: minmax(0, 1fr); }
+  .fields dt { padding-top: 6px; }
+  .arrow { transform: rotate(90deg); flex-basis: 100%; text-align: center; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="kicker">OOTD Picker · 簡報準備</span>
+    <h1>技術創新性要講什麼</h1>
+    <p class="lede">這一項佔總分 40%，審查重點是「利用 AI 等創新技術應用來解決問題」。這份文件列出要放進簡報的內容、每張投影片的數字、demo 流程，以及評審可能會追問的地方。</p>
+    <div class="meta"><span>依據：repo 程式碼與 <code>pnpm eval:recommend</code> 實測</span><span>2026-10-21</span></div>
+  </header>
+
+  <section>
+    <div class="head"><span class="kicker">一句話主軸</span><h2>整段技術簡報都圍繞這句</h2></div>
+    <p class="thesis"><em>AI 看懂你的衣服</em>，推薦引擎在規則內挑出最合適的整套，<em>AI 造型師</em>說明為什麼這樣穿，而且<em>越用越懂你</em>。</p>
+    <p>這句話把四個技術點串成一條使用者旅程：拍照建檔 → 情境推薦 → AI 解說 → 偏好學習。簡報照這個順序講，評審比較容易記住。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">先講清楚</span><h2>哪些是 AI，哪些是演算法</h2></div>
+    <p>評審很可能追問「AI 在哪裡」。推薦引擎本身是規則評分加上機率抽樣，<b>不是</b>機器學習模型，簡報上要分成三層講，不要全部寫成「AI 推薦」。</p>
+    <div class="layers">
+      <div class="layer ai">
+        <span class="tag">執行期 AI · 使用者當下用到</span>
+        <h3>視覺與語言模型</h3>
+        <ul><li>拍照自動建檔（視覺模型）</li><li>AI 造型師解說（語言模型）</li></ul>
+      </div>
+      <div class="layer ai">
+        <span class="tag">離線生成式 AI · 內容製作</span>
+        <h3>影像生成</h3>
+        <ul><li>63 張妝容與香水編輯風格圖</li><li>由妝容參數和香調自動組 prompt</li></ul>
+      </div>
+      <div class="layer">
+        <span class="tag">演算法與資料工程</span>
+        <h3>可解釋的推薦引擎</h3>
+        <ul><li>情境評分、硬性規則、色彩和諧</li><li>Gumbel 抽樣、偏好學習</li><li>5,403 件資料集與離線評估</li></ul>
+      </div>
+    </div>
+    <p>反過來說，這也是賣點：<b>推薦交給可驗證的引擎，AI 負責看懂與說明</b>，所以不會出現 AI 亂配、男生被推裙子這種錯誤，而且每次改版都有數字可以比較。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">架構圖</span><h2>放在技術段第一張</h2></div>
+    <div class="flow" role="img" aria-label="系統流程：照片經 AI 建檔進入衣櫥，推薦引擎依情境與個人偏好產生三套穿搭，再由 AI 造型師解說">
+      <div class="node ai"><b>拍照上傳</b><small>視覺模型辨識品類、顏色、季節、風格</small></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>膠囊衣櫥</b><small>5,403 件資料集＋使用者單品</small></div>
+      <span class="arrow">→</span>
+      <div class="node"><b>推薦引擎</b><small>天氣・心情・場合・性別<br>規則排除→評分→抽樣</small></div>
+      <span class="arrow">→</span>
+      <div class="node ai"><b>AI 造型師</b><small>把推薦結果寫成造型解說與穿法技巧</small></div>
+    </div>
+    <p class="loop">回饋迴圈：收藏與穿搭日誌 → 偏好學習（顏色、品類） → 下一次推薦加分。引擎、建檔、個人化共用同一套品類詞彙，所以 AI 建的單品能完整參與推薦。</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">投影片清單</span><h2>技術段建議 6 張</h2></div>
+    <p>每張都附上要放的數字和一句講者台詞。數字都來自 repo 的實測，可以直接引用。</p>
+
+    <article class="slide">
+      <div class="no">1</div>
+      <div class="body">
+        <span class="weight">AI 拍照建檔 · 解決「建衣櫥太麻煩」</span>
+        <h3>拍一張照片，AI 自動填好整筆資料</h3>
+        <dl class="fields">
+          <dt>畫面</dt><dd>上傳表單截圖：照片 → 按「AI 自動辨識」 → 名稱、類別、季節、主色、風格標籤自動填好</dd>
+          <dt>技術點</dt><dd>視覺語言模型；輸出限制在引擎認得的詞彙（品類、色名、風格標籤），名稱一定包含品類詞；使用者確認後才存檔</dd>
+          <dt>數字</dt><dd>辨識約 3～8 秒；5 個欄位一次填好</dd>
+        </dl>
+        <p class="say">「手動建衣櫥是這類 App 最大的流失點。我們讓 AI 直接看照片建檔，而且輸出的格式是推薦引擎能直接使用的。」</p>
+      </div>
+    </article>
+
+    <article class="slide">
+      <div class="no">2</div>
+      <div class="body">
+        <span class="weight">情境感知推薦引擎 · 核心演算法</span>
+        <h3>先排除不合理，再評分，再抽樣</h3>
+        <dl class="fields">
+          <dt>畫面</dt><dd>流程圖：硬性排除（性別、天氣、場合） → 多因子評分 → 整套相容性與色彩和諧 → Gumbel 抽樣挑 3 套</dd>
+          <dt>技術點</dt><dd>評分權重：場合 +5、天氣/季節 +4、心情 +3，加上由品類推得的風格分數（上限 ±4）；色彩以 HSL 色相角判斷撞色，牛仔藍和藏青視為中性色</dd>
+          <dt>數字</dt><dd>一次生成只要數毫秒，全在瀏覽器端完成</dd>
+        </dl>
+        <p class="say">「每一套推薦都能說出理由，結果頁的『為什麼推這套』就是引擎的判斷依據。」</p>
+      </div>
+    </article>
+
+    <article class="slide">
+      <div class="no">3</div>
+      <div class="body">
+        <span class="weight">數據驗證 · 這張最有說服力</span>
+        <h3>300 個情境、每個重新生成 5 次</h3>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>指標</th><th class="num">舊版</th><th class="num">新版</th></tr></thead>
+            <tbody>
+              <tr class="hl"><td>不合理搭配率</td><td class="num">26.7%</td><td class="num">0%</td></tr>
+              <tr><td>男生情境出現女裝</td><td class="num">63%</td><td class="num">0%</td></tr>
+              <tr class="hl"><td>場合命中率</td><td class="num">39%</td><td class="num">83%</td></tr>
+              <tr><td>每個情境可推薦的單品數</td><td class="num">11</td><td class="num">30</td></tr>
+              <tr><td>重新生成的重疊率</td><td class="num">0.68</td><td class="num">0.11</td></tr>
+              <tr><td>生成時間 p50</td><td class="num">3.5 ms</td><td class="num">1.7 ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="say">「我們不是憑感覺調參數，每次改版都用同一套離線評估比較。」</p>
+      </div>
+    </article>
+
+    <article class="slide">
+      <div class="no">4</div>
+      <div class="body">
+        <span class="weight">偏好學習 · 越用越懂你</span>
+        <h3>從收藏和穿搭日誌學你的顏色與品類偏好</h3>
+        <dl class="fields">
+          <dt>畫面</dt><dd>結果頁的「個人化」標籤，以及理由「延續你常收藏、常穿的藏青、長褲」</dd>
+          <dt>技術點</dt><dd>實際穿過的權重 ×1.5；學的是屬性不是單品，所以會推薦沒穿過但風格相近的衣服；只對已符合情境的單品加分（上限 +2），不會打破規則</dd>
+        </dl>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>同一個使用者輪廓</th><th class="num">未個人化</th><th class="num">個人化</th></tr></thead>
+            <tbody>
+              <tr class="hl"><td>整套至少一件符合偏好</td><td class="num">41.8%</td><td class="num"><span class="up">78.5%</span></td></tr>
+              <tr><td>單品符合偏好</td><td class="num">13.0%</td><td class="num"><span class="up">34.1%</span></td></tr>
+              <tr><td>不合理搭配率</td><td class="num">0%</td><td class="num">0%</td></tr>
+              <tr><td>場合命中率</td><td class="num">82.9%</td><td class="num">82.3%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="say">「個人化讓符合偏好的整套從四成提高到快八成，而且不合理搭配率仍然是零。」</p>
+      </div>
+    </article>
+
+    <article class="slide">
+      <div class="no">5</div>
+      <div class="body">
+        <span class="weight">AI 造型師 · 生成式 AI 的應用</span>
+        <h3>把推薦結果講成人話</h3>
+        <dl class="fields">
+          <dt>畫面</dt><dd>結果頁按「請 AI 解說這套」後出現的造型標題、解說與 2～3 條穿法技巧</dd>
+          <dt>技術點</dt><dd>只把引擎算好的結構化結果（單品、情境、色彩判定、推薦理由）交給語言模型，限制它不能虛構其他單品或品牌；不傳照片</dd>
+          <dt>數字</dt><dd>約 10 秒產生；換任何單品後解說自動重置</dd>
+        </dl>
+        <p class="say">「引擎負責挑，AI 負責說明。使用者得到的是造型師式的建議，不只是一張清單。」</p>
+      </div>
+    </article>
+
+    <article class="slide">
+      <div class="no">6</div>
+      <div class="body">
+        <span class="weight">生成式 AI 素材與資料工程</span>
+        <h3>63 張 AI 生成圖、5,403 件真實商品</h3>
+        <dl class="fields">
+          <dt>畫面</dt><dd>左邊放幾張妝容／香水生成圖，右邊放衣櫥網格</dd>
+          <dt>技術點</dt><dd>依妝容參數（底妝、眼妝、唇色、色系）與香調（前、中、後調）自動組 prompt，解決原圖圖文不符與品牌版權問題；開源資料集重新推導場合標籤與季節，補足原資料只有單一標籤的缺口</dd>
+          <dt>數字</dt><dd>妝容 36 款、香水 27 款、單品 5,403 件</dd>
+        </dl>
+      </div>
+    </article>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">Demo 腳本</span><h2>現場約 2 分鐘</h2></div>
+    <ol class="steps">
+      <li>到「我的衣櫥」上傳一張衣服照片，按「AI 自動辨識」，讓評審看欄位自動填好。<span class="time">30 秒</span></li>
+      <li>到穿搭嚮導選「女生／雨天／專業／工作」，展示三套方案、色彩和諧分數與「為什麼推這套」。<span class="time">30 秒</span></li>
+      <li>按「請 AI 解說這套」，等解說出現時順便講偏好學習。<span class="time">30 秒</span></li>
+      <li>收藏一套後按「重新生成」，指出結果頁出現「個人化」標籤與「延續你常收藏、常穿的…」理由。<span class="time">30 秒</span></li>
+    </ol>
+    <div class="note">
+      <span><b>事前準備</b></span>
+      <span>正式站要能 demo AI 功能，部署環境必須設定 <code>AI_API_BASE_URL</code>、<code>AI_API_KEY</code>、<code>AI_TEXT_MODEL</code>（與 TPSJ 相同的 AI 閘道）。閘道會擋部分網路，上台前要在現場網路實際按一次確認。</span>
+      <span>現場網路或 AI 服務不穩時，AI 那兩步改播事先錄好的影片或截圖。演講前先錄一份完整 demo。</span>
+      <span>第 4 步需要瀏覽器裡已有至少一筆收藏，建議 demo 前先收藏一兩套。</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">評審可能會問</span><h2>預先準備的回答</h2></div>
+    <div class="qa">
+      <div><b>推薦是用 AI 模型嗎？</b><span>推薦是規則評分加機率抽樣的引擎，刻意不用黑箱模型，因為穿搭有硬性規則（性別、天氣、場合）不能出錯，而且我們要能量測每次改版。AI 用在最適合它的地方：看懂照片、把結果講成人話。</span></div>
+      <div><b>AI 辨識錯了怎麼辦？</b><span>AI 只負責預先填好表單，使用者確認後才存檔；輸出也被限制在系統認得的選項裡，不會出現系統無法使用的標籤。</span></div>
+      <div><b>AI 會不會亂講？</b><span>造型師只拿到引擎算好的單品與理由，提示詞限制它不能虛構其他單品或品牌，畫面上也標示「由生成式 AI 撰寫，僅供參考」。</span></div>
+      <div><b>成本怎麼控制？</b><span>AI 只在使用者按按鈕時呼叫，每個 IP 有使用次數上限；推薦本身在瀏覽器端計算，不花 AI 費用。沒設定 AI 時整個網站照常運作。</span></div>
+      <div><b>個人化的效果怎麼證明？</b><span>用同一套離線評估，固定一個使用者輪廓比較開關個人化：符合偏好的整套從 41.8% 提高到 78.5%，不合理搭配率維持 0%。</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">用詞</span><h2>簡報上的說法</h2></div>
+    <div class="two">
+      <div class="box yes">
+        <h3>可以這樣說</h3>
+        <ul>
+          <li>AI 視覺辨識自動建檔</li>
+          <li>生成式 AI 造型師解說</li>
+          <li>情境感知推薦引擎</li>
+          <li>從收藏與穿著紀錄學習個人偏好</li>
+          <li>以離線評估量化推薦品質</li>
+        </ul>
+      </div>
+      <div class="box no">
+        <h3>避免這樣說</h3>
+        <ul>
+          <li>「AI 機器學習推薦演算法」</li>
+          <li>「深度學習分析你的風格」</li>
+          <li>「準確率 100%」：0% 是不合理搭配率，不是準確率</li>
+          <li>「即時學習」：偏好是依紀錄計算，不是模型訓練</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kicker">其他審查項目</span><h2>技術內容也能支援的地方</h2></div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>審查項目</th><th>可以引用的內容</th></tr></thead>
+        <tbody>
+          <tr><td>產品創新性 25%</td><td>穿搭、妝容、香水一次推薦；越用越懂你的個人化</td></tr>
+          <tr><td>市場可行性 25%</td><td>不登入也能完整使用；Google 登入後雲端同步；有後台可管理目錄與審核上傳；AI 成本可控</td></tr>
+          <tr><td>其他 10%</td><td>專題成果：公開網站（上台前先確認 ootd.haco.tw 已上線）、PRD、DFD、使用者故事、評估報告</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>

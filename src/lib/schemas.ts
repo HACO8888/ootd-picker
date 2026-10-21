@@ -159,3 +159,23 @@ export const moderationSchema = z.object({
   action: z.enum(["approved", "rejected"]),
   reason: z.string().max(500).optional(),
 });
+
+/* ─── AI assist (public routes, rate-limited) ────────────────────────────── */
+export const aiTagRequestSchema = z.object({
+  image: z.string().startsWith("data:image/").max(MAX_IMAGE),
+});
+
+const aiGarmentSchema = z.object({
+  slot: z.enum(["top", "bottom", "outerwear", "accessory"]),
+  name: z.string().min(1).max(MAX_TEXT),
+  colors: z.array(z.string().max(40)).max(8),
+});
+
+export const aiStylistRequestSchema = z.object({
+  context: outfitContextSchema,
+  garments: z.array(aiGarmentSchema).min(1).max(4),
+  makeup: z.string().max(MAX_TEXT),
+  perfume: z.string().max(MAX_TEXT),
+  harmony: z.string().max(40).optional(),
+  reasons: z.array(z.string().max(MAX_TEXT)).max(12),
+});

@@ -27,6 +27,9 @@ export function isNeutral(name: string): boolean {
   return NEUTRALS.has(name);
 }
 
+/** Every colour name the harmony model understands (the AI tagger must pick from these). */
+export const COLOR_NAMES: readonly string[] = [...new Set([...NEUTRALS, ...Object.keys(HUE)])].filter((c) => c !== "丹寧藍");
+
 export function colorToHue(name: string): number | null {
   return name in HUE ? HUE[name] : null;
 }

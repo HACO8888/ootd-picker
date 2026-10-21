@@ -14,8 +14,13 @@
 //      colour harmony, then a diversity-aware greedy pick of distinct outfits.
 //   5. Makeup / perfume  — scored with the same tag affinities and picked per
 //      outfit, preferring a different look for each candidate.
+//   6. Personal taste    — optional, learnt from favorites / wear logs
+//      (personalize.ts); a bounded bonus on garments that already fit the
+//      context, so it reorders good candidates but never bypasses the rules.
 import { IMG, MAKEUP_LOOKBOOK, PERFUME_LOOKBOOK, TRANSLATE } from "./data";
 import { evaluateHarmony } from "./color-harmony";
+import { garmentTypeOf, type GarmentType } from "./garment-vocab";
+import { tasteMatches, type StyleTaste } from "./personalize";
 import type {
   Item,
   Makeup,
@@ -40,6 +45,8 @@ const GENDER_MATCH_BONUS = 1.5;
 const CROSS_GENDER_PENALTY = 6;
 /** Per-piece penalty for something worn in the last 7 days. */
 const RECENT_WEAR_PENALTY = 3;
+/** Max bonus from the learnt personal taste — below the mood weight: it breaks ties, not rules. */
+const TASTE_BONUS_CAP = 2;
 /** Gumbel temperature for pool sampling / outfit ranking (score units). */
 const POOL_TEMPERATURE = 1.2;
 const OUTFIT_TEMPERATURE = 6;
@@ -189,10 +196,10 @@ type P = Partial<StyleProfile>;
 
 /**
  * Garment types recognised in item names (catalog names are colour + type,
- * curated / user names contain the type word). Longest key wins, so 西裝外套
- * beats 外套 and 運動長褲 beats 長褲.
+ * curated / user names contain the type word). Keyed by the shared vocabulary
+ * in garment-vocab.ts, so the AI tagger and the engine can't drift apart.
  */
-const TYPE_PROFILE: Record<string, P> = {
+const TYPE_PROFILE: Record<GarmentType, P> = {
   // tops
   T恤: { casual: 1.5, sporty: 0.5, lightness: 1.5, coldRisk: 0.5 },
   襯衫: { formal: 1.8, elegant: 0.6, casual: 0.4, warmth: 0.6 },
@@ -244,7 +251,6 @@ const TYPE_PROFILE: Record<string, P> = {
   棒球帽: { casual: 1.4, sporty: 1.4, lightness: 0.6 },
   領帶: { formal: 3, statement: 0.4 },
 };
-const TYPE_KEYS = Object.keys(TYPE_PROFILE).sort((a, b) => b.length - a.length);
 
 /** Material / detail words that shift a garment's profile. */
 const MODIFIERS: [RegExp, P][] = [
@@ -267,13 +273,13 @@ const STATEMENT_COLOURS = new Set(["金色", "銀色", "金屬色", "紅色", "�
 const FEMININE_TYPES = new Set(["裙", "手提包", "手拿包", "印度長衫", "長版上衣", "內搭褲", "彈性窄管褲", "罩衫外套", "披肩"]);
 const MASCULINE_TYPES = new Set(["領帶"]);
 
-const typeCache = new WeakMap<Item, string>();
+const typeCache = new WeakMap<Item, GarmentType | "">();
 /** The garment type word found in the item's name ("" when unknown). */
-function garmentType(i: Item | null | undefined): string {
+function garmentType(i: Item | null | undefined): GarmentType | "" {
   if (!i) return "";
   const cached = typeCache.get(i);
   if (cached !== undefined) return cached;
-  const t = TYPE_KEYS.find((k) => i.name.includes(k)) ?? "";
+  const t = garmentTypeOf(i.name);
   typeCache.set(i, t);
   return t;
 }
@@ -511,12 +517,19 @@ function gumbel(random: () => number): number {
 
 interface Ranker {
   ctx: ClothCtx;
-  /** Memoized scoreItem for this context. */
+  /** Memoized scoreItem (+ personal taste bonus) for this context. */
   score: (i: Item) => number;
   recent: ReadonlySet<string>;
 }
 
-function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>): Ranker {
+/** 0..TASTE_BONUS_CAP — half from the garment's best-liked colour, half from its type. */
+function tasteBonus(i: Item, taste: StyleTaste): number {
+  const color = Math.max(0, ...i.colors.map((c) => taste.colors[c] ?? 0));
+  const type = taste.types[garmentType(i)] ?? 0;
+  return TASTE_BONUS_CAP * (0.5 * color + 0.5 * type);
+}
+
+function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>, taste?: StyleTaste | null): Ranker {
   const cache = new Map<Item, number>();
   return {
     ctx,
@@ -525,6 +538,9 @@ function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>): Ranker {
       let s = cache.get(i);
       if (s === undefined) {
         s = scoreItem(i, ctx);
+        // Only garments that already match the context get the bonus, so taste
+        // can't lift a non-match over the match floor.
+        if (taste && s > 0) s += tasteBonus(i, taste);
         cache.set(i, s);
       }
       return s;
@@ -816,7 +832,7 @@ export function bestPerfume(weather: Weather, mood: string, destination: string,
  * Human-readable reasons for an outfit. Pure + idempotent, so it can be called
  * again after a swap or when loading an old favorite that lacks reasons.
  */
-export function buildReasons(outfit: Outfit): Reason[] {
+export function buildReasons(outfit: Outfit, taste?: StyleTaste | null): Reason[] {
   const { weather, mood, destination, gender } = outfit.context;
   const ctx: ClothCtx = { weather, mood, destination, gender };
   const reasons: Reason[] = [];
@@ -843,6 +859,12 @@ export function buildReasons(outfit: Outfit): Reason[] {
   const harmony = outfit.harmony ?? evaluateHarmony(outfit);
   for (const note of harmony.notes.slice(0, 2)) reasons.push({ kind: "color", text: note });
 
+  // Personal taste
+  if (taste) {
+    const liked = [...new Set(garments.flatMap((i) => tasteMatches(i, taste)))].slice(0, 3);
+    if (liked.length) reasons.push({ kind: "personal", text: `延續你常收藏、常穿的${liked.join("、")}。` });
+  }
+
   return reasons;
 }
 
@@ -851,6 +873,8 @@ export interface GenerateOptions {
   recentlyWornIds?: ReadonlySet<string>;
   /** Injectable RNG (tests / evaluation); defaults to Math.random. */
   random?: () => number;
+  /** Learnt personal taste (personalize.ts) — a bounded bonus; null/absent = off. */
+  taste?: StyleTaste | null;
 }
 
 /**
@@ -873,7 +897,7 @@ export function generateOOTDSet(
   const random = options.random ?? Math.random;
   const context = { weather, mood, destination, gender };
   const ctx: ClothCtx = { weather, mood, destination, gender };
-  const r = makeRanker(ctx, options.recentlyWornIds ?? new Set());
+  const r = makeRanker(ctx, options.recentlyWornIds ?? new Set(), options.taste);
 
   const wantOuter = weather === "cold" || weather === "rainy";
   const rankedTops = rankCategory(closet, "tops", r);
@@ -968,7 +992,7 @@ export function generateOOTDSet(
   const perfumes = pickLooks(perfumeRanked, result.length, random);
   const outfits = result.map((o, n) => {
     const withLooks: Outfit = { ...o, makeup: makeups[n] ?? placeholderMakeup, perfume: perfumes[n] ?? placeholderPerfume };
-    withLooks.reasons = buildReasons(withLooks);
+    withLooks.reasons = buildReasons(withLooks, options.taste);
     return withLooks;
   });
   return { outfits, context };
@@ -987,8 +1011,9 @@ export function swapClosetItem(
   closet: Item[],
   ctx: ClothCtx,
   currentOutfit?: Outfit,
+  taste?: StyleTaste | null,
 ): Item | null {
-  const r = makeRanker(ctx, new Set());
+  const r = makeRanker(ctx, new Set(), taste);
   const current = closet.find((i) => i.id === currentId);
   const currentKey = itemVariantKey(current);
   const ranked = rankCategory(closet, cat, r).filter(

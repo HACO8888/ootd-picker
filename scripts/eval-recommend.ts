@@ -8,11 +8,17 @@
  *   pnpm eval:recommend --runs 10 --json scripts/.cache/eval.json
  *   pnpm eval:recommend --engine <recommend.ts> --catalog <catalog.json> --old-lookbook
  *   pnpm eval:recommend --small          # curated 17-piece closet + tagless uploads
+ *   pnpm eval:recommend --taste          # personalised for a fixed persona (compare with/without)
  *
  * `--engine` / `--catalog` let an old engine or old data be measured with the
  * exact same harness (A/B). Ground-truth garment gender comes from the dataset
  * labels (scripts/.cache/styles.csv via fetch-fashion), not from the item, so a
  * catalog that predates the `gender` field is still measured fairly.
+ *
+ * `personaMatch*` is always reported: the share of recommended garments carrying
+ * one of the PERSONA's clearly preferred colours / types. Without `--taste` it is
+ * the engine's natural base rate; with `--taste` the learnt taste is applied, so
+ * the difference is the personalisation lift (hard-violation rate must stay 0).
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -20,7 +26,8 @@ import { pathToFileURL } from "node:url";
 import "../src/lib/catalog-source";
 import { getCatalog } from "../src/lib/catalog";
 import { buildCloset, MAKEUP_LOOKBOOK, PERFUME_LOOKBOOK, setMakeupLookbook, setPerfumeLookbook } from "../src/lib/data";
-import type { Gender, Item, OOTDSet, Outfit, Weather } from "../src/lib/types";
+import { learnTaste, tasteMatches, type StyleTaste } from "../src/lib/personalize";
+import type { Favorite, Gender, Item, OOTDSet, Outfit, Weather } from "../src/lib/types";
 
 type Engine = {
   generateOOTDSet: (
@@ -30,6 +37,7 @@ type Engine = {
     destination: string,
     gender?: Gender,
     count?: number,
+    options?: { taste?: StyleTaste | null },
   ) => OOTDSet;
   seasonsForWeather: (w: Weather) => string[];
 };
@@ -44,11 +52,31 @@ const ENGINE = arg("--engine", "src/lib/recommend.ts");
 const CATALOG = arg("--catalog", "");
 const OLD_LOOKBOOK = process.argv.includes("--old-lookbook");
 const SMALL = process.argv.includes("--small");
+const TASTE = process.argv.includes("--taste");
 
 const WEATHERS: Weather[] = ["sunny", "cloudy", "rainy", "cold"];
 const MOODS = ["活力", "放鬆", "專業", "優雅", "舒適"];
 const DESTS = ["工作", "約會", "休閒漫步", "社交聚會", "居家"];
 const GENDERS: Gender[] = ["female", "male", "unisex"];
+
+/**
+ * A fixed persona: someone who keeps saving navy / khaki looks with trousers.
+ * Built through learnTaste() exactly as the app does from favorites.
+ */
+function personaTaste(): StyleTaste {
+  const g = (id: string, name: string, category: Item["category"], color: string): Item => ({
+    id, brand: "自訂", name, category, seasons: [], colors: [color], tags: [], imageUrl: "",
+  });
+  const look = (top: Item, bottom: Item): Outfit => ({ top, bottom, outerwear: null, accessory: null, context: { weather: "sunny", mood: "放鬆", destination: "工作", gender: "unisex" } } as unknown as Outfit);
+  const favs: Favorite[] = [
+    look(g("p1", "藏青襯衫", "tops", "藏青"), g("p2", "卡其色長褲", "bottoms", "卡其色")),
+    look(g("p3", "酒紅針織毛衣", "tops", "酒紅"), g("p4", "藏青牛仔褲", "bottoms", "藏青")),
+    look(g("p5", "藏青T恤", "tops", "藏青"), g("p6", "卡其色長褲", "bottoms", "卡其色")),
+  ].map((outfit, n) => ({ id: `f${n}`, date: "", outfit }));
+  const taste = learnTaste(favs, []);
+  if (!taste) throw new Error("persona taste is empty");
+  return taste;
+}
 
 const garments = (o: Outfit) => [o.top, o.bottom, o.outerwear, o.accessory].filter(Boolean) as Item[];
 
@@ -99,6 +127,8 @@ async function main() {
   const closet = await loadCatalog();
   const truth = await loadTruthGender();
   const genderOf = (i: Item) => truth.get(i.id) ?? i.gender ?? "unisex";
+  const persona = personaTaste();
+  const personaHit = { garments: 0, outfits: 0 };
 
   const cnt = {
     outfits: 0,
@@ -144,7 +174,9 @@ async function main() {
           const ctxMakeups = new Set<string>();
           for (let r = 0; r < RUNS; r++) {
             const t0 = performance.now();
-            const set = generateOOTDSet(closet, weather, mood, destination, gender);
+            const set = TASTE
+              ? generateOOTDSet(closet, weather, mood, destination, gender, 3, { taste: persona })
+              : generateOOTDSet(closet, weather, mood, destination, gender);
             timings.push(performance.now() - t0);
             if (set.outfits.length < 3) cnt.shortSets++;
             const runIds = new Set<string>();
@@ -184,6 +216,9 @@ async function main() {
                 if (i.tags.includes(mood)) cnt.moodDirect++;
                 if (i.seasons.some((s) => ts.includes(s))) cnt.seasonMatch++;
               }
+              const hits = gs.filter((i) => tasteMatches(i, persona).length > 0).length;
+              personaHit.garments += hits;
+              if (hits) personaHit.outfits++;
               cnt.harmonySum += o.harmony?.score ?? 0;
               if (o.harmony?.verdict === "clash") cnt.clash++;
               makeups.add(o.makeup.id);
@@ -212,6 +247,7 @@ async function main() {
   const report = {
     engine: ENGINE,
     catalog: SMALL ? "small" : CATALOG || "current",
+    personalised: TASTE,
     catalogSize: closet.length,
     runsPerContext: RUNS,
     outfits: cnt.outfits,
@@ -244,6 +280,8 @@ async function main() {
     perDestination: Object.fromEntries(
       Object.entries(perDest).map(([k, v]) => [k, { violation: pct(v.v, v.n), destTagInOutfit: pct(v.dest, v.n) }]),
     ),
+    personaMatchGarments: pct(personaHit.garments, cnt.garments),
+    personaMatchOutfits: pct(personaHit.outfits, cnt.outfits),
     msPerGenerate: { p50: p(0.5), p95: p(0.95), max: p(1) },
   };
   console.log(JSON.stringify(report, null, 2));

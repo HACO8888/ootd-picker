@@ -66,7 +66,7 @@ export interface OOTDContext {
 
 /** Why a particular outfit was recommended (shown in the results view). */
 export interface Reason {
-  kind: "weather" | "mood" | "destination" | "season" | "color" | "outerwear";
+  kind: "weather" | "mood" | "destination" | "season" | "color" | "outerwear" | "personal";
   slot?: "top" | "bottom" | "outerwear" | "accessory" | "makeup" | "perfume";
   /** A complete, ready-to-display Chinese sentence. */
   text: string;

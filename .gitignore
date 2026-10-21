@@ -37,3 +37,6 @@ scripts/.cache/
 
 # private agent memory (public repo)
 memory/
+
+# Infisical CLI project config (project id + domain only, no secrets)
+.infisical.json

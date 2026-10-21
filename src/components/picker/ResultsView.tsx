@@ -8,6 +8,7 @@ import { MakeupCard } from "@/components/results/MakeupCard";
 import { PerfumeCard } from "@/components/results/PerfumeCard";
 import { HarmonyBadge } from "@/components/results/HarmonyBadge";
 import { ReasonsPanel } from "@/components/results/ReasonsPanel";
+import { AiStylistPanel } from "@/components/results/AiStylistPanel";
 import { OutfitTabs } from "@/components/results/OutfitTabs";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -34,6 +35,9 @@ interface Props {
 }
 
 export function ResultsView({ rec, candidates, activeIdx, onSelectCandidate, saved, onRegenerate, onSwapItem, onSwapMakeup, onSwapPerfume, onSave, onReset, onLogWear, onShare, recentlyWornIds }: Props) {
+  // Only when this look itself was shaped by the learnt taste (the engine adds a
+  // "personal" reason), not merely because the user now has enough history.
+  const personalized = rec.reasons?.some((r) => r.kind === "personal") ?? false;
   const repeats = SLOTS.map((s) => rec[s]).filter(
     (i): i is Item => !!i && recentlyWornIds.has(i.id),
   );
@@ -88,6 +92,14 @@ export function ResultsView({ rec, candidates, activeIdx, onSelectCandidate, sav
                 {label}
               </span>
             ))}
+            {personalized && (
+              <span
+                className="kicker text-primary border border-primary px-3 py-1 inline-flex items-center gap-1"
+                title="依你的收藏與穿搭日誌學習偏好的顏色與單品類型"
+              >
+                <Icon name="favorite" className="text-[14px]" /> 個人化
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -155,6 +167,11 @@ export function ResultsView({ rec, candidates, activeIdx, onSelectCandidate, sav
           <div className="px-6 pb-6 space-y-5">
             <OutfitStack outfit={rec} onSwap={onSwapItem} />
             {rec.reasons && rec.reasons.length > 0 && <ReasonsPanel reasons={rec.reasons} />}
+            {/* Keyed by the look's pieces so a swap / regenerate starts a fresh note. */}
+            <AiStylistPanel
+              key={[...SLOTS.map((s) => rec[s]?.id ?? "-"), rec.makeup.id, rec.perfume.id].join("|")}
+              outfit={rec}
+            />
           </div>
         </div>
         <MakeupCard makeup={rec.makeup} onSwap={onSwapMakeup} />

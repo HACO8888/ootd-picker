@@ -16,15 +16,18 @@
 ```mermaid
 flowchart LR
     U([使用者]) -->|性別/天氣/心情/目的地| SYS{{OOTD Picker 應用}}
+    U -->|新增單品、收藏、穿搭日誌| SYS
     SYS -->|完整造型：穿搭+妝容+香水| U
-    U -->|新增/刪除單品、收藏| SYS
-    SYS <-->|讀寫衣櫥/收藏 JSON| LS[(瀏覽器 localStorage)]
     U -->|Google 登入| G[[Google OAuth]]
     G -->|id token| SYS
-    SYS <-->|登入後同步 衣櫥/收藏/日誌| DB[(PostgreSQL · Drizzle)]
-    ADM([管理員]) <-->|/admin 用戶/目錄/稽核/統計| SYS
-    SYS -->|請求最佳化圖片/字體| AS[[靜態資源 next/image · next/font]]
-    AS -->|AVIF/WebP, woff2| SYS
+    ADM([管理員]) <-->|/admin 用戶/目錄/妝香/審核/統計| SYS
+    SYS <-->|讀寫衣櫥/收藏/日誌 JSON| LS[(瀏覽器 localStorage)]
+    SYS <-->|登入後同步 衣櫥/收藏/日誌| DB[(PostgreSQL／Drizzle)]
+    SYS -->|衣物照片、整套造型| AI[[AI 閘道 VLM／LLM]]
+    AI -->|品類/顏色/季節/風格、造型解說| SYS
+    SYS -->|定位| W[[Open-Meteo 天氣]]
+    W -->|今日天氣| SYS
+    SYS <-->|AVIF/WebP/woff2、離線快取| AS[[靜態資源／Service Worker]]
 ```
 
 ---

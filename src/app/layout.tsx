@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { SyncToast } from "@/components/auth/SyncToast";
 import { RuntimeDataLoader } from "@/components/RuntimeDataLoader";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { ChromeProvider } from "@/components/chrome/ChromeProvider";
 import { TopNav } from "@/components/nav/TopNav";
 import { BottomNav } from "@/components/nav/BottomNav";
@@ -91,6 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <AuthProvider>
           <RuntimeDataLoader />
+          <ServiceWorkerRegister />
           <ChromeProvider>
             <SyncToast />
             <TopNav />

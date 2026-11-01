@@ -189,6 +189,16 @@
   - **圖片**：上傳拒收 SVG；分享卡只載入同源、`data:`、`blob:` 圖片。
   - **CI**：actions 釘 commit SHA、`permissions: contents: read`。
   - **CSP**：production 移除 `'unsafe-eval'`；`connect-src` 限 `'self'` 與 Open-Meteo，`img-src` 限 `'self'`、`data:`、`blob:` 與 Google 頭像。不採用 nonce：每次請求產生 nonce 會讓所有頁面變成動態，失去靜態預渲染。`Permissions-Policy` 改為 `geolocation=(self)`，「偵測今天天氣」才能取得定位。
+- **D-REC-3 冷門衣活化（第 10 輪）**：簡報主張「冷門舊衣活化」，原本只有「近 7 天穿過 −3」與屬性層級的偏好，沒有直接讓閒置單品回到推薦的機制，因此補上。
+  - **規則**：使用者自己的單品（`getUserCloset`：上傳＋精選預設）超過 30 天沒穿，且當天評分 > 0 時加 **+1.5**（`IDLE_BONUS`，`wearlog.ts` 的 `idleItemIds`）。共用目錄不算，因為目錄裡幾乎每件都「沒穿過」，加分沒有意義。跟偏好加分一樣，只在已符合情境時加分，不會讓不合適的單品越過門檻。換單品（`swapClosetItem`）也套用。
+  - **啟用門檻**：穿搭日誌少於 3 筆時不啟用（`IDLE_MIN_LOGS`）。沒有紀錄時，每件都像閒置，加分會失去意義。
+  - **成效**（`pnpm eval:recommend --wardrobe` 對 `--idle`，300 情境 × 5 次，17 件精選單品當作使用者上傳）：推薦單品來自自己衣櫥的比例 18.7% → 31.5%，含自己單品的整套 53.7% → 77.7%；硬性違規率維持 0%；目的地命中 82.0% → 80.6%、重新生成重疊率 0.175 → 0.233（更常推自己的衣服，屬預期取捨）。預設評估（不帶旗標）不受影響。
+  - **洞察頁**：新增「衣櫥利用率」（近 30 天穿過的自有單品比例，`computeUtilization`），對應簡報的「穿搭率」。
+- **D-PWA-1 離線支援（第 10 輪）**：推薦引擎、目錄與使用者資料都在瀏覽器裡，所以補上 service worker（`public/sw.js`，只在 production 註冊）就能離線使用。
+  - **策略**：頁面 network-first，離線時改用快取；`/_next/static` 與圖片 cache-first，圖片最多 400 筆、靜態檔最多 300 筆。安裝時預先快取 `/`、`/picker`、`/closet`、`/insights`、`/journal`、`/about` 和它們引用的資源。註冊後，頁面會把已載入的資源清單交給 worker 補進快取。
+  - **不快取**：非 GET、跨來源、`/api/*`、`/admin*`、Next RSC 請求。登入、同步、AI 與後台一律走網路；離線時嚮導、衣櫥、收藏與日誌照常可用，雲端同步會在恢復連線後再進行。
+  - **標頭**：`/sw.js` 設 `no-store`，修正才能立即生效；CSP 加上 `worker-src 'self'`。e2e 設 `serviceWorkers: "block"`，避免 worker 擋在 `page.route()` mock 前面。
+  - **驗證**：production build 下先線上開首頁，再切離線，走完嚮導（女生／雨天／工作）並開啟 `/closet`，兩頁都正常，沒有頁面錯誤；`/admin` 離線時如預期無法開啟。
 
 ## 9. 里程碑（對齊 PM 時程，見 AGENTS.md §時程）
 

@@ -13,6 +13,8 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // The offline service worker would sit in front of page.route() mocks (/api/ai/*).
+    serviceWorkers: "block",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

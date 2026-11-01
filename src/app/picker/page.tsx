@@ -5,12 +5,13 @@ import { useEffect, useMemo, useReducer, useRef } from "react";
 import { useCloset } from "@/hooks/useCloset";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useWearLog } from "@/hooks/useWearLog";
+import { useUserCloset } from "@/hooks/useUserCloset";
 import { useChrome } from "@/components/chrome/ChromeProvider";
 import { buildCloset, TRANSLATE } from "@/lib/data";
 import { buildReasons, generateOOTDSet, swapClosetItem, swapMakeupLook, swapPerfumePick } from "@/lib/recommend";
 import { evaluateHarmony } from "@/lib/color-harmony";
 import { detectTodayWeather } from "@/lib/weather";
-import { recentlyWornItemIds, todayISO } from "@/lib/wearlog";
+import { idleItemIds, recentlyWornItemIds, todayISO } from "@/lib/wearlog";
 import { learnTaste } from "@/lib/personalize";
 import type { Gender, Weather, Item, Outfit } from "@/lib/types";
 import { wizardReducer, initialWizard, type Step } from "@/components/picker/wizard";
@@ -23,11 +24,14 @@ export default function PickerPage() {
   const { closet } = useCloset();
   const { favorites, addFav } = useFavorites();
   const { wearLogs, logWear } = useWearLog();
+  const { userCloset } = useUserCloset();
   const { showToast, openShare, pendingFavorite, consumePendingFavorite } = useChrome();
 
   const recentlyWornIds = useMemo(() => recentlyWornItemIds(wearLogs, 7), [wearLogs]);
   // Personal taste learnt from what the user saved and wore (null until there's enough history).
   const taste = useMemo(() => learnTaste(favorites, wearLogs), [favorites, wearLogs]);
+  // The user's own pieces left unworn for 30+ days get a small nudge back into rotation.
+  const idleIds = useMemo(() => idleItemIds(userCloset, wearLogs, 30), [userCloset, wearLogs]);
 
   const [state, dispatch] = useReducer(wizardReducer, initialWizard);
   const { step, gender, weather, mood, destination, rec, candidates, activeIdx, saved, loadingText, appliedFavId, detecting } = state;
@@ -103,7 +107,7 @@ export default function PickerPage() {
       setTimeout(() => {
         // Abandoned mid-generation (favorite applied / cancelled / reset)? Skip.
         if (genRef.current !== gen) return;
-        const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender, 3, { recentlyWornIds, taste });
+        const set = generateOOTDSet(activeCloset(), weather as Weather, mood, d, gender as Gender, 3, { recentlyWornIds, taste, idleIds });
         dispatch({ type: "setResultSet", outfits: set.outfits });
       }, 2500),
     );
@@ -115,7 +119,7 @@ export default function PickerPage() {
   };
 
   const regenerate = () => {
-    const set = generateOOTDSet(activeCloset(), weather as Weather, mood, destination, gender as Gender, 3, { recentlyWornIds, taste });
+    const set = generateOOTDSet(activeCloset(), weather as Weather, mood, destination, gender as Gender, 3, { recentlyWornIds, taste, idleIds });
     dispatch({ type: "setResultSet", outfits: set.outfits });
     showToast("已重新生成穿搭組合！");
   };
@@ -126,7 +130,7 @@ export default function PickerPage() {
     const dbCategory = slotToCat[slot];
     const currentId = rec[slot]?.id ?? "";
     // Same constraints + scoring as the engine; null when nothing suitable is left.
-    const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context, rec, taste);
+    const next = swapClosetItem(dbCategory, currentId, activeCloset(), rec.context, rec, taste, idleIds);
     if (!next) {
       showToast("衣櫥中沒有其他單品可以更換了！");
       return;

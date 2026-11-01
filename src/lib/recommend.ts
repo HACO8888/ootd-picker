@@ -47,6 +47,8 @@ const CROSS_GENDER_PENALTY = 6;
 const RECENT_WEAR_PENALTY = 3;
 /** Max bonus from the learnt personal taste — below the mood weight: it breaks ties, not rules. */
 const TASTE_BONUS_CAP = 2;
+/** Bonus for the user's own garment left unworn for 30+ days (冷門衣活化) — a tie-breaker, never a rule. */
+const IDLE_BONUS = 1.5;
 /** Gumbel temperature for pool sampling / outfit ranking (score units). */
 const POOL_TEMPERATURE = 1.2;
 const OUTFIT_TEMPERATURE = 6;
@@ -533,7 +535,12 @@ function tasteBonus(i: Item, taste: StyleTaste): number {
   return TASTE_BONUS_CAP * (0.5 * color + 0.5 * type);
 }
 
-function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>, taste?: StyleTaste | null): Ranker {
+function makeRanker(
+  ctx: ClothCtx,
+  recent: ReadonlySet<string>,
+  taste?: StyleTaste | null,
+  idle?: ReadonlySet<string>,
+): Ranker {
   const cache = new Map<Item, number>();
   return {
     ctx,
@@ -545,6 +552,8 @@ function makeRanker(ctx: ClothCtx, recent: ReadonlySet<string>, taste?: StyleTas
         // Only garments that already match the context get the bonus, so taste
         // can't lift a non-match over the match floor.
         if (taste && s > 0) s += tasteBonus(i, taste);
+        // Same floor for idle pieces: revive what fits today, never force a misfit.
+        if (idle && s > 0 && idle.has(i.id)) s += IDLE_BONUS;
         cache.set(i, s);
       }
       return s;
@@ -879,6 +888,8 @@ export interface GenerateOptions {
   random?: () => number;
   /** Learnt personal taste (personalize.ts) — a bounded bonus; null/absent = off. */
   taste?: StyleTaste | null;
+  /** The user's own garments unworn for 30+ days (wearlog.ts `idleItemIds`) — a small bonus. */
+  idleIds?: ReadonlySet<string>;
 }
 
 /**
@@ -901,7 +912,7 @@ export function generateOOTDSet(
   const random = options.random ?? Math.random;
   const context = { weather, mood, destination, gender };
   const ctx: ClothCtx = { weather, mood, destination, gender };
-  const r = makeRanker(ctx, options.recentlyWornIds ?? new Set(), options.taste);
+  const r = makeRanker(ctx, options.recentlyWornIds ?? new Set(), options.taste, options.idleIds);
 
   const wantOuter = weather === "cold" || weather === "rainy";
   const rankedTops = rankCategory(closet, "tops", r);
@@ -1016,8 +1027,9 @@ export function swapClosetItem(
   ctx: ClothCtx,
   currentOutfit?: Outfit,
   taste?: StyleTaste | null,
+  idleIds?: ReadonlySet<string>,
 ): Item | null {
-  const r = makeRanker(ctx, new Set(), taste);
+  const r = makeRanker(ctx, new Set(), taste, idleIds);
   const current = closet.find((i) => i.id === currentId);
   const currentKey = itemVariantKey(current);
   const ranked = rankCategory(closet, cat, r).filter(

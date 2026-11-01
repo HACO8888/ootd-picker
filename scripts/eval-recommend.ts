@@ -9,6 +9,8 @@
  *   pnpm eval:recommend --engine <recommend.ts> --catalog <catalog.json> --old-lookbook
  *   pnpm eval:recommend --small          # curated 17-piece closet + tagless uploads
  *   pnpm eval:recommend --taste          # personalised for a fixed persona (compare with/without)
+ *   pnpm eval:recommend --wardrobe       # + the 17 curated pieces as the user's own uploads (baseline)
+ *   pnpm eval:recommend --idle           # same, with that wardrobe unworn 30+ days (冷門衣活化 lift)
  *
  * `--engine` / `--catalog` let an old engine or old data be measured with the
  * exact same harness (A/B). Ground-truth garment gender comes from the dataset
@@ -19,6 +21,12 @@
  * one of the PERSONA's clearly preferred colours / types. Without `--taste` it is
  * the engine's natural base rate; with `--taste` the learnt taste is applied, so
  * the difference is the personalisation lift (hard-violation rate must stay 0).
+ *
+ * `idleShare*` (with `--wardrobe` / `--idle`): the share of recommended garments
+ * that come from the user's own wardrobe — the curated pieces added to the
+ * catalog as if uploaded. `--idle` passes that whole wardrobe as unworn for 30+
+ * days, so idle minus wardrobe is the idle-piece lift (冷門衣活化) — again with
+ * the hard-violation rate staying 0.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -37,7 +45,7 @@ type Engine = {
     destination: string,
     gender?: Gender,
     count?: number,
-    options?: { taste?: StyleTaste | null },
+    options?: { taste?: StyleTaste | null; idleIds?: ReadonlySet<string> },
   ) => OOTDSet;
   seasonsForWeather: (w: Weather) => string[];
 };
@@ -53,6 +61,8 @@ const CATALOG = arg("--catalog", "");
 const OLD_LOOKBOOK = process.argv.includes("--old-lookbook");
 const SMALL = process.argv.includes("--small");
 const TASTE = process.argv.includes("--taste");
+const IDLE = process.argv.includes("--idle");
+const WARDROBE = IDLE || process.argv.includes("--wardrobe");
 
 const WEATHERS: Weather[] = ["sunny", "cloudy", "rainy", "cold"];
 const MOODS = ["活力", "放鬆", "專業", "優雅", "舒適"];
@@ -124,7 +134,14 @@ async function main() {
     setMakeupLookbook(MAKEUP_LOOKBOOK.filter((m) => Number(m.id.slice(1)) <= 13));
     setPerfumeLookbook(PERFUME_LOOKBOOK.filter((p) => Number(p.id.slice(1)) <= 10));
   }
-  const closet = await loadCatalog();
+  const loaded = await loadCatalog();
+  // The user's own wardrobe = the curated pieces, added as if uploaded (the app's
+  // picker closet is uploads + catalog). Off by default so the baseline is unchanged.
+  const wardrobeIds = new Set(WARDROBE ? buildCloset().map((i) => i.id) : []);
+  const loadedIds = new Set(loaded.map((i) => i.id));
+  const closet = WARDROBE ? [...buildCloset().filter((i) => !loadedIds.has(i.id)), ...loaded] : loaded;
+  const idleOpt = IDLE ? { idleIds: wardrobeIds } : {};
+  const idleHit = { garments: 0, outfits: 0 };
   const truth = await loadTruthGender();
   const genderOf = (i: Item) => truth.get(i.id) ?? i.gender ?? "unisex";
   const persona = personaTaste();
@@ -174,9 +191,10 @@ async function main() {
           const ctxMakeups = new Set<string>();
           for (let r = 0; r < RUNS; r++) {
             const t0 = performance.now();
-            const set = TASTE
-              ? generateOOTDSet(closet, weather, mood, destination, gender, 3, { taste: persona })
-              : generateOOTDSet(closet, weather, mood, destination, gender);
+            const set = generateOOTDSet(closet, weather, mood, destination, gender, 3, {
+              ...(TASTE ? { taste: persona } : {}),
+              ...idleOpt,
+            });
             timings.push(performance.now() - t0);
             if (set.outfits.length < 3) cnt.shortSets++;
             const runIds = new Set<string>();
@@ -219,6 +237,9 @@ async function main() {
               const hits = gs.filter((i) => tasteMatches(i, persona).length > 0).length;
               personaHit.garments += hits;
               if (hits) personaHit.outfits++;
+              const own = gs.filter((i) => wardrobeIds.has(i.id)).length;
+              idleHit.garments += own;
+              if (own) idleHit.outfits++;
               cnt.harmonySum += o.harmony?.score ?? 0;
               if (o.harmony?.verdict === "clash") cnt.clash++;
               makeups.add(o.makeup.id);
@@ -248,6 +269,7 @@ async function main() {
     engine: ENGINE,
     catalog: SMALL ? "small" : CATALOG || "current",
     personalised: TASTE,
+    idleBoost: IDLE,
     catalogSize: closet.length,
     runsPerContext: RUNS,
     outfits: cnt.outfits,
@@ -282,6 +304,9 @@ async function main() {
     ),
     personaMatchGarments: pct(personaHit.garments, cnt.garments),
     personaMatchOutfits: pct(personaHit.outfits, cnt.outfits),
+    ...(WARDROBE
+      ? { idleShareGarments: pct(idleHit.garments, cnt.garments), idleShareOutfits: pct(idleHit.outfits, cnt.outfits) }
+      : {}),
     msPerGenerate: { p50: p(0.5), p95: p(0.95), max: p(1) },
   };
   console.log(JSON.stringify(report, null, 2));

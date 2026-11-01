@@ -8,7 +8,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { useWearLog } from "@/hooks/useWearLog";
 import { getCatalog } from "@/lib/catalog";
 import { TRANSLATE } from "@/lib/data";
-import { computeClosetStats, computeUsage, detectGaps, suggestForGap } from "@/lib/insights";
+import { computeClosetStats, computeUsage, computeUtilization, detectGaps, suggestForGap } from "@/lib/insights";
 import type { Category, Season } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -42,6 +42,7 @@ export default function InsightsPage() {
     () => computeUsage(userCloset, { favorites, wearLog: wearLogs }),
     [userCloset, favorites, wearLogs],
   );
+  const utilization = useMemo(() => computeUtilization(userCloset, wearLogs, 30), [userCloset, wearLogs]);
   const gaps = useMemo(() => detectGaps(userCloset), [userCloset]);
   const gapSuggestions = useMemo(() => {
     const catalog = getCatalog();
@@ -99,6 +100,21 @@ export default function InsightsPage() {
       {/* Usage frequency */}
       <Panel kicker="USAGE" title="使用頻率">
         {hasUsageData ? (
+          <>
+          {usage.totalWears > 0 && (
+            <div className="border-b border-outline-variant pb-6 mb-6 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <p className="kicker text-on-surface-variant">衣櫥利用率 · 近 {utilization.days} 天</p>
+              <p className="font-headline-md text-headline-md text-[28px] text-on-surface">
+                {utilization.rate}%
+                <span className="font-body-md text-body-md text-[14px] text-on-surface-variant ml-2">
+                  穿過 {utilization.worn} / {utilization.total} 件
+                </span>
+              </p>
+              <p className="w-full font-body-md text-body-md text-[13px] text-outline">
+                你上傳的單品超過 {utilization.days} 天沒穿時，只要符合當天情境，推薦會稍微優先讓它出場。
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <p className="kicker text-on-surface-variant mb-2">最常入選</p>
@@ -109,7 +125,7 @@ export default function InsightsPage() {
               )}
             </div>
             <div>
-              <p className="kicker text-on-surface-variant mb-2">幾乎沒用過 · 斷捨離提醒</p>
+              <p className="kicker text-on-surface-variant mb-2">幾乎沒用過 · 冷門單品</p>
               {usage.neverUsed.length ? (
                 <UsageList entries={usage.neverUsed.slice(0, 6).map((item) => ({ item, count: 0 }))} />
               ) : (
@@ -117,6 +133,7 @@ export default function InsightsPage() {
               )}
             </div>
           </div>
+          </>
         ) : (
           <div className="text-center py-10 space-y-3">
             <p className="font-body-md text-body-md text-[14px] text-on-surface-variant">

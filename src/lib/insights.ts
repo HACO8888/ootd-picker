@@ -2,6 +2,7 @@
 // (Item[], Favorite[], optional WearLog[]); outputs are plain stat objects so
 // the whole module is trivially testable.
 import type { Item, Favorite, WearLog, Category, Season } from "./types";
+import { recentlyWornItemIds } from "./wearlog";
 
 const CATEGORIES: Category[] = ["tops", "bottoms", "outerwear", "accessories"];
 const SEASONS: Season[] = ["spring", "summer", "autumn", "winter"];
@@ -97,6 +98,26 @@ export function computeUsage(
     totalFavorites: favorites.length,
     totalWears: wearLog.length,
   };
+}
+
+/* ─── Utilization ───────────────────────────────────────────────────────── */
+export interface Utilization {
+  /** Own garments worn at least once in the window. */
+  worn: number;
+  total: number;
+  /** 0..100, rounded. */
+  rate: number;
+  days: number;
+}
+
+/**
+ * Share of the user's own wardrobe actually worn in the last `days` days —
+ * the 穿搭率 the idle-piece nudge (冷門衣活化) is meant to raise.
+ */
+export function computeUtilization(closet: Item[], wearLog: WearLog[], days = 30, now: Date = new Date()): Utilization {
+  const worn = recentlyWornItemIds(wearLog, days, now);
+  const n = closet.filter((i) => worn.has(i.id)).length;
+  return { worn: n, total: closet.length, rate: closet.length ? Math.round((100 * n) / closet.length) : 0, days };
 }
 
 /* ─── Gap analysis ──────────────────────────────────────────────────────── */

@@ -1,7 +1,7 @@
 // Pure helpers for the wear log — local-date math + month/recency queries.
 // Dates are stored as local ISO "YYYY-MM-DD" (never toISOString(), which would
 // shift by the UTC offset and land on the wrong calendar day).
-import type { WearLog } from "./types";
+import type { Item, WearLog } from "./types";
 
 /** Format a Date as a local ISO date string "YYYY-MM-DD". */
 export function toISODate(d: Date): string {
@@ -57,4 +57,24 @@ export function recentlyWornItemIds(
     }
   }
   return ids;
+}
+
+/** Wear logs needed before "idle" means anything — with no history every garment looks idle. */
+export const IDLE_MIN_LOGS = 3;
+
+/**
+ * Ids of the user's own garments not worn within the last `days` days — the
+ * "idle" pieces the engine nudges back into rotation (冷門衣活化). Only the
+ * user's wardrobe counts (curated defaults + uploads), never the shared catalog,
+ * and only once there's enough wear history to tell idle from simply unlogged.
+ */
+export function idleItemIds(
+  wardrobe: Item[],
+  logs: WearLog[],
+  days = 30,
+  now: Date = new Date(),
+): Set<string> {
+  if (logs.length < IDLE_MIN_LOGS) return new Set();
+  const worn = recentlyWornItemIds(logs, days, now);
+  return new Set(wardrobe.filter((i) => !worn.has(i.id)).map((i) => i.id));
 }

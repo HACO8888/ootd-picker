@@ -40,7 +40,12 @@ async function post<T>(url: string, body: unknown, signal?: AbortSignal): Promis
     throw new AiError("network", "連線失敗，請檢查網路後再試。");
   }
   const json = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-  if (!res.ok) throw new AiError(json.error ?? "ai_failed", json.message ?? "AI 暫時無法回應，請稍後再試。");
+  if (!res.ok) {
+    // Request-shape rejections from parseBody (413 too large, 400 invalid…) carry
+    // only a readable `error`; surface it instead of the generic outage text.
+    const fallback = res.status < 500 && res.status !== 429 && json.error ? json.error : "AI 暫時無法回應，請稍後再試。";
+    throw new AiError(json.error ?? "ai_failed", json.message ?? fallback);
+  }
   return json as T;
 }
 

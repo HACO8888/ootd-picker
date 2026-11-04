@@ -19,7 +19,7 @@ test.describe("AI 輔助", () => {
     await expect(page.getByText("精選穿搭單品")).toBeVisible();
   });
 
-  test("上傳照片後 AI 自動辨識會回填表單", async ({ page }) => {
+  test("選好照片後 AI 自動辨識會回填表單", async ({ page }) => {
     await page.route("**/api/ai/tag", (route) =>
       route.fulfill({
         json: { name: "藏青牛仔褲", category: "bottoms", seasons: ["autumn", "winter"], colors: ["藏青"], tags: ["放鬆"] },
@@ -28,8 +28,8 @@ test.describe("AI 輔助", () => {
     await page.goto("/closet");
     await page.getByRole("button", { name: "上傳新衣物" }).click();
     const modal = page.getByRole("dialog");
+    // Choosing a photo runs the recognition on its own — no button press needed.
     await modal.locator("input[type=file]").setInputFiles("public/images/blue_jeans.png");
-    await modal.getByRole("button", { name: "AI 自動辨識" }).click();
 
     await expect(modal.getByLabel("衣物名稱")).toHaveValue("藏青牛仔褲");
     await expect(modal.getByLabel("類別")).toHaveValue("bottoms");

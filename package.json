@@ -22,7 +22,8 @@
     "eval:recommend": "tsx scripts/eval-recommend.ts",
     "derive:catalog": "tsx scripts/catalog-derive.ts",
     "gen:looks": "tsx scripts/generate-looks.ts",
-    "seed:lookbook": "tsx scripts/seed-lookbook.ts"
+    "seed:lookbook": "tsx scripts/seed-lookbook.ts",
+    "fonts:icons": "uv run --no-project --with 'fonttools[woff]==4.60.1' python scripts/subset-icons.py"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",

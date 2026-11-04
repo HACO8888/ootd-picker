@@ -23,16 +23,19 @@ export function ItemCard({
   item,
   onDelete,
   onEdit,
+  priority = false,
 }: {
   item: Item;
   onDelete: (id: string) => void;
   onEdit: (item: Item) => void;
+  /** First cards of the grid: above the fold on mobile, so load them eagerly. */
+  priority?: boolean;
 }) {
   const brand = item.brand || "自訂";
   return (
     <div className="group relative">
       <div className="relative aspect-[3/4] overflow-hidden bg-surface-container mb-3 border border-outline-variant">
-        <SmartImage src={item.imageUrl} alt={item.name} sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
+        <SmartImage src={item.imageUrl} alt={item.name} sizes="(max-width: 1024px) 50vw, 33vw" priority={priority} className="object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
         <div className={`absolute top-2 left-2 ${brandColor(brand)} kicker px-2 py-1 bg-background/90 border border-outline-variant`}>
           {brand}
         </div>

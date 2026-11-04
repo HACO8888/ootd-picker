@@ -72,7 +72,7 @@
 
 | 類別 | 需求 |
 |---|---|
-| 效能 | 圖片走 `next/image`（AVIF/WebP、lazy）；字體 `next/font` 自託管；首頁 hero `priority`。 |
+| 效能 | 圖片走 `next/image`（AVIF/WebP、lazy）；首屏主圖（首頁 hero、關於頁 banner、衣櫥前兩張）`preload`；字體 `next/font/local` 自託管；圖示字型只含用到的圖示（見 D-PERF-1）。 |
 | 可維護性 | TypeScript strict；共用元件（nav/layout）零重複；資料層與 UI 分離。 |
 | 可及性 | 互動元素具 `aria-label`、語意標籤、鍵盤可操作。 |
 | 相容性 | localStorage key 沿用 `ootd_picker_*_v10/v11`，與舊版資料相容。 |
@@ -199,6 +199,12 @@
   - **不快取**：非 GET、跨來源、`/api/*`、`/admin*`、Next RSC 請求。登入、同步、AI 與後台一律走網路；離線時嚮導、衣櫥、收藏與日誌照常可用，雲端同步會在恢復連線後再進行。
   - **標頭**：`/sw.js` 設 `no-store`，修正才能立即生效；CSP 加上 `worker-src 'self'`。e2e 設 `serviceWorkers: "block"`，避免 worker 擋在 `page.route()` mock 前面。
   - **驗證**：production build 下先線上開首頁，再切離線，走完嚮導（女生／雨天／工作）並開啟 `/closet`，兩頁都正常，沒有頁面錯誤；`/admin` 離線時如預期無法開啟。
+- **D-PERF-1 載入速度（第 11 輪）**：模擬手機（約 1.6Mbps、150ms 延遲、CPU 4 倍降速）量測線上版，每頁要下載約 4MB，其中 3.9MB 是 Material Symbols 圖示字型（全部約 3,800 個圖示，含所有可變軸，且 `max-age=0`）。每頁 load 約 23 秒。
+  - **圖示字型**：`pnpm fonts:icons`（`scripts/subset-icons.py`）從完整字型（`scripts/data/material-symbols-full.woff2`，不對外提供）讀出圖示名稱，保留 `src/` 中以字串常值出現的名稱，固定在 `globals.css` 的樣式（FILL 0／wght 400／GRAD 0／opsz 24），輸出 `public/fonts/material-symbols-<hash>.woff2`（約 9KB），並改寫 `@font-face`。圖示替換在 `rlig`，不是 `liga`。**新增圖示後要重跑**，否則新圖示會顯示成英文名稱。
+  - **快取**：`/fonts/*` 檔名帶 hash，設 `immutable` 一年；service worker 把 `/fonts/` 歸入 STATIC（`VERSION` v2），離線時圖示也正常。
+  - **文字字型**：Inter 與 Fraunces 改用 `next/font/local`（Google Fonts 的 latin 可變字型，OFL，放在 `src/app/fonts/`）。原本 `next/font/google` 在 build 時下載字型偶爾失敗，Turbopack 會報「queries have exactly one entry」，曾讓部署失敗。
+  - **LCP 圖**：關於頁 banner 與衣櫥前兩張卡片原本是 lazy，改為 `preload`。
+  - **成效**（同上條件，production build）：每頁字型 3,990KB → 125KB，load 約 23 秒 → 2.2–3.2 秒；關於頁 LCP 2.7 → 1.3 秒；首頁 TBT 1.4 → 0.1 秒。JS 未變（gzip 後約 225KB，主要是 React／Next runtime；catalog 只在需要的頁面載入，首頁量到的是 `<Link>` 預先抓取）。
 
 ## 9. 里程碑（對齊 PM 時程，見 AGENTS.md §時程）
 

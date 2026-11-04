@@ -38,7 +38,7 @@ export function HomeHero() {
           src="/images/home/hero.jpg"
           alt="穿著鼠尾草綠西裝外套的時尚編輯感造型"
           fill
-          priority
+          preload
           sizes="100vw"
           className="object-cover object-[center_25%]"
         />

@@ -5,6 +5,7 @@ import type { Category, Season } from "@/lib/types";
 import { STYLE_TAGS } from "@/lib/tags";
 import { COLOR_HEX } from "@/lib/data";
 import { AiError, requestAutoTag } from "@/lib/ai-client";
+import { IMAGE_BUDGET, compressImage } from "@/lib/image-encode";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -36,9 +37,8 @@ const COLORS: { value: string; label: string; swatch: string; border?: boolean; 
 
 const TAGS = STYLE_TAGS;
 
-/** 上傳原圖大小上限與降階後最長邊（px）。 */
+/** 上傳原圖大小上限（降階／壓縮見 compressImage）。 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const MAX_IMAGE_EDGE = 800;
 
 /* ─── Form state (useReducer) ────────────────────────────────────────────── */
 interface FormState {
@@ -118,16 +118,19 @@ export function UploadModal({
       ? COLORS
       : [...COLORS, { value: color, label: color, swatch: "", border: true, hex: COLOR_HEX[color] ?? "#9ca3af" }];
 
-  /** Vision model reads the photo and pre-fills the form; the user still reviews and submits. */
-  const autoTag = async () => {
-    if (!image || ai.status === "loading") return;
+  /**
+   * Vision model reads the photo and pre-fills the form; the user still reviews
+   * and submits. Runs on its own when a new item gets a photo; the button re-runs it.
+   */
+  const autoTag = async (photo = image) => {
+    if (!photo) return;
     aiAbort.current?.abort();
     const ctrl = new AbortController();
     aiAbort.current = ctrl;
     setError("");
     setAi({ status: "loading" });
     try {
-      const r = await requestAutoTag(image, ctrl.signal);
+      const r = await requestAutoTag(photo, ctrl.signal);
       if (ctrl.signal.aborted) return;
       dispatch({
         type: "set",
@@ -158,31 +161,27 @@ export function UploadModal({
       setError("圖片檔案過大（上限 15MB），請改用較小的圖片。");
       return;
     }
-    // 透過 canvas 降階到最長邊 ~800px 並重編碼，避免巨大 data URL 撐爆
-    // localStorage 配額或讓同步請求過大；canvas 不可用時退回原圖讀取。
-    const fallbackRead = () => {
-      const reader = new FileReader();
-      reader.onload = () => dispatch({ type: "set", patch: { image: reader.result as string } });
-      reader.readAsDataURL(file);
+    // 透過 canvas 降階並重編碼（iOS 不支援 WebP 時改 JPEG），把 data URL 壓在
+    // IMAGE_BUDGET 內，避免撐爆 localStorage 配額、或超過同步／AI 的 2MB 上限。
+    const applyImage = (dataUrl: string) => {
+      dispatch({ type: "set", patch: { image: dataUrl } });
+      setAi({ status: "idle" });
+      if (!isEdit) void autoTag(dataUrl);
     };
     const url = URL.createObjectURL(file);
     const img = new window.Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        fallbackRead();
+      const compressed = compressImage(img);
+      if (compressed) return applyImage(compressed);
+      // canvas 不可用時，只有原檔本身夠小才直接讀入。
+      if (file.size > IMAGE_BUDGET) {
+        setError("無法壓縮這張圖片，請換一張較小的圖片。");
         return;
       }
-      ctx.drawImage(img, 0, 0, w, h);
-      dispatch({ type: "set", patch: { image: canvas.toDataURL("image/webp", 0.85) } });
-      setAi({ status: "idle" });
+      const reader = new FileReader();
+      reader.onload = () => applyImage(reader.result as string);
+      reader.readAsDataURL(file);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -280,7 +279,7 @@ export function UploadModal({
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-outline-variant bg-surface-container-low px-5 py-4" aria-live="polite">
               <button
                 type="button"
-                onClick={autoTag}
+                onClick={() => void autoTag()}
                 disabled={ai.status === "loading"}
                 className="inline-flex items-center justify-center gap-2 bg-on-surface text-background px-5 py-2.5 kicker hover:bg-primary transition-colors disabled:opacity-60 disabled:cursor-wait shrink-0"
               >

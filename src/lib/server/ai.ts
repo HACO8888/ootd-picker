@@ -12,7 +12,8 @@ import { clientIp } from "./client-ip";
 // `||` not `??`: an empty `AI_TEXT_MODEL=` line in .env must still fall back.
 const base = () => process.env.AI_API_BASE_URL?.replace(/\/+$/, "") || "";
 const key = () => process.env.AI_API_KEY || "";
-const model = () => process.env.AI_TEXT_MODEL || "gemini-3.8-flash";
+// The gateway routes by provider prefix; a bare "gemini-…" id is model_not_found.
+const model = () => process.env.AI_TEXT_MODEL || "google-sub/gemini-3.8-flash";
 const TIMEOUT_MS = 30_000;
 
 export function isAiConfigured(): boolean {

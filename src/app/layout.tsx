@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { SyncToast } from "@/components/auth/SyncToast";
@@ -10,19 +10,25 @@ import { TopNav } from "@/components/nav/TopNav";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { IS_INDEXABLE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
-// Editorial high-contrast serif for headlines. CSS variable name is kept as
-// `--font-playfair` so the @theme `--font-headline-*` tokens need no change.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  axes: ["opsz"],
+// Fonts are the Google Fonts latin variable files (OFL), checked in under
+// ./fonts so `next build` never downloads them: the build-time fetch of
+// next/font/google failed intermittently and broke deploys.
+
+// Editorial high-contrast serif for headlines (wght + opsz axes). CSS variable
+// name is kept as `--font-playfair` so the @theme `--font-headline-*` tokens
+// need no change.
+const fraunces = localFont({
+  src: "./fonts/fraunces-latin-var.woff2",
+  weight: "100 900",
   variable: "--font-playfair",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
 
 // Neutral grotesque for body + labels. Variable name kept as `--font-dm-sans`.
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const inter = localFont({
+  src: "./fonts/inter-latin-var.woff2",
+  weight: "100 900",
   variable: "--font-dm-sans",
   display: "swap",
 });

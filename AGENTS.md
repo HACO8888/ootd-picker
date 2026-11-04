@@ -14,6 +14,7 @@
   - `pnpm lint`　ESLint（flat config）
   - `pnpm db:generate` / `db:studio`　產生 migration / Drizzle Studio
   - `pnpm eval:recommend`　推薦引擎離線評估（違規率／命中率／多樣性／速度）
+  - `pnpm fonts:icons`　重新產生只含用到圖示的 Material Symbols 字型（需 `uv`；**新增圖示後必跑**）
 - 注意：`next dev` 同一專案僅允許單一實例；要換埠請用 `PORT=…`（pnpm 的 `-- -p` 轉發會出錯）。
 - **技術棧**：Next.js 16（App Router / Turbopack / React Compiler / `proxy.ts` 取代 middleware）、React 19、TypeScript strict、Tailwind CSS v4；**Auth.js v5（Google + JWT）**、**Drizzle ORM + PostgreSQL**。
 - **環境變數**（`.env`，已 gitignore）：`DATABASE_URL`、`AUTH_SECRET`、`AUTH_URL`、`AUTH_TRUST_HOST`、`AUTH_GOOGLE_ID/SECRET`、`ADMIN_EMAILS`；選填 `AI_API_BASE_URL/AI_API_KEY/AI_TEXT_MODEL`（與 TPSJ11-AI 同一個 OpenAI 相容閘道；未設時 AI 功能回 503、前台照常）、`TRUSTED_PROXY_HOPS`（AI 限流取 `X-Forwarded-For` 從右數第幾段，預設 1；來自 Cloudflare 節點時改用 `CF-Connecting-IP`，見 `src/lib/server/client-ip.ts`，Cloudflare IP 段異動時要更新）。正式環境變數存在 Infisical「OOTD Picker」專案的 `prod` 環境（AI 變數另有 `dev` 副本）。Google Console 需加 `<AUTH_URL>/api/auth/callback/google`。
@@ -52,6 +53,7 @@ legacy/          重建前舊版（僅供對照，勿在此開發）
 - 資料與 UI 分離：推薦/儲存邏輯放 `src/lib`，畫面只組裝。
 - localStorage 一律走 `src/lib/store.ts`（`useSyncExternalStore`）以跨元件同步；**勿**用 effect 直接 `setState` 讀取（會觸發 `react-hooks/set-state-in-effect`）。
 - **離線**：`public/sw.js` 只快取頁面、`/_next/static` 與圖片，不碰 `/api/*`、`/admin*`；改快取策略時要遞增其中的 `VERSION`（見 PRD D-PWA-1）。
+- 圖示用 `<Icon name="…">`，名稱必須是字串常值（`pnpm fonts:icons` 靠掃描 `src/` 的字串決定保留哪些圖示）；新增圖示後跑 `pnpm fonts:icons` 並 commit 產物（見 PRD D-PERF-1）。
 - 圖片用 `next/image`；可能是使用者上傳 data URL 的圖改用 `SmartImage`。新增任何遠端資源（API、圖片、字型）時要同步更新 `next.config.ts` 的 CSP 白名單，否則 production 會被擋（dev 不套 CSP，看不出來）。
 - 以外部輸入（URL、localStorage、匯入檔、DB）當 key 查常數表時，表要去掉原型（`TRANSLATE` 用 `dict()`，其他用 `Object.setPrototypeOf(表, null)`），避免 `__proto__` 取到 `Object.prototype`。
 - localStorage key 維持 `ootd_picker_*_v10`（與舊資料相容，勿改）。

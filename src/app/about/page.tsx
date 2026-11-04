@@ -56,6 +56,7 @@ export default function AboutPage() {
           src="/images/home/about-banner.jpg"
           alt="時尚編輯感衣櫥"
           fill
+          preload
           sizes="100vw"
           className="object-cover"
         />

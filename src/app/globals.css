@@ -175,13 +175,16 @@ body {
 }
 
 /* Self-hosted Material Symbols (no external Google Fonts dependency — fixes the
-   icons rendering as literal ligature text when the remote stylesheet fails). */
+   icons rendering as literal ligature text when the remote stylesheet fails).
+   Subset to the icons used in src/ and pinned to the style below by
+   `pnpm fonts:icons` (scripts/subset-icons.py) — rerun it after adding an icon,
+   or the new one renders as its literal name. */
 @font-face {
   font-family: "Material Symbols Outlined";
   font-style: normal;
-  font-weight: 100 700;
+  font-weight: 400;
   font-display: block;
-  src: url("/fonts/material-symbols.woff2") format("woff2");
+  src: url("/fonts/material-symbols-e12067df44.woff2") format("woff2");
 }
 
 .material-symbols-outlined {

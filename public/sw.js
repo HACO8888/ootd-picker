@@ -4,13 +4,13 @@
 // all live in the browser, so once the shell is cached the wizard keeps working
 // without a network. Strategy:
 //   • page navigations: network-first, cached copy when offline
-//   • /_next/static (content-hashed, immutable): cache-first
+//   • /_next/static and /fonts (content-hashed, immutable): cache-first
 //   • images (/images, /looks, /_next/image) and icons: cache-first, capped
 // Never touched: non-GET, cross-origin, /api/*, /admin*, and Next RSC fetches
 // (on failure Next falls back to a full navigation, which the cache serves).
 //
 // Bump VERSION when this strategy changes; old caches are dropped on activate.
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGES = `ootd-pages-${VERSION}`;
 const STATIC = `ootd-static-${VERSION}`;
 const IMAGES = `ootd-images-${VERSION}`;
@@ -64,7 +64,7 @@ self.addEventListener("message", (event) => {
 });
 
 function bucketOf(url) {
-  if (url.pathname.startsWith("/_next/static/")) return STATIC;
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/fonts/")) return STATIC;
   if (
     url.pathname.startsWith("/images/") ||
     url.pathname.startsWith("/looks/") ||

@@ -5,7 +5,7 @@ import type { Category, Season } from "@/lib/types";
 import { STYLE_TAGS } from "@/lib/tags";
 import { COLOR_HEX } from "@/lib/data";
 import { AiError, requestAutoTag } from "@/lib/ai-client";
-import { IMAGE_BUDGET, compressImage } from "@/lib/image-encode";
+import { IMAGE_BUDGET, compressImage, loadImage } from "@/lib/image-encode";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { Icon } from "@/components/ui/Icon";
 import { Kicker } from "@/components/ui/Editorial";
@@ -36,6 +36,8 @@ const COLORS: { value: string; label: string; swatch: string; border?: boolean; 
 ];
 
 const TAGS = STYLE_TAGS;
+
+const CATEGORY_LABEL: Record<Category, string> = { tops: "上衣", bottoms: "下著", outerwear: "外套", accessories: "配件" };
 
 /** 上傳原圖大小上限（降階／壓縮見 compressImage）。 */
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -104,13 +106,22 @@ export function UploadModal({
   const isEdit = Boolean(initial);
   const [state, dispatch] = useReducer(formReducer, initial, initState);
   const { name, category, brand, seasons, color, tags, image, dragging } = state;
-  const fileRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
+  /** Photo problems show next to the dropzone, not in the footer below the fold. */
+  const [photoError, setPhotoError] = useState("");
+  const [processing, setProcessing] = useState(false);
   const [ai, setAi] = useState<{ status: "idle" | "loading" | "done" } | { status: "error"; message: string }>({ status: "idle" });
   const aiAbort = useRef<AbortController | null>(null);
+  /** Bumped per chosen file so a slow, older photo can't overwrite a newer one. */
+  const fileSeq = useRef(0);
   useDialogA11y(panelRef, true, onClose);
   useEffect(() => () => aiAbort.current?.abort(), []);
+  // On a phone the status row sits below the fold; bring it into view whenever it changes.
+  useEffect(() => {
+    if (ai.status !== "idle") statusRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [ai.status]);
 
   // A colour the AI picked outside the five preset swatches still gets a chip.
   const palette =
@@ -149,45 +160,55 @@ export function UploadModal({
     }
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     setError("");
+    setPhotoError("");
     // SVG 可內嵌 script：目前雖只以 <img> 顯示，但下方 canvas 失敗時會原樣保存 data URL，
-    // 一律拒收，避免日後換了顯示方式就成為 XSS 載體。
-    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
-      setError("請上傳 JPG、PNG、WebP 等點陣圖片！");
+    // 一律拒收，避免日後換了顯示方式就成為 XSS 載體。部分瀏覽器給 HEIC 的 type 是空字串，交給解碼判斷。
+    const isSvg = file.type === "image/svg+xml" || /\.svgz?$/i.test(file.name);
+    if (isSvg || (file.type !== "" && !file.type.startsWith("image/"))) {
+      setPhotoError("請上傳 JPG、PNG、WebP 等點陣圖片！");
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setError("圖片檔案過大（上限 15MB），請改用較小的圖片。");
+      setPhotoError("圖片檔案過大（上限 15MB），請改用較小的圖片。");
       return;
     }
-    // 透過 canvas 降階並重編碼（iOS 不支援 WebP 時改 JPEG），把 data URL 壓在
-    // IMAGE_BUDGET 內，避免撐爆 localStorage 配額、或超過同步／AI 的 2MB 上限。
-    const applyImage = (dataUrl: string) => {
-      dispatch({ type: "set", patch: { image: dataUrl } });
-      setAi({ status: "idle" });
-      if (!isEdit) void autoTag(dataUrl);
-    };
-    const url = URL.createObjectURL(file);
-    const img = new window.Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const compressed = compressImage(img);
-      if (compressed) return applyImage(compressed);
-      // canvas 不可用時，只有原檔本身夠小才直接讀入。
-      if (file.size > IMAGE_BUDGET) {
-        setError("無法壓縮這張圖片，請換一張較小的圖片。");
-        return;
+    const seq = ++fileSeq.current;
+    aiAbort.current?.abort();
+    setAi({ status: "idle" });
+    setProcessing(true);
+    try {
+      const img = await loadImage(file);
+      // Let the "處理中" state paint before the synchronous canvas work.
+      await new Promise((r) => setTimeout(r, 0));
+      if (seq !== fileSeq.current) return;
+      // 透過 canvas 降階並重編碼（iOS 不支援 WebP 時改 JPEG），把 data URL 壓在
+      // IMAGE_BUDGET 內，避免撐爆 localStorage 配額、或超過同步／AI 的 2MB 上限。
+      let dataUrl = compressImage(img);
+      if (!dataUrl) {
+        // canvas 不可用時，只有原檔本身夠小才直接讀入。
+        if (file.size > IMAGE_BUDGET) throw new Error("too big");
+        dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
       }
-      const reader = new FileReader();
-      reader.onload = () => applyImage(reader.result as string);
-      reader.readAsDataURL(file);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      setError("圖片讀取失敗，請換一張圖片。");
-    };
-    img.src = url;
+      if (seq !== fileSeq.current) return;
+      dispatch({ type: "set", patch: { image: dataUrl } });
+      if (!isEdit) void autoTag(dataUrl);
+    } catch (e) {
+      if (seq !== fileSeq.current) return;
+      setPhotoError(
+        e instanceof Error && e.message === "too big"
+          ? "無法壓縮這張圖片，請換一張較小的圖片。"
+          : "圖片讀取失敗，請換一張圖片（建議 JPG 或 PNG）。",
+      );
+    } finally {
+      if (seq === fileSeq.current) setProcessing(false);
+    }
   };
 
   const submit = () => {
@@ -207,16 +228,16 @@ export function UploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8">
       <div className="absolute inset-0 bg-on-surface/50" onClick={onClose} />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="upload-modal-title"
-        className="relative w-full max-w-2xl bg-surface-bright border border-outline shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up"
+        className="relative w-full max-w-2xl bg-surface-bright border border-outline shadow-2xl overflow-hidden flex flex-col max-h-[90vh] max-h-[90dvh] animate-scale-up"
       >
-        <div className="px-8 py-6 border-b border-outline flex justify-between items-center">
+        <div className="px-5 py-4 md:px-8 md:py-6 border-b border-outline flex justify-between items-center">
           <div>
             <Kicker className="text-primary">{isEdit ? "EDIT ITEM" : "NEW ITEM"}</Kicker>
             <h2 id="upload-modal-title" className="font-headline-md text-headline-md text-on-surface mt-1">{isEdit ? "編輯衣物" : "上傳新衣物"}</h2>
@@ -226,10 +247,12 @@ export function UploadModal({
           </button>
         </div>
 
-        <div className="p-8 overflow-y-auto space-y-8">
-          {/* Image dropzone */}
-          <div
-            onClick={() => fileRef.current?.click()}
+        <div className="p-5 md:p-8 overflow-y-auto space-y-6 md:space-y-8">
+          {/* Image dropzone. A <label> opens the picker exactly once: the old div onClick
+              re-clicked the input on top of the native tap, and iOS Safari could then drop
+              the change event, leaving no preview. */}
+          <label
+            htmlFor="up-photo"
             onDragEnter={(e) => {
               e.preventDefault();
               dispatch({ type: "set", patch: { dragging: true } });
@@ -246,25 +269,41 @@ export function UploadModal({
               e.preventDefault();
               dispatch({ type: "set", patch: { dragging: false } });
               const file = e.dataTransfer.files[0];
-              if (file) handleFile(file);
+              if (file) void handleFile(file);
             }}
-            className={`border border-dashed p-12 flex flex-col items-center justify-center gap-4 transition-colors cursor-pointer group relative ${
+            className={`border border-dashed p-5 md:p-12 flex flex-col items-center justify-center gap-4 transition-colors cursor-pointer group relative ${
               dragging ? "bg-primary-container border-primary" : "border-outline bg-surface-container-low hover:bg-surface-container"
             }`}
           >
             <input
-              ref={fileRef}
+              id="up-photo"
               type="file"
               accept="image/*"
+              aria-label="選擇衣物照片"
               className="absolute inset-0 opacity-0 cursor-pointer"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleFile(file);
+                // Clear it so picking the same photo again still fires change.
+                e.target.value = "";
+                if (file) void handleFile(file);
               }}
             />
             {image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={image} alt="預覽" className="max-h-48 object-cover border border-outline-variant" />
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={image} alt="預覽" className="max-h-48 object-cover border border-outline-variant" />
+                {(processing || ai.status === "loading") && (
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-on-surface/80 text-background px-3 py-2 kicker">
+                    <Icon name="progress_activity" className="text-[16px] animate-spin" />
+                    {processing ? "照片處理中…" : "AI 分析中…"}
+                  </div>
+                )}
+              </div>
+            ) : processing ? (
+              <>
+                <Icon name="progress_activity" className="text-4xl text-primary animate-spin" />
+                <p className="font-body-md text-on-surface-variant text-center">照片處理中…</p>
+              </>
             ) : (
               <>
                 <Icon name="cloud_upload" className="text-4xl text-outline group-hover:text-primary transition-colors" />
@@ -273,26 +312,48 @@ export function UploadModal({
                 </p>
               </>
             )}
-          </div>
+          </label>
+
+          {photoError && (
+            <p role="alert" className="-mt-3 md:-mt-5 flex items-start gap-2 font-body-md text-body-md text-[13px] text-primary">
+              <Icon name="warning" className="text-[18px] shrink-0" />
+              {photoError}
+            </p>
+          )}
 
           {image && (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 border border-outline-variant bg-surface-container-low px-5 py-4" aria-live="polite">
+            <div
+              ref={statusRef}
+              className="scroll-mt-4 scroll-mb-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-outline-variant bg-surface-container-low px-4 py-4 md:px-5"
+              aria-live="polite"
+            >
               <button
                 type="button"
                 onClick={() => void autoTag()}
-                disabled={ai.status === "loading"}
+                disabled={ai.status === "loading" || processing}
                 className="inline-flex items-center justify-center gap-2 bg-on-surface text-background px-5 py-2.5 kicker hover:bg-primary transition-colors disabled:opacity-60 disabled:cursor-wait shrink-0"
               >
                 <Icon name={ai.status === "loading" ? "progress_activity" : "auto_awesome"} className={`text-[18px] ${ai.status === "loading" ? "animate-spin" : ""}`} />
-                {ai.status === "loading" ? "AI 辨識中…" : "AI 自動辨識"}
+                {ai.status === "loading" ? "AI 分析中…" : ai.status === "idle" ? "AI 自動辨識" : "重新辨識"}
               </button>
-              <p className={`font-body-md text-body-md text-[13px] ${ai.status === "error" ? "text-primary" : "text-on-surface-variant"}`}>
-                {ai.status === "error"
-                  ? ai.message
-                  : ai.status === "done"
-                    ? "已依照片填入名稱、類別、季節、顏色與風格，請確認後再上傳。"
-                    : "讓 AI 看照片，自動填好名稱、類別、季節、主色與風格標籤。"}
-              </p>
+              <div className={`font-body-md text-body-md text-[13px] ${ai.status === "error" ? "text-primary" : "text-on-surface-variant"}`}>
+                {ai.status === "error" ? (
+                  ai.message
+                ) : ai.status === "done" ? (
+                  <>
+                    <p className="flex items-center gap-1.5 text-on-surface font-semibold">
+                      <Icon name="task_alt" className="text-[18px] text-primary" />
+                      {name || "已辨識"} · {CATEGORY_LABEL[category]}
+                      {color ? ` · ${color}` : ""}
+                    </p>
+                    <p className="mt-1">已填入名稱、類別、季節、顏色與風格，請確認下方欄位後再上傳。</p>
+                  </>
+                ) : ai.status === "loading" ? (
+                  "AI 正在看照片，約需幾秒鐘…"
+                ) : (
+                  "讓 AI 看照片，自動填好名稱、類別、季節、主色與風格標籤。"
+                )}
+              </div>
             </div>
           )}
 
@@ -400,22 +461,22 @@ export function UploadModal({
           </div>
         </div>
 
-        <div className="px-8 py-6 bg-surface-container-low border-t border-outline flex items-center justify-end gap-3">
+        <div className="px-5 py-4 md:px-8 md:py-6 bg-surface-container-low border-t border-outline flex flex-wrap items-center justify-end gap-3">
           {error && (
-            <p role="alert" className="mr-auto font-body-md text-body-md text-[13px] text-primary">
+            <p role="alert" className="w-full sm:w-auto sm:mr-auto font-body-md text-body-md text-[13px] text-primary">
               {error}
             </p>
           )}
           <button
             type="button"
-            className="px-8 py-3 kicker text-on-surface-variant border border-outline-variant hover:border-on-surface hover:text-on-surface transition-colors"
+            className="px-6 md:px-8 py-3 kicker text-on-surface-variant border border-outline-variant hover:border-on-surface hover:text-on-surface transition-colors"
             onClick={onClose}
           >
             取消
           </button>
           <button
             type="button"
-            className="px-8 py-3 kicker bg-primary text-on-primary hover:bg-surface-tint transition-colors"
+            className="px-6 md:px-8 py-3 kicker bg-primary text-on-primary hover:bg-surface-tint transition-colors"
             onClick={submit}
           >
             {isEdit ? "儲存變更" : "確認上傳"}

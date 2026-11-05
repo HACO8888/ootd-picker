@@ -35,6 +35,29 @@ test.describe("AI 輔助", () => {
     await expect(modal.getByLabel("類別")).toHaveValue("bottoms");
     // A colour outside the preset swatches gets its own chip, selected.
     await expect(modal.getByRole("button", { name: "藏青" })).toBeVisible();
-    await expect(modal.getByText("· 藏青")).toBeVisible();
+    await expect(modal.getByText("· 藏青", { exact: true })).toBeVisible();
+    // The result is summarised next to the photo, so it is visible without scrolling on a phone.
+    await expect(modal.getByText("藏青牛仔褲 · 下著 · 藏青")).toBeVisible();
+  });
+
+  test("辨識期間在照片上顯示分析中", async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    await page.route("**/api/ai/tag", async (route) => {
+      await gate;
+      await route.fulfill({
+        json: { name: "藏青牛仔褲", category: "bottoms", seasons: ["autumn"], colors: ["藏青"], tags: ["放鬆"] },
+      });
+    });
+    await page.goto("/closet");
+    await page.getByRole("button", { name: "上傳新衣物" }).click();
+    const modal = page.getByRole("dialog");
+    await modal.locator("input[type=file]").setInputFiles("public/images/blue_jeans.png");
+
+    await expect(modal.getByRole("img", { name: "預覽" })).toBeVisible();
+    await expect(modal.getByText("AI 分析中…").first()).toBeVisible();
+    release();
+    await expect(modal.getByText("藏青牛仔褲 · 下著 · 藏青")).toBeVisible();
+    await expect(modal.getByText("AI 分析中…")).toHaveCount(0);
   });
 });
